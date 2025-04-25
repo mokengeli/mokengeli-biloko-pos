@@ -1,13 +1,15 @@
 // src/screens/server/CreateOrderScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, Divider, useTheme, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import categoryService, { DomainCategory } from '../../api/categoryService';
 import dishService, { DomainDish } from '../../api/dishService';
+import { OrderCart } from '../../components/server/OrderCart';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { MainStackParamList } from '../../navigation/AppNavigator';
 
@@ -23,6 +25,7 @@ interface CreateOrderScreenProps {
 export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, navigation }) => {
   const { tableId, tableName } = route.params;
   const { user } = useAuth();
+  const { setTableInfo, clearCart, items } = useCart();
   const theme = useTheme();
   const windowWidth = Dimensions.get('window').width;
   const isTablet = windowWidth >= 768;
@@ -35,7 +38,11 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   const [isLoadingDishes, setIsLoadingDishes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
-  const [orderItems, setOrderItems] = useState<any[]>([]);
+  
+  // Définir les informations de la table au démarrage
+  useEffect(() => {
+    setTableInfo(tableId, tableName);
+  }, [tableId, tableName, setTableInfo]);
   
   // Fonction pour basculer l'affichage des catégories
   const toggleCategoriesExpanded = () => {
@@ -100,15 +107,65 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
     navigation.navigate('DishCustomization', {
       dish,
       tableId,
-      tableName,
-      orderItems
+      tableName
     });
+  };
+  
+  // Finaliser la commande
+  const handleFinishOrder = () => {
+    // La finalisation est maintenant gérée directement dans le composant OrderCart
+    // Nous n'avons plus besoin de code spécifique ici, car OrderCart utilise déjà orderService.createOrder
+    
+    // Le callback onFinishOrder est appelé après la création réussie de la commande
+    // et la navigation est gérée dans le callback
+  };
+  
+  // Gérer l'annulation de commande
+  const handleCancelOrder = () => {
+    // La gestion de l'annulation est maintenant gérée directement dans le composant OrderCart
+    // Nous n'avons plus besoin de code spécifique ici pour la confirmation
+    navigation.goBack();
   };
   
   // Effet pour charger les catégories au montage du composant
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+  
+  // Intercepter la navigation vers l'arrière pour demander confirmation si le panier contient des articles
+  useEffect(() => {
+    const beforeRemoveListener = navigation.addListener('beforeRemove', (e) => {
+      // Ne pas intercepter si la navigation est pour finaliser la commande
+      if (e.data.action.type === 'GO_BACK' && items.length > 0) {
+        // Empêcher la navigation par défaut
+        e.preventDefault();
+        
+        // Demander confirmation avant de quitter
+        Alert.alert(
+          'Annuler la commande?',
+          'Vous avez des articles dans votre panier. Êtes-vous sûr de vouloir abandonner cette commande?',
+          [
+            { 
+              text: 'Rester', 
+              style: 'cancel',
+              onPress: () => {} // Ne rien faire, rester sur l'écran actuel
+            },
+            {
+              text: 'Abandonner', 
+              style: 'destructive',
+              onPress: () => {
+                // Vider le panier et quitter
+                clearCart();
+                navigation.dispatch(e.data.action);
+              }
+            }
+          ]
+        );
+      }
+    });
+    
+    return beforeRemoveListener;
+  }, [navigation, items, clearCart]);
   
   // Si les catégories sont en cours de chargement
   if (isLoadingCategories && categories.length === 0) {
@@ -140,6 +197,12 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
         </Surface>
       ) : (
         <View style={styles.content}>
+          {/* Panier de commande */}
+          <OrderCart 
+            onFinishOrder={handleFinishOrder}
+            onCancelOrder={handleCancelOrder}
+          />
+          
           {/* Section des catégories */}
           <Surface style={[styles.categoriesContainer, { elevation: 4, borderRadius: 8 }]}>
             <TouchableOpacity 

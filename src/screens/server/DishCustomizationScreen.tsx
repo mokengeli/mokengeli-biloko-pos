@@ -8,6 +8,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { DomainDish, DomainDishProduct } from '../../api/dishService';
 import dishService from '../../api/dishService';
+import { useCart } from '../../contexts/CartContext';
 
 // Types pour la navigation
 export type DishCustomizationParamList = {
@@ -37,6 +38,7 @@ interface CustomizedDish {
 export const DishCustomizationScreen: React.FC<DishCustomizationScreenProps> = ({ route, navigation }) => {
   const { dish: initialDish, tableId, tableName } = route.params;
   const theme = useTheme();
+  const { addItem } = useCart();
 
   // États
   const [dish, setDish] = useState<DomainDish>(initialDish);
@@ -192,15 +194,32 @@ export const DishCustomizationScreen: React.FC<DishCustomizationScreenProps> = (
 
   // Ajouter à la commande et retourner à l'écran précédent
   const addToOrder = () => {
-    const orderItems = getOrderSummary();
-    console.log('Ajout à la commande:', orderItems);
+    if (individualMode) {
+      // Mode de personnalisation individuelle
+      // Pour chaque plat personnalisé, créer un élément distinct avec quantité=1
+      customizedDishes.forEach(customDish => {
+        addItem({
+          dish: dish,
+          quantity: 1,
+          notes: customDish.notes,
+          removedIngredients: customDish.removedIngredients
+        });
+      });
+    } else {
+      // Mode de personnalisation commune
+      // Ajouter un seul élément avec la quantité spécifiée
+      addItem({
+        dish: dish,
+        quantity: quantity,
+        notes: commonNote,
+        removedIngredients: []
+      });
+    }
     
-    // Ici, vous appelleriez votre API ou mettriez à jour le state global
-    // Pour l'instant, simulons l'ajout et retournons à l'écran précédent
-    
+    // Afficher confirmation et retourner à l'écran précédent
     Alert.alert(
       "Plat ajouté",
-      `${quantity} ${dish.name} ${quantity > 1 ? 'ont été ajoutés' : 'a été ajouté'} à la commande.`,
+      `${quantity} ${dish.name} ${quantity > 1 ? 'ont été ajoutés' : 'a été ajouté'} au panier.`,
       [
         { 
           text: "OK", 
