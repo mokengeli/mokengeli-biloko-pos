@@ -1,7 +1,7 @@
 // src/screens/server/CreateOrderScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
-import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, Divider, useTheme } from 'react-native-paper';
+import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, Divider, useTheme, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -9,17 +9,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import categoryService, { DomainCategory } from '../../api/categoryService';
 import dishService, { DomainDish } from '../../api/dishService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MainStackParamList } from '../../navigation/AppNavigator';
 
 // Types pour la navigation
-type CreateOrderParamList = {
-  CreateOrder: {
-    tableId: number;
-    tableName: string;
-  };
-};
-
-type CreateOrderScreenRouteProp = RouteProp<CreateOrderParamList, 'CreateOrder'>;
-type CreateOrderScreenNavigationProp = StackNavigationProp<CreateOrderParamList, 'CreateOrder'>;
+type CreateOrderScreenRouteProp = RouteProp<MainStackParamList, 'CreateOrder'>;
+type CreateOrderScreenNavigationProp = StackNavigationProp<MainStackParamList, 'CreateOrder'>;
 
 interface CreateOrderScreenProps {
   route: CreateOrderScreenRouteProp;
@@ -41,6 +35,7 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   const [isLoadingDishes, setIsLoadingDishes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
   
   // Fonction pour basculer l'affichage des catégories
   const toggleCategoriesExpanded = () => {
@@ -98,6 +93,16 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
     if (!isTablet) {
       setCategoriesExpanded(false); // Replier la liste après sélection sur mobile
     }
+  };
+
+  // Naviguer vers l'écran de personnalisation du plat
+  const navigateToDishCustomization = (dish: DomainDish) => {
+    navigation.navigate('DishCustomization', {
+      dish,
+      tableId,
+      tableName,
+      orderItems
+    });
   };
   
   // Effet pour charger les catégories au montage du composant
@@ -159,69 +164,69 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
             </TouchableOpacity>
             
             {categoriesExpanded && (
-  <View style={styles.categoriesExpandedContainer}>
-    {isTablet ? (
-      // Vue tablette: affichage horizontal des catégories avec défilement
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesScrollContent}
-      >
-        {categories.map(category => (
-          <Chip
-            key={category.id}
-            selected={selectedCategory?.id === category.id}
-            selectedColor="white"
-            onPress={() => handleCategorySelect(category)}
-            style={[
-              styles.categoryChip,
-              selectedCategory?.id === category.id ? 
-                { backgroundColor: theme.colors.primary } : 
-                { backgroundColor: '#f0f0f0' }
-            ]}
-            textStyle={{ 
-              color: selectedCategory?.id === category.id ? 'white' : 'black',
-              fontWeight: selectedCategory?.id === category.id ? 'bold' : 'normal'
-            }}
-          >
-            {category.name}
-          </Chip>
-        ))}
-      </ScrollView>
-    ) : (
-      // Vue mobile: grille 2x2 des catégories avec défilement vertical
-      <FlatList
-        data={categories}
-        renderItem={({ item }) => {
-          const isSelected = selectedCategory?.id === item.id;
-          return (
-            <TouchableOpacity 
-              onPress={() => handleCategorySelect(item)}
-              style={[
-                styles.categoryItem,
-                isSelected ? 
-                  { backgroundColor: theme.colors.primary, borderLeftWidth: 4, borderLeftColor: theme.colors.accent } : 
-                  { backgroundColor: '#f9f9f9' }
-              ]}
-            >
-              <Text 
-                style={[
-                  styles.categoryText,
-                  isSelected ? { color: 'white', fontWeight: 'bold' } : { color: '#333' }
-                ]}
-              >
-                {item.name}
-              </Text>
-            </TouchableOpacity>
-          );
-        }}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={styles.categoriesList}
-        numColumns={2}
-      />
-    )}
-  </View>
-)}
+              <View style={styles.categoriesExpandedContainer}>
+                {isTablet ? (
+                  // Vue tablette: affichage horizontal des catégories avec défilement
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoriesScrollContent}
+                  >
+                    {categories.map(category => (
+                      <Chip
+                        key={category.id}
+                        selected={selectedCategory?.id === category.id}
+                        selectedColor="white"
+                        onPress={() => handleCategorySelect(category)}
+                        style={[
+                          styles.categoryChip,
+                          selectedCategory?.id === category.id ? 
+                            { backgroundColor: theme.colors.primary } : 
+                            { backgroundColor: '#f0f0f0' }
+                        ]}
+                        textStyle={{ 
+                          color: selectedCategory?.id === category.id ? 'white' : 'black',
+                          fontWeight: selectedCategory?.id === category.id ? 'bold' : 'normal'
+                        }}
+                      >
+                        {category.name}
+                      </Chip>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  // Vue mobile: grille 2x2 des catégories avec défilement vertical
+                  <FlatList
+                    data={categories}
+                    renderItem={({ item }) => {
+                      const isSelected = selectedCategory?.id === item.id;
+                      return (
+                        <TouchableOpacity 
+                          onPress={() => handleCategorySelect(item)}
+                          style={[
+                            styles.categoryItem,
+                            isSelected ? 
+                              { backgroundColor: theme.colors.primary, borderLeftWidth: 4, borderLeftColor: theme.colors.accent } : 
+                              { backgroundColor: '#f9f9f9' }
+                          ]}
+                        >
+                          <Text 
+                            style={[
+                              styles.categoryText,
+                              isSelected ? { color: 'white', fontWeight: 'bold' } : { color: '#333' }
+                            ]}
+                          >
+                            {item.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    }}
+                    keyExtractor={item => item.id.toString()}
+                    contentContainerStyle={styles.categoriesList}
+                    numColumns={2}
+                  />
+                )}
+              </View>
+            )}
           </Surface>
           
           {/* Section des plats */}
@@ -270,10 +275,14 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
                       )}
                     </Card.Content>
                     <Card.Actions style={styles.dishActions}>
-                      <TouchableOpacity style={styles.addButton}>
-                        <Icon name="plus-circle" size={24} color={theme.colors.primary} />
-                        <Text style={{ color: theme.colors.primary, marginLeft: 4 }}>Ajouter</Text>
-                      </TouchableOpacity>
+                      <Button 
+                        mode="outlined"
+                        icon="plus-circle"
+                        onPress={() => navigateToDishCustomization(item)}
+                        style={styles.addButton}
+                      >
+                        Ajouter
+                      </Button>
                     </Card.Actions>
                   </Card>
                 )}
@@ -294,166 +303,6 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
       )}
     </SafeAreaView>
   );
-  
-  function getStyles() {
-    return StyleSheet.create({
-      container: {
-        flex: 1,
-        backgroundColor: '#f0f4f8', // Fond légèrement bleuté
-      },
-      appbar: {
-        height: 56,
-        paddingTop: 0,
-      },
-      content: {
-        flex: 1,
-        padding: 12,
-        gap: 16, // Espacement entre les sections
-      },
-      loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-      },
-      loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-      },
-      errorContainer: {
-        margin: 16,
-        padding: 16,
-        borderRadius: 8,
-        backgroundColor: '#ffe6e6',
-      },
-      errorText: {
-        color: '#d32f2f',
-        textAlign: 'center',
-      },
-      sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-      },
-      // Styles pour la section des catégories
-      categoriesContainer: {
-        padding: 0,
-        backgroundColor: 'white',
-        marginBottom: 8,
-        overflow: 'hidden',
-      },
-      categoriesHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-      },
-      categoryTitleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-      },
-      categoriesScrollContent: {
-        padding: 16,
-        gap: 8,
-      },
-      categoriesList: {
-        padding: 8,
-      },
-      categoryItem: {
-        padding: 12,
-        borderRadius: 8,
-        margin: 4,
-        borderLeftWidth: 0,
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-      },
-      categoryText: {
-        fontSize: 16,
-        textAlign: 'center',
-      },
-      categoryChip: {
-        marginRight: 8,
-        marginBottom: 8,
-      },
-      // Styles pour la section des plats
-      dishesContainer: {
-        flex: 1,
-        padding: 16,
-        backgroundColor: 'white',
-      },
-      dishesHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-      },
-      dishesList: {
-        paddingBottom: 16,
-      },
-      dishCard: {
-        marginBottom: 12,
-        marginHorizontal: 4,
-        flex: 1,
-        borderLeftWidth: 3,
-        borderLeftColor: '#4CAF50', // Bordure verte
-      },
-      dishHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-      },
-      dishName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 4,
-        flex: 1,
-      },
-      dishPrice: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#4CAF50', // Prix en vert
-      },
-      dishCategories: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginTop: 4,
-      },
-      dishCategoryChip: {
-        backgroundColor: '#E8F5E9', // Fond vert clair
-        marginRight: 4,
-        marginBottom: 4,
-        height: 24,
-      },
-      dishActions: {
-        justifyContent: 'flex-end',
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-      },
-      addButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 8,
-      },
-      loadingDishesContainer: {
-        padding: 24,
-        alignItems: 'center',
-      },
-      emptyDishesContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-      },
-      emptyText: {
-        marginTop: 12,
-        textAlign: 'center',
-        opacity: 0.7,
-      },
-    });
-  }
 };
 
 const styles = StyleSheet.create({
@@ -495,50 +344,50 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   // Styles pour la section des catégories
-categoriesContainer: {
-  padding: 0,
-  backgroundColor: 'white',
-  marginBottom: 8,
-  overflow: 'hidden',
-},
-categoriesHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: 16,
-},
-categoriesExpandedContainer: {
-  maxHeight: 200, // Hauteur maximale pour le conteneur des catégories
-  overflow: 'hidden',
-},
-categoryTitleContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-},
-categoriesScrollContent: {
-  padding: 16,
-  gap: 8,
-},
-categoriesList: {
-  padding: 8,
-},
-categoryItem: {
-  padding: 12,
-  borderRadius: 8,
-  margin: 4,
-  borderLeftWidth: 0,
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-categoryText: {
-  fontSize: 16,
-  textAlign: 'center',
-},
-categoryChip: {
-  marginRight: 8,
-  marginBottom: 8,
-},
+  categoriesContainer: {
+    padding: 0,
+    backgroundColor: 'white',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  categoriesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  categoriesExpandedContainer: {
+    maxHeight: 200, // Hauteur maximale pour le conteneur des catégories
+    overflow: 'hidden',
+  },
+  categoryTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoriesScrollContent: {
+    padding: 16,
+    gap: 8,
+  },
+  categoriesList: {
+    padding: 8,
+  },
+  categoryItem: {
+    padding: 12,
+    borderRadius: 8,
+    margin: 4,
+    borderLeftWidth: 0,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  categoryChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
   // Styles pour la section des plats
   dishesContainer: {
     flex: 1,
@@ -583,14 +432,12 @@ categoryChip: {
     flexWrap: 'wrap',
     marginTop: 4,
   },
-  // Modification du style dishCategoryChip dans src/screens/server/CreateOrderScreen.tsx
   dishCategoryChip: {
     backgroundColor: '#E8F5E9', // Fond vert clair
     marginRight: 4,
     marginBottom: 4,
-    height: 30, // Augmentation de la hauteur de 24 à 30
-    // Ajout de padding horizontal pour donner plus d'espace au texte
-    paddingHorizontal: 8,
+    height: 30, // Hauteur augmentée pour éviter la troncature
+    paddingHorizontal: 8, // Padding horizontal pour plus d'espace
   },
   dishActions: {
     justifyContent: 'flex-end',
@@ -598,9 +445,7 @@ categoryChip: {
     borderTopColor: '#f0f0f0',
   },
   addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
+    borderColor: '#4CAF50',
   },
   loadingDishesContainer: {
     padding: 24,

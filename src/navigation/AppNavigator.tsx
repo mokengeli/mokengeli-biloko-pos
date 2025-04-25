@@ -6,9 +6,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ServerHomeScreen } from '../screens/server/ServerHomeScreen';
 import { CreateOrderScreen } from '../screens/server/CreateOrderScreen';
+import { DishCustomizationScreen } from '../screens/server/DishCustomizationScreen';
 import { HomeScreen } from '../screens/HomeScreen'; // Conservé pour KitchenHome et AdminHome temporaires
 import { useAuth } from '../contexts/AuthContext';
 import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
+import { DishCustomizationParamList } from '../screens/server/DishCustomizationScreen';
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -24,6 +26,7 @@ export type MainStackParamList = {
     tableId: number;
     tableName: string;
   };
+  DishCustomization: DishCustomizationParamList['DishCustomization'];
 };
 
 // Créer les navigateurs
@@ -81,6 +84,7 @@ const MainNavigator: React.FC = () => {
     >
       <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
       <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
+      <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
       {/* Ces écrans seront implémentés plus tard */}
       <MainStack.Screen name="KitchenHome" component={HomeScreen} />
       <MainStack.Screen name="AdminHome" component={HomeScreen} />
