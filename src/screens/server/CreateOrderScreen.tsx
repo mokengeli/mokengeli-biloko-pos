@@ -583,11 +583,14 @@ categoryChip: {
     flexWrap: 'wrap',
     marginTop: 4,
   },
+  // Modification du style dishCategoryChip dans src/screens/server/CreateOrderScreen.tsx
   dishCategoryChip: {
     backgroundColor: '#E8F5E9', // Fond vert clair
     marginRight: 4,
     marginBottom: 4,
-    height: 24,
+    height: 30, // Augmentation de la hauteur de 24 à 30
+    // Ajout de padding horizontal pour donner plus d'espace au texte
+    paddingHorizontal: 8,
   },
   dishActions: {
     justifyContent: 'flex-end',
