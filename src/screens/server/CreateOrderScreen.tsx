@@ -113,11 +113,9 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   
   // Finaliser la commande
   const handleFinishOrder = () => {
-    // La finalisation est maintenant gérée directement dans le composant OrderCart
-    // Nous n'avons plus besoin de code spécifique ici, car OrderCart utilise déjà orderService.createOrder
-    
-    // Le callback onFinishOrder est appelé après la création réussie de la commande
-    // et la navigation est gérée dans le callback
+    // Navigation vers l'écran d'accueil après finalisation de la commande ou ajout d'articles
+    // Cette fonction est appelée depuis le composant OrderCart après un traitement réussi
+    navigation.navigate('ServerHome');
   };
   
   // Gérer l'annulation de commande

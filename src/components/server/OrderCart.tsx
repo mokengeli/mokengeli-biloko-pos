@@ -181,7 +181,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
               text: "OK",
               onPress: () => {
                 clearCart();
-                onFinishOrder(); // Retourner à l'écran précédent
+                onFinishOrder(); // Cette fonction doit nous rediriger vers l'écran d'accueil
               }
             }
           ]
