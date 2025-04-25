@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Surface, Text, Card, Title, Paragraph, Button, IconButton, Badge, Divider, Chip, Portal, Modal, TextInput, useTheme, ActivityIndicator } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useCart, CartItem, CartItemCustomization } from '../../contexts/CartContext';
-import orderService, { CreateOrderItemRequest, CreateOrderRequest } from '../../api/orderService';
+import { useCart, CartItem, CartItemCustomization, CartMode } from '../../contexts/CartContext';
+import orderService, { CreateOrderItemRequest, CreateOrderRequest, UpdateOrderRequest } from '../../api/orderService';
 import currencyService from '../../api/currencyService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -16,7 +16,20 @@ interface OrderCartProps {
 export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrder }) => {
   const theme = useTheme();
   const { user } = useAuth();
-  const { items, itemCount, totalAmount, currency, removeItem, updateItem, clearCart, tableName, tableId } = useCart();
+  const { 
+    items, 
+    itemCount, 
+    totalAmount, 
+    currency, 
+    removeItem, 
+    updateItem, 
+    clearCart, 
+    tableName, 
+    tableId,
+    mode,
+    currentOrderId,
+    existingOrder
+  } = useCart();
   
   // États locaux
   const [expanded, setExpanded] = useState(false);
@@ -83,10 +96,10 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
     );
   };
   
-  // Finaliser la commande
+  // Finaliser la commande ou ajouter des articles à une commande existante
   const finalizeOrder = async () => {
     if (items.length === 0) {
-      Alert.alert("Erreur", "Votre panier est vide. Veuillez ajouter des articles à votre commande.");
+      Alert.alert("Erreur", "Votre panier est vide. Veuillez ajouter des articles.");
       return;
     }
     
@@ -99,18 +112,6 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
     setError(null);
     
     try {
-      // Récupérer une devise par défaut si nécessaire
-      let currencyId: number;
-      if (items.length > 0 && items[0].dish.currency && items[0].dish.currency.id) {
-        currencyId = items[0].dish.currency.id;
-      } else {
-        const defaultCurrency = await currencyService.getDefaultCurrency();
-        if (!defaultCurrency) {
-          throw new Error("Impossible de déterminer la devise pour cette commande.");
-        }
-        currencyId = defaultCurrency.id;
-      }
-      
       // Préparer les éléments de la commande
       const orderItems: CreateOrderItemRequest[] = items.map(item => ({
         dishId: item.dish.id,
@@ -118,39 +119,83 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
         count: item.quantity
       }));
       
-      // Créer l'objet de demande de commande
-      const orderRequest: CreateOrderRequest = {
-        refTable: tableName || `Table_${tableId}`,
-        currencyId,
-        orderItems
-      };
+      let result;
       
-      // Envoyer la commande à l'API
-      const createdOrder = await orderService.createOrder(orderRequest);
+      if (mode === CartMode.CREATE) {
+        // Mode création: créer une nouvelle commande
+        
+        // Récupérer une devise par défaut si nécessaire
+        let currencyId: number;
+        if (items.length > 0 && items[0].dish.currency && items[0].dish.currency.id) {
+          currencyId = items[0].dish.currency.id;
+        } else {
+          const defaultCurrency = await currencyService.getDefaultCurrency();
+          if (!defaultCurrency) {
+            throw new Error("Impossible de déterminer la devise pour cette commande.");
+          }
+          currencyId = defaultCurrency.id;
+        }
+        
+        // Créer l'objet de demande de commande
+        const orderRequest: CreateOrderRequest = {
+          refTable: tableName || `Table_${tableId}`,
+          currencyId,
+          orderItems
+        };
+        
+        // Envoyer la commande à l'API
+        result = await orderService.createOrder(orderRequest);
+        
+        // Message de succès
+        Alert.alert(
+          "Commande créée",
+          `Commande #${result.id} créée avec succès.`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                clearCart();
+                onFinishOrder(); // Retourner à l'écran précédent
+              }
+            }
+          ]
+        );
+      } else if (mode === CartMode.ADD && currentOrderId) {
+        // Mode ajout: ajouter des articles à une commande existante
+        
+        // Créer l'objet de demande de mise à jour
+        const updateRequest: UpdateOrderRequest = {
+          orderId: currentOrderId,
+          orderItems
+        };
+        
+        // Envoyer la mise à jour à l'API
+        result = await orderService.addItemsToOrder(updateRequest);
+        
+        // Message de succès
+        Alert.alert(
+          "Articles ajoutés",
+          `Articles ajoutés avec succès à la commande #${currentOrderId}.`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                clearCart();
+                onFinishOrder(); // Retourner à l'écran précédent
+              }
+            }
+          ]
+        );
+      }
       
       setIsSubmitting(false);
-      
-      // Afficher un message de succès
-      Alert.alert(
-        "Commande créée",
-        `Commande #${createdOrder.id} créée avec succès.`,
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              clearCart();
-              onFinishOrder(); // Retourner à l'écran précédent
-            }
-          }
-        ]
-      );
     } catch (err: any) {
       setIsSubmitting(false);
-      setError(err.message || "Une erreur s'est produite lors de la création de la commande.");
+      setError(err.message || "Une erreur s'est produite. Veuillez réessayer.");
       
       Alert.alert(
         "Erreur",
-        err.message || "Une erreur s'est produite lors de la création de la commande. Veuillez réessayer.",
+        err.message || "Une erreur s'est produite. Veuillez réessayer.",
         [{ text: "OK" }]
       );
     }
@@ -165,7 +210,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
     
     Alert.alert(
       "Annuler la commande",
-      "Vous avez des articles dans votre panier. Êtes-vous sûr de vouloir annuler cette commande ?",
+      `Vous avez des articles dans votre panier. Êtes-vous sûr de vouloir ${mode === CartMode.CREATE ? "annuler cette commande" : "annuler l'ajout d'articles"} ?`,
       [
         { text: "Non", style: "cancel" },
         { text: "Oui, annuler", style: "destructive", onPress: () => {
@@ -181,6 +226,24 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
     return `${price.toFixed(2)} ${currency}`;
   };
 
+  // Fonction pour obtenir le titre du panier en fonction du mode
+  const getCartTitle = () => {
+    if (mode === CartMode.CREATE) {
+      return "Panier";
+    } else if (mode === CartMode.ADD && currentOrderId) {
+      return `Ajout à la commande #${currentOrderId}`;
+    }
+    return "Panier";
+  };
+
+  // Fonction pour obtenir le texte du bouton de finalisation
+  const getFinalizeButtonText = () => {
+    if (isSubmitting) {
+      return mode === CartMode.CREATE ? 'Création en cours...' : 'Ajout en cours...';
+    }
+    return mode === CartMode.CREATE ? 'Finaliser la commande' : 'Ajouter à la commande';
+  };
+
   return (
     <Surface style={styles.container}>
       {/* En-tête du panier */}
@@ -191,8 +254,13 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
       >
         <View style={styles.headerContent}>
           <View style={styles.titleContainer}>
-            <Icon name="cart-outline" size={24} color={theme.colors.primary} style={styles.cartIcon} />
-            <Text style={styles.title}>Panier</Text>
+            <Icon 
+              name={mode === CartMode.CREATE ? "cart-outline" : "cart-plus"} 
+              size={24} 
+              color={theme.colors.primary} 
+              style={styles.cartIcon} 
+            />
+            <Text style={styles.title}>{getCartTitle()}</Text>
             {itemCount > 0 && (
               <Badge style={styles.badge}>{itemCount}</Badge>
             )}
@@ -218,6 +286,38 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
       {/* Contenu du panier (affiché uniquement si développé) */}
       {expanded && (
         <View style={styles.content}>
+          {/* Affichage des informations de la commande existante en mode ajout */}
+          {mode === CartMode.ADD && existingOrder && (
+            <Card style={styles.existingOrderCard}>
+              <Card.Content>
+                <View style={styles.existingOrderHeader}>
+                  <Text style={styles.existingOrderTitle}>Commande #{existingOrder.id}</Text>
+                  <Text style={styles.existingOrderPrice}>
+                    {existingOrder.totalPrice.toFixed(2)} {existingOrder.currency.code}
+                  </Text>
+                </View>
+                <Text style={styles.existingOrderInfo}>
+                  {existingOrder.items.length} articles • {new Date(existingOrder.orderDate).toLocaleString()}
+                </Text>
+                <View style={styles.chipContainer}>
+                  {existingOrder.items.slice(0, 3).map((item, index) => (
+                    <Chip 
+                      key={index}
+                      style={styles.orderItemChip}
+                    >
+                      {item.count}x {item.dishName}
+                    </Chip>
+                  ))}
+                  {existingOrder.items.length > 3 && (
+                    <Chip style={styles.orderItemChip}>
+                      +{existingOrder.items.length - 3} autres
+                    </Chip>
+                  )}
+                </View>
+              </Card.Content>
+            </Card>
+          )}
+          
           {items.length === 0 ? (
             <View style={styles.emptyCart}>
               <Icon name="cart-off" size={48} color="#999" />
@@ -225,7 +325,9 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
                 Votre panier est vide
               </Text>
               <Text style={styles.emptySubtext}>
-                Ajoutez des plats pour créer une commande
+                {mode === CartMode.CREATE 
+                  ? "Ajoutez des plats pour créer une commande" 
+                  : "Ajoutez des plats à la commande existante"}
               </Text>
             </View>
           ) : (
@@ -351,11 +453,11 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
                   mode="contained" 
                   onPress={finalizeOrder}
                   style={styles.orderButton}
-                  icon="check"
+                  icon={mode === CartMode.CREATE ? "check" : "plus"}
                   loading={isSubmitting}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Création en cours...' : 'Finaliser la commande'}
+                  {getFinalizeButtonText()}
                 </Button>
               </View>
               
@@ -498,6 +600,35 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     backgroundColor: 'white',
+  },
+  existingOrderCard: {
+    marginBottom: 16,
+    backgroundColor: '#F9FAFE',
+  },
+  existingOrderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  existingOrderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  existingOrderPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  existingOrderInfo: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 8,
+  },
+  orderItemChip: {
+    marginRight: 4,
+    marginBottom: 4,
+    backgroundColor: '#E3F2FD',
   },
   emptyCart: {
     alignItems: 'center',

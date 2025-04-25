@@ -5,6 +5,7 @@ import { Dialog, Portal, Text, Button, Divider, Chip, useTheme, List } from 'rea
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { TableWithStatus } from './TableGrid';
 import { DomainOrder, DomainOrderItem } from '../../api/orderService';
+import { useCart, CartMode } from '../../contexts/CartContext';
 
 interface TableDetailDialogProps {
   visible: boolean;
@@ -28,6 +29,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
   onPrintTicket,
 }) => {
   const theme = useTheme();
+  const { setEditMode } = useCart();
 
   if (!table) return null;
 
@@ -45,28 +47,28 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
     }
   };
 
-// Obtenir la couleur et le texte du statut
-const getStatusColor = (status: TableWithStatus['status']) => {
-  switch (status) {
-    case 'free':
-      return theme.colors.primary;
-    case 'occupied':
-      return theme.colors.error;
-    default:
-      return theme.colors.text;
-  }
-};
+  // Obtenir la couleur et le texte du statut
+  const getStatusColor = (status: TableWithStatus['status']) => {
+    switch (status) {
+      case 'free':
+        return theme.colors.primary;
+      case 'occupied':
+        return theme.colors.error;
+      default:
+        return theme.colors.text;
+    }
+  };
 
-const getStatusText = (status: TableWithStatus['status']) => {
-  switch (status) {
-    case 'free':
-      return 'Libre';
-    case 'occupied':
-      return 'Occupée';
-    default:
-      return '';
-  }
-};
+  const getStatusText = (status: TableWithStatus['status']) => {
+    switch (status) {
+      case 'free':
+        return 'Libre';
+      case 'occupied':
+        return 'Occupée';
+      default:
+        return '';
+    }
+  };
 
   // Obtenir le texte du statut d'un élément de commande
   const getOrderItemStatusText = (status: DomainOrderItem['state']) => {
@@ -90,6 +92,16 @@ const getStatusText = (status: TableWithStatus['status']) => {
     }
   };
 
+  // Fonction pour gérer l'ajout d'articles à une commande existante
+  const handleAddToExistingOrder = (order: DomainOrder) => {
+    // Configure le panier en mode ajout avec l'ordre existant
+    setEditMode(order.id, order);
+    
+    // Ferme le dialogue et navigue vers l'écran de création de commande
+    onDismiss();
+    onAddToOrder(order);
+  };
+
   return (
     <Portal>
       <View style={styles.dialogWrapper}>
@@ -99,7 +111,7 @@ const getStatusText = (status: TableWithStatus['status']) => {
           style={styles.dialog}
         >
           <View style={styles.dialogContent}>
-          <Dialog.Title>
+            <Dialog.Title>
               <View style={styles.titleContainer}>
                 <Text style={styles.tableName}>{table.tableData.name}</Text>
                 <Chip 
@@ -164,7 +176,7 @@ const getStatusText = (status: TableWithStatus['status']) => {
                                 <Button 
                                   mode="outlined" 
                                   icon="plus" 
-                                  onPress={() => onAddToOrder(order)}
+                                  onPress={() => handleAddToExistingOrder(order)}
                                   style={styles.actionButton}
                                 >
                                   Ajouter

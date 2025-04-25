@@ -43,6 +43,12 @@ export interface CreateOrderRequest {
   orderItems: CreateOrderItemRequest[];
 }
 
+// Interface pour ajouter des éléments à une commande existante
+export interface UpdateOrderRequest {
+  orderId: number;
+  orderItems: CreateOrderItemRequest[];
+}
+
 const orderService = {
   async getOrdersByState(state: string): Promise<DomainOrder[]> {
     try {
@@ -80,6 +86,17 @@ const orderService = {
       return response.data;
     } catch (error) {
       console.error('Error creating order:', error);
+      throw error;
+    }
+  },
+  
+  // Méthode pour ajouter des éléments à une commande existante
+  async addItemsToOrder(updateData: UpdateOrderRequest): Promise<DomainOrder> {
+    try {
+      const response = await api.put('/api/order/addItems', updateData);
+      return response.data;
+    } catch (error) {
+      console.error('Error adding items to order:', error);
       throw error;
     }
   },

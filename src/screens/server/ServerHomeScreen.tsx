@@ -180,12 +180,16 @@ const loadData = useCallback(async () => {
 
   // Gérer l'action "Ajouter à la commande"
   const handleAddToOrder = useCallback((order: DomainOrder) => {
+    if (selectedTable) {
+      // Navigation vers l'écran de création de commande
+      // Le mode d'ajout est déjà configuré dans TableDetailDialog via setEditMode
+      navigation.navigate('CreateOrder', {
+        tableId: selectedTable.tableData.id,
+        tableName: selectedTable.tableData.name
+      });
+    }
     setTableDialogVisible(false);
-    setNotAvailableDialog({
-      visible: true,
-      featureName: 'Ajout à la commande',
-    });
-  }, []);
+  }, [navigation, selectedTable]);
 
   // Gérer l'action "Demander l'addition"
   const handleRequestBill = useCallback((order: DomainOrder) => {
