@@ -67,7 +67,7 @@ const authService = {
       if (!userData) return false;
       
       // Vérifier la validité de la session auprès du serveur
-      await api.get('/api/auth/validate-session');
+      await api.get('/api/auth/me');
       return true;
     } catch (error) {
       console.error('Session validation error:', error);
