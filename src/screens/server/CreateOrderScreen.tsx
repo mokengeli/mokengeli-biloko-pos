@@ -111,7 +111,7 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
     });
   };
   
-  // Finaliser la commande
+// Finaliser la commande
   const handleFinishOrder = () => {
     // Navigation vers l'écran d'accueil après finalisation de la commande ou ajout d'articles
     // Cette fonction est appelée depuis le composant OrderCart après un traitement réussi
@@ -131,11 +131,11 @@ const handleCancelOrder = () => {
     loadCategories();
   }, [loadCategories]);
   
-  // Intercepter la navigation vers l'arrière pour demander confirmation si le panier contient des articles
+  // Intercepter la navigation vers l'arrière pour réinitialiser le panier et demander confirmation si nécessaire
   useEffect(() => {
     const beforeRemoveListener = navigation.addListener('beforeRemove', (e) => {
-      // Ne pas intercepter si la navigation est pour finaliser la commande
-      if (e.data.action.type === 'GO_BACK' && items.length > 0) {
+      // Vérifier si le panier contient des articles
+      if (items.length > 0) {
         // Empêcher la navigation par défaut
         e.preventDefault();
         
@@ -160,6 +160,11 @@ const handleCancelOrder = () => {
             }
           ]
         );
+      } else {
+        // Si le panier est vide, réinitialiser pour nettoyer le mode et autres états
+        resetCart();
+        // Poursuivre la navigation normalement
+        navigation.dispatch(e.data.action);
       }
     });
     
