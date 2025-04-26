@@ -1,13 +1,14 @@
 // src/screens/kitchen/KitchenHomeScreen.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, RefreshControl, ScrollView } from 'react-native';
-import { Appbar, Text, ActivityIndicator, Surface, useTheme, Chip, Divider } from 'react-native-paper';
+import { View, StyleSheet, RefreshControl, SectionList } from 'react-native';
+import { Appbar, Text, ActivityIndicator, Surface, useTheme, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { RolesUtils, Role } from '../../utils/roles';
-import { OrderQueue } from '../../components/kitchen/OrderQueue';
 import { KitchenFilter } from '../../components/kitchen/KitchenFilter';
+import { OrderCard } from '../../components/kitchen/OrderCard'; // Importer directement OrderCard
 import { NotAvailableDialog } from '../../components/common/NotAvailableDialog';
 import orderService, { DomainOrder } from '../../api/orderService';
 
@@ -27,7 +28,7 @@ export const KitchenHomeScreen = () => {
     featureName: '',
   });
   
-  // Charger les commandes
+  // Chargement des commandes
   const loadOrders = useCallback(async () => {
     if (!user?.tenantCode) {
       setError('Code de restaurant non disponible');
@@ -39,14 +40,12 @@ export const KitchenHomeScreen = () => {
     setError(null);
 
     try {
-      // Charger les commandes en attente
+      // Chargement des commandes
       const pendingResponse = await orderService.getOrdersByState('PENDING');
       setPendingOrders(pendingResponse);
       
-      // Charger les commandes prêtes
       const readyResponse = await orderService.getOrdersByState('READY');
       setReadyOrders(readyResponse);
-      
     } catch (err: any) {
       console.error('Error loading orders:', err);
       setError(err.message || 'Erreur lors du chargement des commandes');
@@ -62,7 +61,7 @@ export const KitchenHomeScreen = () => {
     loadOrders();
   }, [loadOrders]);
 
-  // Filtrer les commandes par catégorie
+  // Filtrage par catégorie
   const handleCategorySelect = (category: string) => {
     setSelectedCategories(prev => 
       prev.includes(category) 
@@ -75,7 +74,6 @@ export const KitchenHomeScreen = () => {
   const handleMarkAsReady = async (itemId: number) => {
     try {
       await orderService.prepareOrderItem(itemId);
-      // Recharger les commandes après la mise à jour
       loadOrders();
     } catch (err) {
       console.error('Error marking item as ready:', err);
@@ -87,7 +85,6 @@ export const KitchenHomeScreen = () => {
   const handleRejectItem = async (itemId: number) => {
     try {
       await orderService.rejectDish(itemId);
-      // Recharger les commandes après la mise à jour
       loadOrders();
     } catch (err) {
       console.error('Error rejecting item:', err);
@@ -95,11 +92,10 @@ export const KitchenHomeScreen = () => {
     }
   };
 
-  // Extraire toutes les catégories uniques des commandes
+  // Obtenir toutes les catégories uniques
   const getAllCategories = () => {
     const categories = new Set<string>();
     
-    // Parcourir toutes les commandes et leurs items pour extraire les catégories
     [...pendingOrders, ...readyOrders].forEach(order => {
       order.items.forEach(item => {
         if (item.categories && item.categories.length > 0) {
@@ -111,7 +107,7 @@ export const KitchenHomeScreen = () => {
     return Array.from(categories);
   };
 
-  // Effet pour charger les commandes au démarrage et à chaque focus
+  // Chargement initial et à chaque focus
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
@@ -137,6 +133,20 @@ export const KitchenHomeScreen = () => {
 
   const filteredPendingOrders = getFilteredOrders(pendingOrders);
   const filteredReadyOrders = getFilteredOrders(readyOrders);
+
+  // Préparer les données pour la SectionList
+  const sections = [
+    { 
+      title: `Commandes à préparer (${filteredPendingOrders.length})`, 
+      data: filteredPendingOrders,
+      status: 'PENDING' as const
+    },
+    { 
+      title: `Commandes prêtes à servir (${filteredReadyOrders.length})`, 
+      data: filteredReadyOrders,
+      status: 'READY' as const
+    }
+  ];
 
   // Affichage de chargement
   if (isLoading && !refreshing) {
@@ -171,36 +181,37 @@ export const KitchenHomeScreen = () => {
           <Text style={styles.errorText}>{error}</Text>
         </Surface>
       ) : (
-        <ScrollView
-          style={styles.content}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, section }) => (
+            <OrderCard
+              order={item}
+              status={section.status}
+              onMarkAsReady={handleMarkAsReady}
+              onReject={handleRejectItem}
+              style={styles.orderCard}
+            />
+          )}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <Divider style={styles.divider} />
+            </View>
+          )}
+          stickySectionHeadersEnabled={true}
+          contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-        >
-          {/* Commandes en attente */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Commandes à préparer ({filteredPendingOrders.length})</Text>
-            <Divider style={styles.divider} />
-            <OrderQueue 
-              orders={filteredPendingOrders}
-              status="PENDING"
-              onMarkAsReady={handleMarkAsReady}
-              onReject={handleRejectItem}
-            />
-          </View>
-          
-          {/* Commandes prêtes */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Commandes prêtes à servir ({filteredReadyOrders.length})</Text>
-            <Divider style={styles.divider} />
-            <OrderQueue 
-              orders={filteredReadyOrders}
-              status="READY"
-              onMarkAsReady={handleMarkAsReady}
-              onReject={handleRejectItem}
-            />
-          </View>
-        </ScrollView>
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                Aucune commande disponible
+              </Text>
+            </View>
+          }
+        />
       )}
       
       {/* Dialogue pour les fonctionnalités non disponibles */}
@@ -231,12 +242,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
   },
-  content: {
-    flex: 1,
-    padding: 12,
-  },
-  section: {
-    marginBottom: 20,
+  sectionHeader: {
+    backgroundColor: '#f5f5f5',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   sectionTitle: {
     fontSize: 18,
@@ -244,7 +255,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   divider: {
-    marginBottom: 16,
+    height: 1,
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  orderCard: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
+  emptyContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    opacity: 0.7,
   },
   errorContainer: {
     margin: 16,
