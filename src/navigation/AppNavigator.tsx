@@ -11,6 +11,8 @@ import { HomeScreen } from '../screens/HomeScreen'; // Conservé pour KitchenHom
 import { useAuth } from '../contexts/AuthContext';
 import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
 import { DishCustomizationParamList } from '../screens/server/DishCustomizationScreen';
+import { KitchenHomeScreen } from '../screens/kitchen/KitchenHomeScreen';
+import { RolesUtils } from '../utils/roles';
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -53,22 +55,12 @@ const MainNavigator: React.FC = () => {
   
   // Déterminer l'écran initial en fonction du rôle de l'utilisateur
   const getInitialRouteName = () => {
-    if (!user || !user.roles || user.roles.length === 0) {
-      return 'ServerHome'; // Écran par défaut si pas de rôle
+    if (!user) {
+      return 'ServerHome'; // Écran par défaut si pas d'utilisateur
     }
     
-    // Vérifier les rôles et rediriger vers l'écran approprié
-    const roles = user.roles.map(role => role.toLowerCase());
-    
-    if (roles.includes('server') || roles.includes('waiter')) {
-      return 'ServerHome';
-    } else if (roles.includes('kitchen') || roles.includes('chef') || roles.includes('cook')) {
-      return 'KitchenHome';
-    } else if (roles.includes('admin') || roles.includes('manager')) {
-      return 'AdminHome';
-    } else {
-      return 'ServerHome'; // Fallback
-    }
+    // Utiliser la méthode existante dans RolesUtils
+    return RolesUtils.getHomeScreenForRoles(user.roles);
   };
   
   // Déterminer l'écran initial
@@ -76,19 +68,20 @@ const MainNavigator: React.FC = () => {
 
   return (
     <MainStack.Navigator
-      initialRouteName={initialRoute}
-      screenOptions={{
-        headerShown: false,
-        cardStyle: { backgroundColor: '#f5f5f5' },
-      }}
-    >
-      <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
-      <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
-      <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
-      {/* Ces écrans seront implémentés plus tard */}
-      <MainStack.Screen name="KitchenHome" component={HomeScreen} />
-      <MainStack.Screen name="AdminHome" component={HomeScreen} />
-    </MainStack.Navigator>
+  initialRouteName={initialRoute}
+  screenOptions={{
+    headerShown: false,
+    cardStyle: { backgroundColor: '#f5f5f5' },
+  }}
+>
+  <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
+  <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
+  <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
+  {/* Utiliser le vrai écran de cuisine au lieu du placeholder */}
+  <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
+  {/* L'écran AdminHome reste un placeholder pour l'instant */}
+  <MainStack.Screen name="AdminHome" component={HomeScreen} />
+</MainStack.Navigator>
   );
 };
 

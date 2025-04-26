@@ -76,6 +76,7 @@ export enum Role {
    * @returns Nom de l'écran d'accueil approprié
    */
   static getHomeScreenForRoles(userRoles: string[] | undefined): string {
+    console.log(" roles = ", userRoles)
     if (!userRoles || userRoles.length === 0) return 'ServerHome';
 
     if (this.hasRole(userRoles, Role.SERVER)) {

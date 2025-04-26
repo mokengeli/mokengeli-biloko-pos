@@ -1,5 +1,5 @@
 // src/api/orderService.ts
-import api from './apiConfig';
+import api from "./apiConfig";
 
 export interface DomainOrderItem {
   id: number;
@@ -7,7 +7,14 @@ export interface DomainOrderItem {
   dishName: string;
   note: string;
   count: number;
-  state: 'PENDING' | 'READY' | 'IN_PREPARATION' | 'REJECTED' | 'COOKED' | 'SERVED' | 'PAID';
+  state:
+    | "PENDING"
+    | "READY"
+    | "IN_PREPARATION"
+    | "REJECTED"
+    | "COOKED"
+    | "SERVED"
+    | "PAID";
   unitPrice: number;
   orderItemDate: string;
 }
@@ -52,14 +59,14 @@ export interface UpdateOrderRequest {
 const orderService = {
   async getOrdersByState(state: string): Promise<DomainOrder[]> {
     try {
-      const response = await api.get('/api/order', {
+      const response = await api.get("/api/order", {
         params: {
-          state
-        }
+          state,
+        },
       });
       return response.data;
     } catch (error) {
-      console.error('Error fetching orders by state:', error);
+      console.error("Error fetching orders by state:", error);
       throw error;
     }
   },
@@ -67,14 +74,14 @@ const orderService = {
   // Méthode pour récupérer les commandes actives pour une table spécifique
   async getActiveOrdersByTable(tableId: number): Promise<DomainOrder[]> {
     try {
-      const response = await api.get('/api/order/active', {
+      const response = await api.get("/api/order/active", {
         params: {
-          tableId
-        }
+          tableId,
+        },
       });
       return response.data;
     } catch (error) {
-      console.error('Error fetching active orders by table:', error);
+      console.error("Error fetching active orders by table:", error);
       throw error;
     }
   },
@@ -82,21 +89,21 @@ const orderService = {
   // Méthode pour créer une nouvelle commande
   async createOrder(orderData: CreateOrderRequest): Promise<DomainOrder> {
     try {
-      const response = await api.post('/api/order', orderData);
+      const response = await api.post("/api/order", orderData);
       return response.data;
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error("Error creating order:", error);
       throw error;
     }
   },
-  
+
   // Méthode pour ajouter des éléments à une commande existante
   async addItemsToOrder(updateData: UpdateOrderRequest): Promise<DomainOrder> {
     try {
-      const response = await api.put('/api/order/addItems', updateData);
+      const response = await api.put("/api/order/addItems", updateData);
       return response.data;
     } catch (error) {
-      console.error('Error adding items to order:', error);
+      console.error("Error adding items to order:", error);
       throw error;
     }
   },
@@ -109,10 +116,36 @@ const orderService = {
       console.log(`Printing order ticket for order #${orderId}`);
       return true;
     } catch (error) {
-      console.error('Error printing order ticket:', error);
+      console.error("Error printing order ticket:", error);
       throw error;
     }
-  }
+  },
+  // Méthode pour marquer un plat comme prêt
+  async prepareOrderItem(itemId: number): Promise<void> {
+    try {
+      await api.put(`/api/order/dish/ready`, null, {
+        params: {
+          id: itemId,
+        },
+      });
+    } catch (error) {
+      console.error("Error marking dish as ready:", error);
+      throw error;
+    }
+  },
+  // Méthode pour rejeter un plat
+  async rejectDish(itemId: number): Promise<void> {
+    try {
+      await api.put(`/api/order/dish/reject`, null, {
+        params: {
+          id: itemId,
+        },
+      });
+    } catch (error) {
+      console.error("Error rejecting dish:", error);
+      throw error;
+    }
+  },
 };
 
 export default orderService;
