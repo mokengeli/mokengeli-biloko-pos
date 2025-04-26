@@ -120,7 +120,7 @@ const orderService = {
       throw error;
     }
   },
-  // Méthode pour marquer un plat comme prêt
+  // Méthode améliorée pour marquer un plat comme prêt
   async prepareOrderItem(itemId: number): Promise<void> {
     try {
       await api.put(`/api/order/dish/ready`, null, {
@@ -130,10 +130,11 @@ const orderService = {
       });
     } catch (error) {
       console.error("Error marking dish as ready:", error);
-      throw error;
+      throw error; // Laisser l'erreur se propager pour être traitée par le composant
     }
   },
-  // Méthode pour rejeter un plat
+
+  // Méthode améliorée pour rejeter un plat
   async rejectDish(itemId: number): Promise<void> {
     try {
       await api.put(`/api/order/dish/reject`, null, {
@@ -143,7 +144,7 @@ const orderService = {
       });
     } catch (error) {
       console.error("Error rejecting dish:", error);
-      throw error;
+      throw error; // Laisser l'erreur se propager pour être traitée par le composant
     }
   },
 };
