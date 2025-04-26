@@ -118,12 +118,13 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
     navigation.navigate('ServerHome');
   };
   
-  // Gérer l'annulation de commande
-  const handleCancelOrder = () => {
-    // La gestion de l'annulation est maintenant gérée directement dans le composant OrderCart
-    // Nous n'avons plus besoin de code spécifique ici pour la confirmation
-    navigation.goBack();
-  };
+// Gérer l'annulation de commande
+const handleCancelOrder = () => {
+  // Explicitement vider le panier avant de naviguer en arrière
+  // C'est une double protection au cas où l'écouteur beforeRemove ne s'activerait pas
+  clearCart();
+  navigation.goBack();
+};
   
   // Effet pour charger les catégories au montage du composant
   useEffect(() => {

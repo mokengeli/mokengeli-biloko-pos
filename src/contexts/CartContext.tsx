@@ -136,12 +136,19 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   // Vider le panier
   const clearCart = () => {
+    // Toujours vider les articles
     setItems([]);
-    if (mode === CartMode.CREATE) {
-      setTableId(null);
-      setTableName(null);
-    }
-    // En mode ADD, on garde les infos de table et de commande
+    
+    // Réinitialiser complètement l'état du panier pour éviter les incohérences
+    // Nous revenons systématiquement au mode CREATE pour éviter tout état incohérent
+    setMode(CartMode.CREATE);
+    setCurrentOrderId(null);
+    setExistingOrder(null);
+    
+    // On conserve les infos de table uniquement si explicitement demandé
+    // par défaut on les supprime également pour un nettoyage complet
+    setTableId(null);
+    setTableName(null);
   };
 
   // Générer un ID unique
