@@ -25,7 +25,7 @@ interface CreateOrderScreenProps {
 export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, navigation }) => {
   const { tableId, tableName } = route.params;
   const { user } = useAuth();
-  const { setTableInfo, clearCart, items } = useCart();
+  const { setTableInfo, clearCart, resetCart, items } = useCart();
   const theme = useTheme();
   const windowWidth = Dimensions.get('window').width;
   const isTablet = windowWidth >= 768;
@@ -120,9 +120,9 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   
 // Gérer l'annulation de commande
 const handleCancelOrder = () => {
-  // Explicitement vider le panier avant de naviguer en arrière
+  // Explicitement réinitialiser le panier avant de naviguer en arrière
   // C'est une double protection au cas où l'écouteur beforeRemove ne s'activerait pas
-  clearCart();
+  resetCart();
   navigation.goBack();
 };
   
@@ -153,8 +153,8 @@ const handleCancelOrder = () => {
               text: 'Abandonner', 
               style: 'destructive',
               onPress: () => {
-                // Vider le panier et quitter
-                clearCart();
+                // Réinitialiser complètement le panier et quitter
+                resetCart();
                 navigation.dispatch(e.data.action);
               }
             }
@@ -164,7 +164,7 @@ const handleCancelOrder = () => {
     });
     
     return beforeRemoveListener;
-  }, [navigation, items, clearCart]);
+  }, [navigation, items, resetCart]);
   
   // Si les catégories sont en cours de chargement
   if (isLoadingCategories && categories.length === 0) {

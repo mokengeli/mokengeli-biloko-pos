@@ -25,6 +25,13 @@ export enum CartMode {
   ADD = 'add'        // Ajout à une commande existante
 }
 
+// Options pour le vidage du panier
+export interface ClearCartOptions {
+  preserveMode?: boolean;       // Conserver le mode (CREATE ou ADD)
+  preserveTableInfo?: boolean;  // Conserver les infos de la table
+  preserveOrderInfo?: boolean;  // Conserver les infos de la commande existante
+}
+
 // Interface pour le contexte du panier
 interface CartContextType {
   items: CartItem[];
@@ -41,7 +48,8 @@ interface CartContextType {
   addItem: (item: Omit<CartItem, 'id'>) => void;
   updateItem: (id: string, updates: Partial<Omit<CartItem, 'id' | 'dish'>>) => void;
   removeItem: (id: string) => void;
-  clearCart: () => void;
+  clearCart: (options?: ClearCartOptions) => void;
+  resetCart: () => void; // Réinitialisation complète du panier
   
   itemCount: number;
   totalAmount: number;
@@ -134,19 +142,40 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
-  // Vider le panier
-  const clearCart = () => {
+  // Vider le panier avec options
+  const clearCart = (options?: ClearCartOptions) => {
     // Toujours vider les articles
     setItems([]);
     
-    // Réinitialiser complètement l'état du panier pour éviter les incohérences
-    // Nous revenons systématiquement au mode CREATE pour éviter tout état incohérent
+    // Appliquer les options selon le contexte
+    const preserveMode = options?.preserveMode ?? (mode === CartMode.ADD);
+    const preserveTableInfo = options?.preserveTableInfo ?? (mode === CartMode.ADD);
+    const preserveOrderInfo = options?.preserveOrderInfo ?? (mode === CartMode.ADD);
+    
+    // Gérer le mode
+    if (!preserveMode) {
+      setMode(CartMode.CREATE);
+    }
+    
+    // Gérer les informations de commande
+    if (!preserveOrderInfo) {
+      setCurrentOrderId(null);
+      setExistingOrder(null);
+    }
+    
+    // Gérer les informations de table
+    if (!preserveTableInfo) {
+      setTableId(null);
+      setTableName(null);
+    }
+  };
+  
+  // Réinitialisation complète du panier (sans options)
+  const resetCart = () => {
+    setItems([]);
     setMode(CartMode.CREATE);
     setCurrentOrderId(null);
     setExistingOrder(null);
-    
-    // On conserve les infos de table uniquement si explicitement demandé
-    // par défaut on les supprime également pour un nettoyage complet
     setTableId(null);
     setTableName(null);
   };
@@ -171,6 +200,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     updateItem,
     removeItem,
     clearCart,
+    resetCart,
     itemCount,
     totalAmount,
     currency,

@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Surface, Text, Card, Title, Paragraph, Button, IconButton, Badge, Divider, Chip, Portal, Modal, TextInput, useTheme, ActivityIndicator } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useCart, CartItem, CartItemCustomization, CartMode } from '../../contexts/CartContext';
-import orderService, { CreateOrderItemRequest, CreateOrderRequest, UpdateOrderRequest } from '../../api/orderService';
+import { useCart, CartItem, CartItemCustomization, CartMode } from '../../contexts/CartContext';import orderService, { CreateOrderItemRequest, CreateOrderRequest, UpdateOrderRequest } from '../../api/orderService';
 import currencyService from '../../api/currencyService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -24,6 +23,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
     removeItem, 
     updateItem, 
     clearCart, 
+    resetCart,
     tableName, 
     tableId,
     mode,
@@ -86,12 +86,32 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
   const confirmClearCart = () => {
     if (items.length === 0) return;
     
+    // Message adapté selon le mode
+    const message = mode === CartMode.CREATE 
+      ? "Êtes-vous sûr de vouloir vider le panier ? Cette action ne peut pas être annulée."
+      : "Êtes-vous sûr de vouloir vider les nouveaux articles ? Les articles existants de la commande ne seront pas affectés.";
+    
     Alert.alert(
       "Vider le panier",
-      "Êtes-vous sûr de vouloir vider le panier ? Cette action ne peut pas être annulée.",
+      message,
       [
         { text: "Annuler", style: "cancel" },
-        { text: "Vider", style: "destructive", onPress: clearCart }
+        { 
+          text: "Vider", 
+          style: "destructive", 
+          onPress: () => {
+            // En mode ADD, on préserve les informations de commande et de table
+            if (mode === CartMode.ADD) {
+              clearCart({ 
+                preserveMode: true, 
+                preserveTableInfo: true, 
+                preserveOrderInfo: true 
+              });
+            } else {
+              clearCart(); // Comportement par défaut en mode CREATE
+            }
+          }
+        }
       ]
     );
   };
@@ -154,8 +174,8 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
             {
               text: "OK",
               onPress: () => {
-                clearCart();
-                onFinishOrder(); // Retourner à l'écran précédent
+                resetCart(); // Réinitialisation complète du panier
+                onFinishOrder(); // Retourner à l'écran d'accueil
               }
             }
           ]
@@ -180,7 +200,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
             {
               text: "OK",
               onPress: () => {
-                clearCart();
+                resetCart(); // Réinitialisation complète du panier
                 onFinishOrder(); // Cette fonction doit nous rediriger vers l'écran d'accueil
               }
             }
@@ -204,6 +224,8 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
   // Confirmation d'annulation de commande
   const confirmCancelOrder = () => {
     if (items.length === 0) {
+      // Si le panier est vide, on réinitialise quand même complètement pour sortir du mode ADD
+      resetCart();
       onCancelOrder();
       return;
     }
@@ -214,7 +236,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
       [
         { text: "Non", style: "cancel" },
         { text: "Oui, annuler", style: "destructive", onPress: () => {
-          clearCart();
+          resetCart(); // Réinitialisation complète du panier quelle que soit la situation
           onCancelOrder();
         }}
       ]
