@@ -76,11 +76,15 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
     }
   };
 
-  // Formatter la date pour l'affichage
-  const formatTimestamp = (timestamp: string) => {
+ // Formatter la date pour l'affichage
+ const formatTimestamp = (timestamp: string) => {
+  try {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  } catch (error) {
+    return '';
+  }
+};
 
   const renderTask = ({ item }: { item: UrgentTask }) => (
     <TouchableOpacity 

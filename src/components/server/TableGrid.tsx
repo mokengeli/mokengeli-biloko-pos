@@ -1,10 +1,9 @@
 // src/components/server/TableGrid.tsx
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl } from 'react-native';
-import { Surface, Text, useTheme, Badge } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Text } from 'react-native';
+import { Surface, useTheme } from 'react-native-paper';
 import { DomainRefTable } from '../../api/tableService';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-
 
 // Types de statut de table possibles
 export type TableStatus = 'free' | 'occupied';
@@ -36,12 +35,7 @@ export const TableGrid: React.FC<TableGridProps> = ({
   const windowWidth = Dimensions.get('window').width;
   
   // Déterminer le nombre de colonnes en fonction de la largeur de l'écran
-  const calculateColumns = () => {
-    if (windowWidth >= 768) return 4; // Tablette
-    return 2; // Téléphone
-  };
-
-  const numColumns = calculateColumns();
+  const numColumns = windowWidth >= 768 ? 4 : 2; // 4 colonnes pour tablette, 2 pour téléphone
   
   // Obtenir la couleur de fond en fonction du statut
   const getStatusColor = (status: TableStatus) => {
@@ -66,6 +60,7 @@ export const TableGrid: React.FC<TableGridProps> = ({
         return '';
     }
   };
+  
   // Formatter le temps d'occupation
   const formatOccupationTime = (minutes?: number) => {
     if (!minutes) return '';
@@ -79,8 +74,6 @@ export const TableGrid: React.FC<TableGridProps> = ({
       return `${mins}m`;
     }
   };
-
-  
   
   return (
     <ScrollView 
@@ -98,22 +91,31 @@ export const TableGrid: React.FC<TableGridProps> = ({
       <View style={styles.grid}>
         {tables.map((table, index) => {
           // Déterminer la couleur de bordure en fonction du statut
-          const borderColor = (() => {
-            switch (table.status) {
-              case 'free': return theme.colors.primary;
-              case 'occupied': return theme.colors.error;
-              default: return theme.colors.text;
-            }
-          })();
+          let borderColor;
+          switch (table.status) {
+            case 'free':
+              borderColor = theme.colors.primary;
+              break;
+            case 'occupied':
+              borderColor = theme.colors.error;
+              break;
+            default:
+              borderColor = theme.colors.text;
+          }
+          
+          // Déterminer les styles dynamiques
+          const tableWidth = numColumns === 4 ? {width: '23%'} : {width: '46%'};
+          const tableMargin = numColumns === 4 ? {margin: '1%'} : {margin: '2%'};
           
           return (
             <TouchableOpacity
-              key={`${table.tableData.name}-${index}`}
+              key={index}
               style={[
                 styles.tableItem,
-                { width: `${100 / numColumns - 4}%` },
+                tableWidth,
+                tableMargin,
                 { backgroundColor: getStatusColor(table.status) },
-                { borderColor, borderWidth: 2 }
+                { borderColor: borderColor, borderWidth: 2 }
               ]}
               onPress={() => onTablePress(table)}
               disabled={isLoading}
@@ -124,17 +126,17 @@ export const TableGrid: React.FC<TableGridProps> = ({
                   {getStatusText(table.status)}
                 </Text>
                 
-                {table.occupationTime && table.status !== 'free' && (
+                {table.occupationTime && table.status !== 'free' ? (
                   <Text style={styles.occupationTime}>
                     {formatOccupationTime(table.occupationTime)}
                   </Text>
-                )}
+                ) : null}
                 
-                {(table.orderCount && table.orderCount > 0) && (
+                {(table.orderCount && table.orderCount > 0) ? (
                   <View style={styles.alertIndicator}>
                     <Icon name="alert" size={16} color="#FFA500" />
                   </View>
-                )}
+                ) : null}
               </Surface>
             </TouchableOpacity>
           );
@@ -153,10 +155,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
+    alignItems: 'flex-start',
   },
   tableItem: {
-    margin: '2%',
-    aspectRatio: 1, // Cela garantit que les éléments sont carrés
+    aspectRatio: 1,
     borderRadius: 8,
     overflow: 'hidden',
     position: 'relative',
@@ -166,24 +168,27 @@ const styles = StyleSheet.create({
     padding: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 1, // Elevation réduite car nous utilisons déjà des bordures colorées
+    elevation: 1,
     height: '100%',
-    backgroundColor: 'white', // Fond blanc pour plus de contraste
+    backgroundColor: 'white',
   },
   tableName: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
-    color: '#333', // Couleur de texte plus sombre pour plus de lisibilité
+    color: '#333',
+    textAlign: 'center',
   },
   tableStatus: {
     fontSize: 14,
-    fontWeight: '600', // Plus visible
+    fontWeight: '600',
+    textAlign: 'center',
   },
   occupationTime: {
     fontSize: 12,
     marginTop: 4,
-    opacity: 0.8, // Plus visible
+    opacity: 0.8,
+    textAlign: 'center',
   },
   alertIndicator: {
     position: 'absolute',

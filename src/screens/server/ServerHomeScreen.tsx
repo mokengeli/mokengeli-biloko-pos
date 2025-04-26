@@ -250,7 +250,7 @@ const loadData = useCallback(async () => {
       <Appbar.Header style={styles.appbar}>
         <Appbar.Content 
           title="Mokengeli Biloko POS" 
-          subtitle={`${RolesUtils.getRoleDescription(Role.SERVER)}: ${user?.firstName} ${user?.lastName}`}
+          subtitle={`${RolesUtils.getRoleDescription(Role.SERVER)}: ${user?.firstName || ''} ${user?.lastName || ''}`}
         />
         <Appbar.Action icon="printer" onPress={() => setNotAvailableDialog({
           visible: true,
