@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 80, // Espace pour le bouton flottant
+    paddingBottom: 56, // Réduit de 80 à 56 pour diminuer l'espace avant le FAB
   },
   mainContent: {
     flex: 1,
@@ -611,15 +611,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   fab: {
-    position: "absolute",
+    position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
-    // Propriétés pour réduire la taille du FAB
-    height: 48, // Taille standard plus petite (était implicitement 56px)
-    width: 48, // Assurer une forme circulaire
-    borderRadius: 24, // Moitié de la largeur/hauteur pour un cercle parfait
-    justifyContent: "center",
-    alignItems: "center",
+    height: 48,
+    width: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

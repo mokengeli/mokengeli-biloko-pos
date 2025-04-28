@@ -192,8 +192,8 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 8, // Réduit de 16 à 8
+    marginBottom: 8, // Réduit de 16 à 8
     marginHorizontal: 12,
   },
   surface: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 8,
-    maxHeight: 300, // Limiter la hauteur pour rendre le défilement nécessaire
+    maxHeight: 400, // Augmenté de 300 à 400 pour donner plus d'espace quand déplié
   },
   emptyContainer: {
     padding: 24,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   taskList: {
-    maxHeight: 300,
+    maxHeight: 400, // Aussi augmenté pour correspondre
   },
   listContent: {
     padding: 8,
