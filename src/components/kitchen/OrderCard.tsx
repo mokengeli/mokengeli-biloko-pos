@@ -1,6 +1,6 @@
 // src/components/kitchen/OrderCard.tsx
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
 import {
   Card,
   Text,
@@ -115,137 +115,138 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     return null;
   }
 
-  const windowWidth = Dimensions.get('window').width;
-  const isTablet = windowWidth >= 768;
+  // Couleur du bord vertical
+  const waitTimeColor = getWaitTimeColor(order.orderDate);
 
+  // Nouvelle approche : utiliser une View avec elevation pour l'ombre
   return (
-    <Card style={[
-      styles.card, 
-      style,
-      isTablet && styles.tabletCard
-    ]}>
-      <View style={styles.cardInner}>
-        <View
-          style={[
-            styles.waitTimeIndicator,
-            { backgroundColor: getWaitTimeColor(order.orderDate) },
-          ]}
-        />
-
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.headerRow}>
-            <View style={styles.orderInfo}>
-              <Text style={styles.orderNumber}>Commande #{order.id}</Text>
-              <View style={styles.tableTimeContainer}>
-                <Text style={styles.tableText}>Table: {order.refTable}</Text>
-                <Text
-                  style={[
-                    styles.timeText,
-                    { color: getWaitTimeColor(order.orderDate) },
-                  ]}
-                >
-                  {getElapsedTime(order.orderDate)}
-                </Text>
+    <View style={[styles.outerContainer, style]}>
+      {/* Barre verticale colorée */}
+      <View 
+        style={[
+          styles.waitTimeIndicator, 
+          { backgroundColor: waitTimeColor }
+        ]} 
+      />
+      
+      {/* Contenu de la carte avec shadow */}
+      <View style={styles.cardContainer}>
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <View style={styles.headerRow}>
+              <View style={styles.orderInfo}>
+                <Text style={styles.orderNumber}>Commande #{order.id}</Text>
+                <View style={styles.tableTimeContainer}>
+                  <Text style={styles.tableText}>Table: {order.refTable}</Text>
+                  <Text
+                    style={[
+                      styles.timeText,
+                      { color: waitTimeColor },
+                    ]}
+                  >
+                    {getElapsedTime(order.orderDate)}
+                  </Text>
+                </View>
               </View>
+              <TouchableOpacity
+                style={styles.expandButton}
+                onPress={() => setExpanded(!expanded)}
+              >
+                <Icon
+                  name={expanded ? "chevron-up" : "chevron-down"}
+                  size={24}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.expandButton}
-              onPress={() => setExpanded(!expanded)}
-            >
-              <Icon
-                name={expanded ? "chevron-up" : "chevron-down"}
-                size={24}
-                color={theme.colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
 
-          <Divider style={styles.divider} />
+            <Divider style={styles.divider} />
 
-          {expanded ? (
-            <View style={styles.itemsContainer}>
-              {groupItemsByCategory().map((item, index) => {
-                // Vérifier si c'est un nouveau groupe de catégorie
-                const showCategoryHeader =
-                  index === 0 ||
-                  (index > 0 &&
-                    item.categories[0] !==
-                      groupItemsByCategory()[index - 1].categories[0]);
+            {expanded ? (
+              <View style={styles.itemsContainer}>
+                {groupItemsByCategory().map((item, index) => {
+                  // Vérifier si c'est un nouveau groupe de catégorie
+                  const showCategoryHeader =
+                    index === 0 ||
+                    (index > 0 &&
+                      item.categories[0] !==
+                        groupItemsByCategory()[index - 1].categories[0]);
 
-                return (
-                  <View key={item.id}>
-                    {showCategoryHeader && (
-                      <View style={styles.categoryHeader}>
-                        <Text style={styles.categoryTitle}>
-                          {item.categories[0]}
-                        </Text>
-                        <Divider style={styles.categoryDivider} />
-                      </View>
-                    )}
+                  return (
+                    <View key={item.id}>
+                      {showCategoryHeader && (
+                        <View style={styles.categoryHeader}>
+                          <Text style={styles.categoryTitle}>
+                            {item.categories[0]}
+                          </Text>
+                          <Divider style={styles.categoryDivider} />
+                        </View>
+                      )}
 
-                    <View style={styles.itemRow}>
-                      <View style={styles.itemInfo}>
-                        <Text style={styles.itemName}>
-                          {item.count}x {item.dishName}
-                        </Text>
-                        {item.note && (
-                          <View style={styles.noteContainer}>
-                            <Text style={styles.noteLabel}>Note:</Text>
-                            <Text style={styles.noteText}>{item.note}</Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.itemActions}>
-                        {status === "PENDING" ? (
-                          <Button
-                            mode="contained"
-                            onPress={() => showConfirmation(item, "ready")}
-                            style={styles.readyButton}
-                            compact
-                          >
-                            Prêt
-                          </Button>
-                        ) : (
-                          <Badge style={styles.readyBadge}>Prêt</Badge>
-                        )}
+                      <View style={styles.itemRow}>
+                        <View style={styles.itemInfo}>
+                          <Text style={styles.itemName}>
+                            {item.count}x {item.dishName}
+                          </Text>
+                          {item.note && (
+                            <View style={styles.noteContainer}>
+                              <Text style={styles.noteLabel}>Note:</Text>
+                              <Text style={styles.noteText}>{item.note}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.itemActions}>
+                          {status === "PENDING" ? (
+                            <Button
+                              mode="contained"
+                              onPress={() => showConfirmation(item, "ready")}
+                              style={styles.readyButton}
+                              compact
+                            >
+                              Prêt
+                            </Button>
+                          ) : (
+                            <Badge style={styles.readyBadge}>Prêt</Badge>
+                          )}
 
-                        {/* Afficher le bouton de rejet uniquement pour les plats en attente (PENDING) */}
-                        {status === "PENDING" && (
-                          <IconButton
-                            icon="close"
-                            size={20}
-                            color={theme.colors.error}
-                            onPress={() => showConfirmation(item, "reject")}
-                            style={styles.rejectButton}
-                          />
-                        )}
+                          {/* Afficher le bouton de rejet uniquement pour les plats en attente (PENDING) */}
+                          {status === "PENDING" && (
+                            <IconButton
+                              icon="close"
+                              size={20}
+                              color={theme.colors.error}
+                              onPress={() => showConfirmation(item, "reject")}
+                              style={styles.rejectButton}
+                            />
+                          )}
+                        </View>
                       </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.collapsedContent}>
-              <Text style={styles.itemCount}>
-                {filteredItems.length}{" "}
-                {filteredItems.length > 1 ? "plats" : "plat"}
-              </Text>
-              <View style={styles.chipRow}>
-                {/* Afficher jusqu'à 3 catégories */}
-                {Array.from(
-                  new Set(filteredItems.flatMap((item) => item.categories))
-                )
-                  .slice(0, 3)
-                  .map((category, index) => (
-                    <Chip key={index} style={styles.categoryChip} compact>
-                      {category}
-                    </Chip>
-                  ))}
+                  );
+                })}
               </View>
-            </View>
-          )}
-        </Card.Content>
+            ) : (
+              <View style={styles.collapsedContent}>
+                <Text style={styles.itemCount}>
+                  {filteredItems.length}{" "}
+                  {filteredItems.length > 1 ? "plats" : "plat"}
+                </Text>
+                <View style={styles.chipRow}>
+                  {/* Afficher jusqu'à 3 catégories */}
+                  {Array.from(
+                    new Set(filteredItems.flatMap((item) => item.categories))
+                  )
+                    .slice(0, 3)
+                    .map((category, index) => (
+                      <Chip key={index} style={styles.categoryChip} compact>
+                        {category}
+                      </Chip>
+                    ))}
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
       </View>
 
       {/* Modal de confirmation */}
@@ -289,29 +290,33 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           </Surface>
         </Modal>
       </Portal>
-    </Card>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  outerContainer: {
     marginBottom: 12,
-    position: "relative",
-    overflow: "hidden",
-  },
-  cardInner: {
-    position: "relative",
-    width: "100%",
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'stretch',
   },
   waitTimeIndicator: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
     width: 4,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  cardContainer: {
+    flex: 1,
+  },
+  card: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+    marginLeft: 0,
+    elevation: 3,
   },
   cardContent: {
-    paddingLeft: 16,
+    paddingLeft: 12,
   },
   headerRow: {
     flexDirection: "row",
@@ -454,8 +459,5 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     marginLeft: 8,
-  },
-  tabletCard: {
-    margin: 8,  // Marge uniforme en mode tablette
   },
 });
