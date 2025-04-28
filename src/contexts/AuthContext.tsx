@@ -1,6 +1,7 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import authService, { User, LoginCredentials } from '../api/authService';
+import { webSocketService } from '../services/WebSocketService';
 
 // Type de contexte d'authentification
 interface AuthContextType {
@@ -99,10 +100,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
+      // Fermer la connexion WebSocket
+      webSocketService.disconnect();
+      
+      // Appeler le service d'authentification pour se déconnecter côté serveur
       await authService.logout();
+      
+      // Réinitialiser l'état utilisateur
       setUser(null);
     } catch (err) {
       console.error('Logout error:', err);
+      // Continuer le processus de déconnexion même en cas d'erreur
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
