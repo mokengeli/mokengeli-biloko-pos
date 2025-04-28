@@ -192,8 +192,8 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    marginTop: 8, // Réduit de 16 à 8
-    marginBottom: 8, // Réduit de 16 à 8
+    marginTop: 8,
+    marginBottom: 12, // Garder à 8px pour maintenir l'équilibre
     marginHorizontal: 12,
   },
   surface: {
