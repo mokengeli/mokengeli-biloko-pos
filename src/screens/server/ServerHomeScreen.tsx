@@ -27,8 +27,6 @@ import {
   webSocketService,
   OrderNotification,
 } from "../../services/WebSocketService";
-import { ReadyDishesScreen } from './ReadyDishesScreen';
-
 
 // Types pour la navigation
 type ServerStackParamList = {
@@ -300,6 +298,21 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     setTableDialogVisible(true);
   }, []);
 
+  // Ajouter une nouvelle fonction pour servir les plats prêts
+  const handleServeReadyDishes = useCallback(
+    (order: DomainOrder) => {
+      // Naviguer vers l'écran des plats prêts à servir, filtré par table
+      navigation.navigate("ReadyDishes", {
+        tableId: order.refTable,
+        tableName: order.refTable,
+      });
+
+      // Fermer la modal
+      setTableDialogVisible(false);
+    },
+    [navigation]
+  );
+
   // Gérer l'action "Nouvelle commande"
   const handleNewOrder = useCallback(() => {
     if (selectedTable) {
@@ -374,9 +387,8 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   // Naviguer vers la page des plats prêts
   const handleReadyDishes = useCallback(() => {
     // Naviguer vers l'écran des plats prêts à servir
-    navigation.navigate('ReadyDishes', {});
+    navigation.navigate("ReadyDishes", {});
   }, [navigation]);
-  
 
   // Configuration du WebSocket
   useEffect(() => {
@@ -517,15 +529,15 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
               tasks={urgentTasks}
               onTaskPress={(task) => {
                 // Si c'est une tâche de plats prêts, naviguer vers l'écran des plats prêts
-                if (task.type === 'dish_ready') {
-                  navigation.navigate('ReadyDishes', {
+                if (task.type === "dish_ready") {
+                  navigation.navigate("ReadyDishes", {
                     tableId: task.tableId,
-                    tableName: task.tableName
+                    tableName: task.tableName,
                   });
                 } else {
                   setNotAvailableDialog({
                     visible: true,
-                    featureName: 'Détails de la tâche',
+                    featureName: "Détails de la tâche",
                   });
                 }
               }}
@@ -558,6 +570,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         onAddToOrder={handleAddToOrder}
         onRequestBill={handleRequestBill}
         onPrintTicket={handlePrintTicket}
+        onServeReadyDishes={handleServeReadyDishes} // Ajout de la nouvelle prop
       />
 
       {/* Dialogue pour les fonctionnalités non disponibles */}
@@ -615,14 +628,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     margin: 16,
     right: 0,
     bottom: 0,
     height: 48,
     width: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

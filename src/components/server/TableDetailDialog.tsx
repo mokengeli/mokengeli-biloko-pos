@@ -16,6 +16,7 @@ interface TableDetailDialogProps {
   onAddToOrder: (order: DomainOrder) => void;
   onRequestBill: (order: DomainOrder) => void;
   onPrintTicket: (order: DomainOrder) => void;
+  onServeReadyDishes: (order: DomainOrder) => void; // Nouvelle prop
 }
 
 export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
@@ -27,6 +28,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
   onAddToOrder,
   onRequestBill,
   onPrintTicket,
+  onServeReadyDishes,
 }) => {
   const theme = useTheme();
   const { setEditMode } = useCart();
@@ -90,6 +92,36 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
       default:
         return 'Inconnu';
     }
+  };
+
+  // Fonction pour obtenir un style de texte selon le statut
+  const getStatusTextStyle = (status: DomainOrderItem['state']) => {
+    switch (status) {
+      case 'READY':
+      case 'COOKED':
+        return { color: theme.colors.success, fontWeight: 'bold' as const };
+      case 'PENDING':
+      case 'IN_PREPARATION':
+        return { color: theme.colors.warning || '#FF9800', fontWeight: 'bold' as const };
+      case 'REJECTED':
+        return { color: theme.colors.error, fontWeight: 'bold' as const };
+      default:
+        return {};
+    }
+  };
+
+  // Vérifier si une commande a des plats prêts à servir
+  const hasReadyDishes = (order: DomainOrder): boolean => {
+    return order.items.some(item => 
+      item.state === 'READY' || item.state === 'COOKED'
+    );
+  };
+
+  // Compter les plats prêts dans une commande
+  const countReadyDishes = (order: DomainOrder): number => {
+    return order.items.filter(item => 
+      item.state === 'READY' || item.state === 'COOKED'
+    ).length;
   };
 
   // Fonction pour gérer l'ajout d'articles à une commande existante
@@ -156,6 +188,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                                   key={item.id}
                                   title={`${item.count}x ${item.dishName}`}
                                   description={getOrderItemStatusText(item.state)}
+                                  descriptionStyle={getStatusTextStyle(item.state)}
                                   left={props => <List.Icon {...props} icon="food" />}
                                   right={props => (
                                     <Text {...props} style={styles.priceText}>
@@ -181,6 +214,22 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                                 >
                                   Ajouter
                                 </Button>
+                                
+                                {/* Nouveau bouton Servir */}
+                                {hasReadyDishes(order) && (
+                                  <Button 
+                                    mode="outlined" 
+                                    icon="silverware" 
+                                    onPress={() => onServeReadyDishes(order)}
+                                    style={[
+                                      styles.actionButton, 
+                                      styles.serveButton
+                                    ]}
+                                  >
+                                    Servir {countReadyDishes(order) > 1 ? `(${countReadyDishes(order)})` : ''}
+                                  </Button>
+                                )}
+                                
                                 <Button 
                                   mode="outlined" 
                                   icon="printer" 
@@ -315,6 +364,10 @@ const styles = StyleSheet.create({
   actionButton: {
     marginHorizontal: 4,
     minWidth: 110, // Largeur minimale pour assurer la lisibilité
+  },
+  serveButton: {
+    borderColor: '#4CAF50',
+    borderWidth: 1.5,
   },
   priceText: {
     fontWeight: '600',
