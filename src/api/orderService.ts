@@ -17,6 +17,7 @@ export interface DomainOrderItem {
     | "PAID";
   unitPrice: number;
   orderItemDate: string;
+  categories?: string[]; // Catégories du plat
 }
 
 export interface DomainCurrency {
@@ -108,6 +109,20 @@ const orderService = {
     }
   },
 
+  // Méthode pour marquer un plat comme servi
+  async markDishAsServed(itemId: number): Promise<void> {
+    try {
+      await api.put(`/api/order/dish/served`, null, {
+        params: {
+          id: itemId,
+        },
+      });
+    } catch (error) {
+      console.error("Error marking dish as served:", error);
+      throw error;
+    }
+  },
+
   // Méthode pour imprimer un ticket de commande
   async printOrderTicket(orderId: number): Promise<boolean> {
     try {
@@ -120,6 +135,7 @@ const orderService = {
       throw error;
     }
   },
+  
   // Méthode améliorée pour marquer un plat comme prêt
   async prepareOrderItem(itemId: number): Promise<void> {
     try {

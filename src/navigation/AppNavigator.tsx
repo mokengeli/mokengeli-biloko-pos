@@ -7,6 +7,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { ServerHomeScreen } from '../screens/server/ServerHomeScreen';
 import { CreateOrderScreen } from '../screens/server/CreateOrderScreen';
 import { DishCustomizationScreen } from '../screens/server/DishCustomizationScreen';
+import { ReadyDishesScreen } from '../screens/server/ReadyDishesScreen';
 import { HomeScreen } from '../screens/HomeScreen'; // Conservé pour KitchenHome et AdminHome temporaires
 import { useAuth } from '../contexts/AuthContext';
 import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
@@ -29,6 +30,10 @@ export type MainStackParamList = {
     tableName: string;
   };
   DishCustomization: DishCustomizationParamList['DishCustomization'];
+  ReadyDishes: {
+    tableId?: string;
+    tableName?: string;
+  };
 };
 
 // Créer les navigateurs
@@ -68,20 +73,21 @@ const MainNavigator: React.FC = () => {
 
   return (
     <MainStack.Navigator
-  initialRouteName={initialRoute}
-  screenOptions={{
-    headerShown: false,
-    cardStyle: { backgroundColor: '#f5f5f5' },
-  }}
->
-  <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
-  <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
-  <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
-  {/* Utiliser le vrai écran de cuisine au lieu du placeholder */}
-  <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
-  {/* L'écran AdminHome reste un placeholder pour l'instant */}
-  <MainStack.Screen name="AdminHome" component={HomeScreen} />
-</MainStack.Navigator>
+      initialRouteName={initialRoute}
+      screenOptions={{
+        headerShown: false,
+        cardStyle: { backgroundColor: '#f5f5f5' },
+      }}
+    >
+      <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
+      <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
+      <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
+      <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
+      {/* Utiliser le vrai écran de cuisine au lieu du placeholder */}
+      <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
+      {/* L'écran AdminHome reste un placeholder pour l'instant */}
+      <MainStack.Screen name="AdminHome" component={HomeScreen} />
+    </MainStack.Navigator>
   );
 };
 

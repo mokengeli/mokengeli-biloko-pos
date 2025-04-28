@@ -21,15 +21,14 @@ import { UrgentTasks, UrgentTask } from "../../components/server/UrgentTasks";
 import { TableDetailDialog } from "../../components/server/TableDetailDialog";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import { usePrinter } from "../../hooks/usePrinter";
-import tableService, { DomainRefTable } from "../../api/tableService";
-import orderService, {
-  DomainOrder,
-  DomainOrderItem,
-} from "../../api/orderService";
+import tableService from "../../api/tableService";
+import orderService, { DomainOrder } from "../../api/orderService";
 import {
   webSocketService,
   OrderNotification,
 } from "../../services/WebSocketService";
+import { ReadyDishesScreen } from './ReadyDishesScreen';
+
 
 // Types pour la navigation
 type ServerStackParamList = {
@@ -37,6 +36,10 @@ type ServerStackParamList = {
   CreateOrder: {
     tableId: number;
     tableName: string;
+  };
+  ReadyDishes: {
+    tableId?: string;
+    tableName?: string;
   };
 };
 
@@ -370,12 +373,10 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
   // Naviguer vers la page des plats prêts
   const handleReadyDishes = useCallback(() => {
-    // Pour l'instant, on affiche seulement la modal indiquant que cette fonctionnalité n'est pas disponible
-    setNotAvailableDialog({
-      visible: true,
-      featureName: "Plats prêts",
-    });
-  }, []);
+    // Naviguer vers l'écran des plats prêts à servir
+    navigation.navigate('ReadyDishes', {});
+  }, [navigation]);
+  
 
   // Configuration du WebSocket
   useEffect(() => {
@@ -516,12 +517,15 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
               tasks={urgentTasks}
               onTaskPress={(task) => {
                 // Si c'est une tâche de plats prêts, naviguer vers l'écran des plats prêts
-                if (task.type === "dish_ready") {
-                  handleReadyDishes();
+                if (task.type === 'dish_ready') {
+                  navigation.navigate('ReadyDishes', {
+                    tableId: task.tableId,
+                    tableName: task.tableName
+                  });
                 } else {
                   setNotAvailableDialog({
                     visible: true,
-                    featureName: "Détails de la tâche",
+                    featureName: 'Détails de la tâche',
                   });
                 }
               }}
