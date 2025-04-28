@@ -1,35 +1,27 @@
 // src/screens/kitchen/KitchenHomeScreen.tsx
-import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, SectionList } from "react-native";
-import {
-  Appbar,
-  Text,
-  ActivityIndicator,
-  Surface,
-  useTheme,
-  Divider,
-  Portal,
-  Dialog,
-  Button,
-  Snackbar,
-} from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
-import { useAuth } from "../../contexts/AuthContext";
-import { RolesUtils, Role } from "../../utils/roles";
-import { KitchenFilter } from "../../components/kitchen/KitchenFilter";
-import { OrderCard } from "../../components/kitchen/OrderCard";
-import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
-import orderService, { DomainOrder } from "../../api/orderService";
-import {
-  webSocketService,
-  OrderNotification,
-} from "../../services/WebSocketService";
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, SectionList, Dimensions, FlatList } from 'react-native';
+import { Appbar, Text, ActivityIndicator, Surface, useTheme, Divider, Portal, Dialog, Button, Snackbar } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../../contexts/AuthContext';
+import { RolesUtils, Role } from '../../utils/roles';
+import { KitchenFilter } from '../../components/kitchen/KitchenFilter';
+import { OrderCard } from '../../components/kitchen/OrderCard';
+import { NotAvailableDialog } from '../../components/common/NotAvailableDialog';
+import orderService, { DomainOrder } from '../../api/orderService';
 
 export const KitchenHomeScreen = () => {
   const { user, logout } = useAuth();
   const theme = useTheme();
-
+  
+  // Détection de l'appareil
+  const windowWidth = Dimensions.get('window').width;
+  const windowHeight = Dimensions.get('window').height;
+  console.log({windowWidth, windowHeight})
+  const isTablet = windowWidth >= 768;
+  const isLandscape = windowWidth > windowHeight;
+  
   // États
   const [pendingOrders, setPendingOrders] = useState<DomainOrder[]>([]);
   const [readyOrders, setReadyOrders] = useState<DomainOrder[]>([]);
@@ -38,32 +30,25 @@ export const KitchenHomeScreen = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [notAvailableDialog, setNotAvailableDialog] = useState({
     visible: false,
-    featureName: "",
+    featureName: '',
   });
-
+  
   // États pour la gestion des erreurs
   const [errorDialog, setErrorDialog] = useState({
     visible: false,
-    title: "",
-    message: "",
+    title: '',
+    message: '',
   });
   const [snackbarError, setSnackbarError] = useState({
     visible: false,
-    message: "",
+    message: '',
   });
-
+  
+  // État pour les notifications informatives (WebSocket)
   const [infoSnackbar, setInfoSnackbar] = useState({
     visible: false,
-    message: "",
+    message: '',
   });
-
-  // Fonction pour montrer une notification informative
-  const showInfoSnackbar = (message: string) => {
-    setInfoSnackbar({
-      visible: true,
-      message,
-    });
-  };
 
   // Fonction pour afficher une erreur dans une boîte de dialogue
   const showErrorDialog = (title: string, message: string) => {
@@ -81,11 +66,19 @@ export const KitchenHomeScreen = () => {
       message,
     });
   };
-
+  
+  // Fonction pour afficher une notification informative
+  const showInfoSnackbar = (message: string) => {
+    setInfoSnackbar({
+      visible: true,
+      message,
+    });
+  };
+  
   // Chargement des commandes
   const loadOrders = useCallback(async () => {
     if (!user?.tenantCode) {
-      showErrorSnackbar("Code de restaurant non disponible");
+      showErrorSnackbar('Code de restaurant non disponible');
       setIsLoading(false);
       return;
     }
@@ -94,15 +87,15 @@ export const KitchenHomeScreen = () => {
 
     try {
       // Chargement des commandes
-      const pendingResponse = await orderService.getOrdersByState("PENDING");
+      const pendingResponse = await orderService.getOrdersByState('PENDING');
       setPendingOrders(pendingResponse);
-
-      const readyResponse = await orderService.getOrdersByState("READY");
+      
+      const readyResponse = await orderService.getOrdersByState('READY');
       setReadyOrders(readyResponse);
     } catch (err: any) {
-      console.error("Error loading orders:", err);
+      console.error('Error loading orders:', err);
       // Afficher l'erreur dans une snackbar sans bloquer l'interface
-      showErrorSnackbar("Erreur lors du chargement des commandes");
+      showErrorSnackbar('Erreur lors du chargement des commandes');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -117,9 +110,9 @@ export const KitchenHomeScreen = () => {
 
   // Filtrage par catégorie
   const handleCategorySelect = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((cat) => cat !== category)
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(cat => cat !== category) 
         : [...prev, category]
     );
   };
@@ -130,29 +123,26 @@ export const KitchenHomeScreen = () => {
       await orderService.prepareOrderItem(itemId);
       loadOrders();
     } catch (err: any) {
-      console.error("Error marking item as ready:", err);
-
+      console.error('Error marking item as ready:', err);
+      
       // Afficher une erreur détaillée mais non bloquante
       if (err.response) {
         // Erreur de réponse du serveur
         showErrorDialog(
-          "Erreur lors de la mise à jour",
-          `Le serveur a répondu avec une erreur: ${err.response.status} ${
-            err.response.statusText || ""
-          }`
+          'Erreur lors de la mise à jour',
+          `Le serveur a répondu avec une erreur: ${err.response.status} ${err.response.statusText || ''}`
         );
       } else if (err.request) {
         // Requête envoyée mais pas de réponse
         showErrorDialog(
-          "Erreur de connexion",
-          "La requête a été envoyée mais aucune réponse n'a été reçue. Vérifiez votre connexion internet."
+          'Erreur de connexion',
+          'La requête a été envoyée mais aucune réponse n\'a été reçue. Vérifiez votre connexion internet.'
         );
       } else {
         // Erreur lors de la configuration de la requête
         showErrorDialog(
-          "Erreur de requête",
-          err.message ||
-            "Une erreur s'est produite lors de la mise à jour du statut du plat"
+          'Erreur de requête',
+          err.message || 'Une erreur s\'est produite lors de la mise à jour du statut du plat'
         );
       }
     }
@@ -164,25 +154,23 @@ export const KitchenHomeScreen = () => {
       await orderService.rejectDish(itemId);
       loadOrders();
     } catch (err: any) {
-      console.error("Error rejecting item:", err);
-
+      console.error('Error rejecting item:', err);
+      
       // Afficher une erreur détaillée mais non bloquante
       if (err.response) {
         showErrorDialog(
-          "Erreur lors du rejet du plat",
-          `Le serveur a répondu avec une erreur: ${err.response.status} ${
-            err.response.statusText || ""
-          }`
+          'Erreur lors du rejet du plat',
+          `Le serveur a répondu avec une erreur: ${err.response.status} ${err.response.statusText || ''}`
         );
       } else if (err.request) {
         showErrorDialog(
-          "Erreur de connexion",
-          "La requête a été envoyée mais aucune réponse n'a été reçue. Vérifiez votre connexion internet."
+          'Erreur de connexion',
+          'La requête a été envoyée mais aucune réponse n\'a été reçue. Vérifiez votre connexion internet.'
         );
       } else {
         showErrorDialog(
-          "Erreur de requête",
-          err.message || "Une erreur s'est produite lors du rejet du plat"
+          'Erreur de requête',
+          err.message || 'Une erreur s\'est produite lors du rejet du plat'
         );
       }
     }
@@ -191,58 +179,17 @@ export const KitchenHomeScreen = () => {
   // Obtenir toutes les catégories uniques
   const getAllCategories = () => {
     const categories = new Set<string>();
-
-    [...pendingOrders, ...readyOrders].forEach((order) => {
-      order.items.forEach((item) => {
+    
+    [...pendingOrders, ...readyOrders].forEach(order => {
+      order.items.forEach(item => {
         if (item.categories && item.categories.length > 0) {
-          item.categories.forEach((category) => categories.add(category));
+          item.categories.forEach(category => categories.add(category));
         }
       });
     });
-
+    
     return Array.from(categories);
   };
-
-  // Gestion des WebSockets pour les mises à jour en temps réel
-  useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    // Se connecter au WebSocket au montage du composant
-    webSocketService.connect(user.tenantCode).catch((error) => {
-      console.error("WebSocket connection error:", error);
-      showErrorSnackbar(
-        "Erreur de connexion au service de mise à jour en temps réel"
-      );
-    });
-
-    // S'abonner aux notifications
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-
-    // Nettoyage à la destruction du composant
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode]);
-
-  // Gestionnaire de notifications WebSocket
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("Processing notification:", notification);
-
-      // Recharger les données suite à une notification
-      // Autre option: mettre à jour sélectivement les commandes concernées
-      loadOrders();
-
-      // Afficher une notification à l'utilisateur pour indiquer la mise à jour
-      showInfoSnackbar(
-        `Commande #${notification.orderId} mise à jour: ${notification.newState}`
-      );
-    },
-    [loadOrders]
-  );
 
   // Chargement initial et à chaque focus
   useEffect(() => {
@@ -254,23 +201,31 @@ export const KitchenHomeScreen = () => {
       loadOrders();
     }, [loadOrders])
   );
+  
+  // Écouteur pour les changements d'orientation
+  useEffect(() => {
+    const dimensionsListener = Dimensions.addEventListener('change', () => {
+      // Force un re-rendu quand l'orientation change
+      setRefreshing(true);
+      setTimeout(() => setRefreshing(false), 0);
+    });
+
+    return () => {
+      dimensionsListener.remove();
+    };
+  }, []);
 
   // Filtrer les commandes selon les catégories sélectionnées
   const getFilteredOrders = (orders: DomainOrder[]) => {
     if (selectedCategories.length === 0) return orders;
-
-    return orders
-      .map((order) => ({
-        ...order,
-        items: order.items.filter(
-          (item) =>
-            item.categories &&
-            item.categories.some((category) =>
-              selectedCategories.includes(category)
-            )
-        ),
-      }))
-      .filter((order) => order.items.length > 0);
+    
+    return orders.map(order => ({
+      ...order,
+      items: order.items.filter(item => 
+        item.categories && 
+        item.categories.some(category => selectedCategories.includes(category))
+      )
+    })).filter(order => order.items.length > 0);
   };
 
   const filteredPendingOrders = getFilteredOrders(pendingOrders);
@@ -278,25 +233,20 @@ export const KitchenHomeScreen = () => {
 
   // Préparer les données pour la SectionList
   const sections = [
-    {
-      title: `Commandes à préparer (${filteredPendingOrders.length})`,
+    { 
+      title: `Commandes à préparer (${filteredPendingOrders.length})`, 
       data: filteredPendingOrders,
-      status: "PENDING" as const,
+      status: 'PENDING' as const
     },
-    {
-      title: `Commandes prêtes à servir (${filteredReadyOrders.length})`,
+    { 
+      title: `Commandes prêtes à servir (${filteredReadyOrders.length})`, 
       data: filteredReadyOrders,
-      status: "READY" as const,
-    },
+      status: 'READY' as const
+    }
   ];
 
   // Affichage de chargement
-  if (
-    isLoading &&
-    !refreshing &&
-    pendingOrders.length === 0 &&
-    readyOrders.length === 0
-  ) {
+  if (isLoading && !refreshing && pendingOrders.length === 0 && readyOrders.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -306,87 +256,147 @@ export const KitchenHomeScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <Appbar.Header style={styles.appbar}>
-        <Appbar.Content
-          title="Mokengeli Biloko POS - Cuisine"
-          subtitle={`${RolesUtils.getRoleDescription(Role.COOK)}: ${
-            user?.firstName || ""
-          } ${user?.lastName || ""}`}
+        <Appbar.Content 
+          title="Mokengeli Biloko POS - Cuisine" 
+          subtitle={`${RolesUtils.getRoleDescription(Role.COOK)}: ${user?.firstName || ''} ${user?.lastName || ''}`}
         />
-        <Appbar.Action
-          icon="refresh"
-          onPress={onRefresh}
-          disabled={refreshing}
-        />
+        <Appbar.Action icon="refresh" onPress={onRefresh} disabled={refreshing} />
         <Appbar.Action icon="logout" onPress={logout} />
       </Appbar.Header>
-
+      
       {/* Filtres de catégories */}
-      <KitchenFilter
+      <KitchenFilter 
         categories={getAllCategories()}
         selectedCategories={selectedCategories}
         onSelectCategory={handleCategorySelect}
       />
+      
+      {/* Contenu principal */}
+      <View style={styles.contentContainer}>
+        {isTablet && isLandscape ? (
+          // Layout optimisé pour tablette en mode paysage
+          <View style={styles.tabletLandscapeLayout}>
+            {/* Colonne des commandes à préparer */}
+            <View style={styles.tabletColumn}>
+              <View style={styles.tabletSectionHeader}>
+                <Text style={styles.sectionTitle}>{`Commandes à préparer (${filteredPendingOrders.length})`}</Text>
+                <Divider style={styles.divider} />
+              </View>
+              <FlatList
+                data={filteredPendingOrders}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <OrderCard
+                    order={item}
+                    status="PENDING"
+                    onMarkAsReady={handleMarkAsReady}
+                    onReject={handleRejectItem}
+                    style={styles.orderCard}
+                  />
+                )}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>
+                      Aucune commande à préparer
+                    </Text>
+                  </View>
+                }
+              />
+            </View>
 
-      {/* Liste des commandes */}
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, section }) => (
-          <OrderCard
-            order={item}
-            status={section.status}
-            onMarkAsReady={handleMarkAsReady}
-            onReject={handleRejectItem}
-            style={styles.orderCard}
+            {/* Colonne des commandes prêtes */}
+            <View style={styles.tabletColumn}>
+              <View style={styles.tabletSectionHeader}>
+                <Text style={styles.sectionTitle}>{`Commandes prêtes à servir (${filteredReadyOrders.length})`}</Text>
+                <Divider style={styles.divider} />
+              </View>
+              <FlatList
+                data={filteredReadyOrders}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <OrderCard
+                    order={item}
+                    status="READY"
+                    onMarkAsReady={handleMarkAsReady}
+                    onReject={handleRejectItem}
+                    style={styles.orderCard}
+                  />
+                )}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>
+                      Aucune commande prête à servir
+                    </Text>
+                  </View>
+                }
+              />
+            </View>
+          </View>
+        ) : (
+          // Layout standard (téléphone ou tablette en portrait)
+          <SectionList
+            sections={sections}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item, section }) => (
+              <OrderCard
+                order={item}
+                status={section.status}
+                onMarkAsReady={handleMarkAsReady}
+                onReject={handleRejectItem}
+                style={styles.orderCard}
+              />
+            )}
+            renderSectionHeader={({ section: { title } }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                <Divider style={styles.divider} />
+              </View>
+            )}
+            stickySectionHeadersEnabled={true}
+            contentContainerStyle={styles.listContent}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  Aucune commande disponible
+                </Text>
+              </View>
+            }
           />
         )}
-        renderSectionHeader={({ section: { title } }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Divider style={styles.divider} />
-          </View>
-        )}
-        stickySectionHeadersEnabled={true}
-        contentContainerStyle={styles.listContent}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Aucune commande disponible</Text>
-          </View>
-        }
-      />
-
+      </View>
+      
       {/* Dialogue pour les fonctionnalités non disponibles */}
       <NotAvailableDialog
         visible={notAvailableDialog.visible}
-        onDismiss={() =>
-          setNotAvailableDialog({ visible: false, featureName: "" })
-        }
+        onDismiss={() => setNotAvailableDialog({ visible: false, featureName: '' })}
         featureName={notAvailableDialog.featureName}
       />
-
+      
       {/* Dialogue d'erreur */}
       <Portal>
         <Dialog
           visible={errorDialog.visible}
           onDismiss={() => setErrorDialog({ ...errorDialog, visible: false })}
         >
-          <Dialog.Title style={styles.errorDialogTitle}>
-            {errorDialog.title}
-          </Dialog.Title>
+          <Dialog.Title style={styles.errorDialogTitle}>{errorDialog.title}</Dialog.Title>
           <Dialog.Content>
             <Text style={styles.errorDialogMessage}>{errorDialog.message}</Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button
-              onPress={() => setErrorDialog({ ...errorDialog, visible: false })}
-            >
-              Fermer
-            </Button>
-            <Button
+            <Button onPress={() => setErrorDialog({ ...errorDialog, visible: false })}>Fermer</Button>
+            <Button 
               onPress={() => {
                 setErrorDialog({ ...errorDialog, visible: false });
                 onRefresh();
@@ -397,8 +407,22 @@ export const KitchenHomeScreen = () => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-
-      {/* Snackbar d'information pour les notifications WebSocket */}
+      
+      {/* Snackbar d'erreur */}
+      <Snackbar
+        visible={snackbarError.visible}
+        onDismiss={() => setSnackbarError({ ...snackbarError, visible: false })}
+        duration={4000}
+        action={{
+          label: 'Réessayer',
+          onPress: onRefresh,
+        }}
+        style={styles.errorSnackbar}
+      >
+        {snackbarError.message}
+      </Snackbar>
+      
+      {/* Snackbar d'information (WebSocket) */}
       <Snackbar
         visible={infoSnackbar.visible}
         onDismiss={() => setInfoSnackbar({ ...infoSnackbar, visible: false })}
@@ -407,19 +431,6 @@ export const KitchenHomeScreen = () => {
       >
         {infoSnackbar.message}
       </Snackbar>
-      {/* Snackbar d'erreur */}
-      <Snackbar
-        visible={snackbarError.visible}
-        onDismiss={() => setSnackbarError({ ...snackbarError, visible: false })}
-        duration={4000}
-        action={{
-          label: "Réessayer",
-          onPress: onRefresh,
-        }}
-        style={styles.errorSnackbar}
-      >
-        {snackbarError.message}
-      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -427,7 +438,7 @@ export const KitchenHomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: '#f5f5f5',
   },
   appbar: {
     height: 56,
@@ -435,23 +446,26 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
   },
+  contentContainer: {
+    flex: 1,
+  },
   sectionHeader: {
-    backgroundColor: "#f5f5f5",
+    backgroundColor: '#f5f5f5',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: '#e0e0e0',
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 8,
   },
   divider: {
@@ -466,23 +480,48 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyText: {
     fontSize: 16,
     opacity: 0.7,
   },
   errorDialogTitle: {
-    color: "#D32F2F",
+    color: '#D32F2F',
   },
   errorDialogMessage: {
     fontSize: 16,
   },
   errorSnackbar: {
-    backgroundColor: "#D32F2F",
+    backgroundColor: '#D32F2F',
   },
   infoSnackbar: {
-    backgroundColor: "#4CAF50", // Vert pour les mises à jour
+    backgroundColor: '#4CAF50', // Vert pour les notifications informatives
+  },
+  // Styles pour tablette
+  tabletLandscapeLayout: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+  },
+  tabletColumn: {
+    flex: 1,
+    margin: 8,
+    borderRadius: 8,
+    backgroundColor: 'white',
+    elevation: 2,
+    maxHeight: '100%',
+  },
+  tabletSectionHeader: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
 });
+
+export default KitchenHomeScreen;

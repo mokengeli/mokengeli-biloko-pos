@@ -1,6 +1,6 @@
 // src/components/kitchen/OrderCard.tsx
 import React, { useState } from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
 import {
   Card,
   Text,
@@ -115,8 +115,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     return null;
   }
 
+  const windowWidth = Dimensions.get('window').width;
+  const isTablet = windowWidth >= 768;
+
   return (
-    <Card style={[styles.card, style]}>
+    <Card style={[
+      styles.card, 
+      style,
+      isTablet && styles.tabletCard
+    ]}>
       <View style={styles.cardInner}>
         <View
           style={[
@@ -447,5 +454,8 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     marginLeft: 8,
+  },
+  tabletCard: {
+    margin: 8,  // Marge uniforme en mode tablette
   },
 });
