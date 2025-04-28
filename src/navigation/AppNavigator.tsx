@@ -37,6 +37,27 @@ export type MainStackParamList = {
     tableId?: string;
     tableName?: string;
   };
+  PrepareBill: {
+    orderId: number;
+    tableId?: string;
+    tableName?: string;
+  };
+  SplitBill: {
+    orderId: number;
+    tableName?: string;
+    billItems: any[];
+    totalAmount: number;
+    splitType: 'perPerson' | 'custom';
+    numberOfPeople: number;
+    currency: string;
+  };
+  PaymentScreen: {
+    orderId: number;
+    tableName?: string;
+    bills: any[];
+    totalAmount: number;
+    currency: string;
+  };
 };
 
 // Créer les navigateurs
@@ -86,10 +107,13 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
       <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
       <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
-      {/* Utiliser le vrai écran de cuisine au lieu du placeholder */}
       <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
-      {/* L'écran AdminHome reste un placeholder pour l'instant */}
       <MainStack.Screen name="AdminHome" component={HomeScreen} />
+      
+      {/* Écrans de paiement */}
+      <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
+      <MainStack.Screen name="SplitBill" component={SplitBillScreen} />
+      <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
     </MainStack.Navigator>
   );
 };

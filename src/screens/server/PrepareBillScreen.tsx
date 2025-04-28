@@ -160,17 +160,24 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     // En fonction du type de répartition, naviguer vers l'écran approprié
     if (splitType === 'total') {
       // Addition totale: aller directement à l'écran de paiement
+      // Créer un tableau avec une seule facture pour l'addition totale
+      const bills = [{
+        personId: 1,
+        personName: 'Addition totale',
+        amount: calculateTotal(),
+        items: selectedItems
+      }];
+      
       navigation.navigate('PaymentScreen', {
         orderId,
         tableName,
-        billItems: billItems.filter(item => item.selected),
+        bills, // Passer le tableau de factures formaté correctement
         totalAmount: calculateTotal(),
-        splitType,
         currency: order?.currency.code || 'EUR'
       });
     } else {
       // Addition divisée: aller à l'écran de répartition
-      navigation.navigate('SplitBillScreen', {
+      navigation.navigate('SplitBill', {
         orderId,
         tableName,
         billItems: billItems.filter(item => item.selected),

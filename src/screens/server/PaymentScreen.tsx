@@ -31,7 +31,7 @@ import { NotAvailableDialog } from '../../components/common/NotAvailableDialog';
 
 // Type définitions pour la navigation
 type PaymentParamList = {
-  Payment: {
+  PaymentScreen: {
     orderId: number;
     tableName?: string;
     bills: BillForPerson[];
@@ -40,8 +40,8 @@ type PaymentParamList = {
   };
 };
 
-type PaymentScreenRouteProp = RouteProp<PaymentParamList, 'Payment'>;
-type PaymentScreenNavigationProp = StackNavigationProp<PaymentParamList, 'Payment'>;
+type PaymentScreenRouteProp = RouteProp<PaymentParamList, 'PaymentScreen'>;
+type PaymentScreenNavigationProp = StackNavigationProp<PaymentParamList, 'PaymentScreen'>;
 
 interface PaymentScreenProps {
   navigation: PaymentScreenNavigationProp;
@@ -104,6 +104,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Initialiser les données de paiement
   useEffect(() => {
+    // Vérification de sécurité pour éviter l'erreur
+    if (!bills || !Array.isArray(bills)) {
+      console.error('PaymentScreen: bills parameter is missing or not an array');
+      setError('Données de facturation manquantes ou invalides');
+      return;
+    }
+    
     const initialPayments: PaymentData[] = bills.map(bill => ({
       personId: bill.personId,
       amount: bill.amount,
@@ -124,6 +131,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Récupérer les informations d'une personne
   const getPersonInfo = (personId: number): BillForPerson | undefined => {
+    if (!bills || !Array.isArray(bills)) return undefined;
     return bills.find(bill => bill.personId === personId);
   };
   
@@ -638,6 +646,32 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       </Card>
     );
   };
+  
+  // Si bills est undefined, afficher une erreur
+  if (!bills || !Array.isArray(bills)) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => navigation.goBack()} />
+          <Appbar.Content title="Paiement" />
+        </Appbar.Header>
+        
+        <View style={styles.errorScreenContainer}>
+          <Icon name="alert-circle-outline" size={64} color={theme.colors.error} />
+          <Text style={styles.errorScreenText}>
+            Données de facturation incorrectes. Veuillez retourner à l'écran précédent.
+          </Text>
+          <Button 
+            mode="contained" 
+            onPress={() => navigation.goBack()}
+            style={{marginTop: 16}}
+          >
+            Retour
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
   
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
@@ -1335,5 +1369,17 @@ const styles = StyleSheet.create({
   },
   errorSnackbar: {
     backgroundColor: '#F44336',
+  },
+  errorScreenContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorScreenText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+    color: '#D32F2F',
   },
 });
