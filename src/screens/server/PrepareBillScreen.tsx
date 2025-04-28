@@ -347,21 +347,27 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           <ScrollView>
             {/* En-tête avec sélection globale */}
             <Surface style={styles.selectionHeader}>
-              <View style={styles.selectAllContainer}>
-                <Checkbox
-                  status={allSelected ? 'checked' : 'unchecked'}
-                  onPress={toggleAllSelection}
-                />
-                <Text style={styles.selectAllText}>Sélectionner tous les articles</Text>
-              </View>
-              
-              <View style={styles.orderInfo}>
-                <Text style={styles.orderIdText}>Commande #{order?.id}</Text>
-                <Text>
-                  {new Date(order?.orderDate || '').toLocaleString()}
-                </Text>
-              </View>
-            </Surface>
+  <View style={styles.selectionHeaderContent}>
+    <View style={styles.selectAllContainer}>
+      <Checkbox
+        status={allSelected ? 'checked' : 'unchecked'}
+        onPress={toggleAllSelection}
+      />
+      <Text style={styles.selectAllText} numberOfLines={1} ellipsizeMode="tail">
+        Tout sélectionner
+      </Text>
+    </View>
+    
+    <View style={styles.orderInfo}>
+      <Text style={styles.orderIdText} numberOfLines={1}>
+        #{order?.id}
+      </Text>
+      <Text style={styles.orderDateText} numberOfLines={1}>
+        {new Date(order?.orderDate || '').toLocaleTimeString()}
+      </Text>
+    </View>
+  </View>
+</Surface>
             
             {/* Liste des articles */}
             <View style={styles.itemsContainer}>
@@ -510,27 +516,35 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   selectionHeader: {
-    padding: 16,
+    padding: 12,
+    marginBottom: 8,
+    elevation: 2,
+  },
+  selectionHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    elevation: 2,
-    marginBottom: 8,
   },
   selectAllContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 3, // Donner plus d'espace au texte de sélection
   },
   selectAllText: {
     marginLeft: 8,
-    fontSize: 16,
+    fontSize: 14, // Réduire la taille de police
   },
   orderInfo: {
+    flex: 2, // Donner moins d'espace mais suffisant pour le numéro de commande
     alignItems: 'flex-end',
   },
   orderIdText: {
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14, // Réduire légèrement la taille
+  },
+  orderDateText: {
+    fontSize: 12, // Réduire la taille pour la date
+    opacity: 0.7,
   },
   itemsContainer: {
     padding: 16,
