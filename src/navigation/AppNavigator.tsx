@@ -14,6 +14,9 @@ import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
 import { DishCustomizationParamList } from '../screens/server/DishCustomizationScreen';
 import { KitchenHomeScreen } from '../screens/kitchen/KitchenHomeScreen';
 import { RolesUtils } from '../utils/roles';
+import { PrepareBillScreen } from '../screens/server/PrepareBillScreen';
+import { SplitBillScreen } from '../screens/server/SplitBillScreen';
+import { PaymentScreen } from '../screens/server/PaymentScreen';
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -23,8 +26,8 @@ export type AuthStackParamList = {
 // Types des paramètres pour les routes principales
 export type MainStackParamList = {
   ServerHome: undefined;
-  KitchenHome: undefined; // À implémenter plus tard
-  AdminHome: undefined;   // À implémenter plus tard
+  KitchenHome: undefined;
+  AdminHome: undefined;
   CreateOrder: {
     tableId: number;
     tableName: string;

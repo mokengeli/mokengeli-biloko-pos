@@ -135,7 +135,7 @@ const orderService = {
       throw error;
     }
   },
-  
+
   // Méthode améliorée pour marquer un plat comme prêt
   async prepareOrderItem(itemId: number): Promise<void> {
     try {
@@ -161,6 +161,29 @@ const orderService = {
     } catch (error) {
       console.error("Error rejecting dish:", error);
       throw error; // Laisser l'erreur se propager pour être traitée par le composant
+    }
+  },
+  // Méthode pour récupérer une commande par son ID
+  async getOrderById(orderId: number): Promise<DomainOrder> {
+    try {
+      const response = await api.get(`/api/order/${orderId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching order with ID ${orderId}:`, error);
+      throw error;
+    }
+  },
+  // Méthode pour marquer un plat comme payé
+  async markDishAsPaid(itemId: number): Promise<void> {
+    try {
+      await api.put(`/api/order/dish/paid`, null, {
+        params: {
+          id: itemId,
+        },
+      });
+    } catch (error) {
+      console.error("Error marking dish as paid:", error);
+      throw error;
     }
   },
 };

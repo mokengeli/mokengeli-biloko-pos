@@ -27,6 +27,7 @@ import {
   webSocketService,
   OrderNotification,
 } from "../../services/WebSocketService";
+import { PrepareBillScreen } from './PrepareBillScreen';
 
 // Types pour la navigation
 type ServerStackParamList = {
@@ -38,6 +39,27 @@ type ServerStackParamList = {
   ReadyDishes: {
     tableId?: string;
     tableName?: string;
+  };
+  PrepareBill: {
+    orderId: number;
+    tableId?: string;
+    tableName?: string;
+  };
+  SplitBill: {
+    orderId: number;
+    tableName?: string;
+    billItems: any[];
+    totalAmount: number;
+    splitType: 'perPerson' | 'custom';
+    numberOfPeople: number;
+    currency: string;
+  };
+  Payment: {
+    orderId: number;
+    tableName?: string;
+    bills: any[];
+    totalAmount: number;
+    currency: string;
   };
 };
 
@@ -342,12 +364,16 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
   // Gérer l'action "Demander l'addition"
   const handleRequestBill = useCallback((order: DomainOrder) => {
+    // Fermer le dialogue de la table
     setTableDialogVisible(false);
-    setNotAvailableDialog({
-      visible: true,
-      featureName: "Demande d'addition",
+    
+    // Naviguer vers l'écran de préparation d'addition
+    navigation.navigate('PrepareBill', {
+      orderId: order.id,
+      tableId: order.refTable,
+      tableName: order.refTable
     });
-  }, []);
+  }, [navigation]);
 
   // Gérer l'action "Imprimer le ticket"
   const handlePrintTicket = useCallback(
