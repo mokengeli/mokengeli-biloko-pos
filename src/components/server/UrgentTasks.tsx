@@ -1,6 +1,6 @@
 // src/components/server/UrgentTasks.tsx
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, FlatList, Dimensions } from 'react-native';
 import { Text, Card, Badge, Divider, Surface, useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -29,6 +29,8 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [animation] = useState(new Animated.Value(expanded ? 1 : 0));
+  const windowWidth = Dimensions.get('window').width;
+  const isTablet = windowWidth >= 768;
 
   // Fonction pour basculer l'état d'expansion
   const toggleExpanded = () => {
@@ -76,16 +78,17 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
     }
   };
 
- // Formatter la date pour l'affichage
- const formatTimestamp = (timestamp: string) => {
-  try {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch (error) {
-    return '';
-  }
-};
+  // Formatter la date pour l'affichage
+  const formatTimestamp = (timestamp: string) => {
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      return '';
+    }
+  };
 
+  // Rendu d'une tâche individuelle
   const renderTask = ({ item }: { item: UrgentTask }) => (
     <TouchableOpacity 
       onPress={() => onTaskPress(item)}
@@ -135,7 +138,7 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.headerContent}>
-            <Text style={styles.header}>Tâches urgentes</Text>
+              <Text style={styles.header}>Tâches urgentes</Text>
               <Badge 
                 style={[styles.countBadge, { backgroundColor: theme.colors.error }]} 
                 size={24}
@@ -164,13 +167,20 @@ export const UrgentTasks: React.FC<UrgentTasksProps> = ({
                   <Text style={styles.emptyText}>Aucune tâche urgente</Text>
                 </View>
               ) : (
-                <View style={styles.listContainer}>
-                  {tasks.map((item) => (
-                    <React.Fragment key={item.id}>
-                      {renderTask({ item })}
-                    </React.Fragment>
-                  ))}
-                </View>
+                <FlatList
+                  data={tasks}
+                  renderItem={renderTask}
+                  keyExtractor={item => item.id}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={true}
+                  style={styles.taskList}
+                  horizontal={isTablet} // Mode horizontal sur tablette
+                  showsHorizontalScrollIndicator={isTablet}
+                  ItemSeparatorComponent={() => <View style={styles.separator} />}
+                  initialNumToRender={5}
+                  maxToRenderPerBatch={10}
+                  windowSize={10}
+                />
               )}
             </View>
           )}
@@ -217,6 +227,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 8,
+    maxHeight: 300, // Limiter la hauteur pour rendre le défilement nécessaire
   },
   emptyContainer: {
     padding: 24,
@@ -228,14 +239,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
   },
-  listContainer: {
-    padding: 8,
+  taskList: {
+    maxHeight: 300,
   },
   listContent: {
     padding: 8,
   },
+  separator: {
+    height: 8, // Espace entre les éléments
+  },
   taskCardContainer: {
-    marginVertical: 6,
+    marginBottom: 0, // Géré par le séparateur de FlatList
   },
   taskCardWrapper: {
     borderRadius: 8,

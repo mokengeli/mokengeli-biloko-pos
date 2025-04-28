@@ -14,7 +14,8 @@ import { TableDetailDialog } from '../../components/server/TableDetailDialog';
 import { NotAvailableDialog } from '../../components/common/NotAvailableDialog';
 import { usePrinter } from '../../hooks/usePrinter';
 import tableService, { DomainRefTable } from '../../api/tableService';
-import orderService, { DomainOrder } from '../../api/orderService';
+import orderService, { DomainOrder, DomainOrderItem } from '../../api/orderService';
+import { webSocketService, OrderNotification } from '../../services/WebSocketService';
 
 // Types pour la navigation
 type ServerStackParamList = {
@@ -52,99 +53,186 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({ navigation }
     featureName: '',
   });
 
-// Charger les données initiales
-const loadData = useCallback(async () => {
-  if (!user?.tenantCode) {
-    setError('Code de restaurant non disponible');
-    setIsLoading(false);
-    return;
-  }
+  // Générer un ID unique pour les tâches
+  const generateTaskId = useCallback(() => {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  }, []);
 
-  setIsLoading(true);
-  setError(null);
+  // Charger les plats prêts à servir
+const loadReadyDishes = useCallback(async () => {
+  if (!user?.tenantCode) return 0;
 
   try {
-    // Charger les tables
-    const tablesResponse = await tableService.getTables(user.tenantCode);
+    // Récupérer toutes les commandes avec des plats prêts
+    const readyOrders = await orderService.getOrdersByState("READY");
     
-    // Charger les commandes actives pour déterminer le statut des tables
-    const tablesWithStatus: TableWithStatus[] = [];
-    const tableStatusMap = new Map<number, boolean>(); // Map pour stocker le statut d'occupation des tables
+    // Compter les plats prêts
     let readyItemsCount = 0;
-    
-    // Pour chaque table, vérifier s'il existe des commandes actives
-    for (const table of tablesResponse.content) {
-      try {
-        const activeOrders = await orderService.getActiveOrdersByTable(table.id);
-        const isOccupied = activeOrders.length > 0;
-        
-        // Stocker le statut de la table
-        tableStatusMap.set(table.id, isOccupied);
-        
-        // Compter les articles prêts pour le badge
-        if (isOccupied) {
-          for (const order of activeOrders) {
-            for (const item of order.items) {
-              if (item.state === 'READY' || item.state === 'COOKED') {
-                readyItemsCount++;
-              }
-            }
-          }
+    readyOrders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.state === 'READY' || item.state === 'COOKED') {
+          readyItemsCount++;
         }
-      } catch (err) {
-        console.error(`Error fetching active orders for table ${table.id}:`, err);
-        // En cas d'erreur, supposer que la table est libre
-        tableStatusMap.set(table.id, false);
-      }
-    }
-    
-    // Créer la liste finale des tables avec leur statut
-    for (const table of tablesResponse.content) {
-      const isOccupied = tableStatusMap.get(table.id) || false;
-      
-      tablesWithStatus.push({
-        tableData: table,
-        status: isOccupied ? 'occupied' : 'free',
-        occupationTime: isOccupied ? Math.floor(Math.random() * 90) + 15 : undefined, // Simuler le temps d'occupation
-        orderCount: isOccupied && Math.random() > 0.7 ? 1 : 0, // Certaines tables occupées nécessitent une attention
       });
-    }
-    
-    setTables(tablesWithStatus);
+    });
+
+    // Mettre à jour le compteur
     setReadyCount(readyItemsCount);
 
-    // Simuler des tâches urgentes pour la démo
-    // Dans une implémentation réelle, cela viendrait d'une API
-    const mockUrgentTasks: UrgentTask[] = [
-      {
-        id: '1',
-        type: 'dish_ready',
-        title: 'Plats prêts à servir',
-        description: '2 plats pour la table 5 sont prêts',
-        tableId: '5',
-        tableName: 'Table 5',
-        timestamp: new Date().toISOString(),
-        priority: 'high',
-      },
-      {
-        id: '2',
-        type: 'kitchen_message',
-        title: 'Message de la cuisine',
-        description: 'Plus de sauce champignons disponible',
-        timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-        priority: 'low',
-      },
-    ];
+    // Mettre à jour les tâches urgentes pour les plats prêts
+    if (readyItemsCount > 0) {
+      setUrgentTasks(prevTasks => {
+        // Conserver les tâches existantes non liées aux plats prêts
+        const nonReadyDishTasks = prevTasks.filter(task => task.type !== 'dish_ready');
+        
+        // Extraire les tâches existantes liées aux plats prêts pour préserver leur ordre
+        const existingReadyDishTasks = prevTasks.filter(task => task.type === 'dish_ready');
+        
+        // Créer un Map des tables avec des plats prêts
+        const tableWithReadyDishes = new Map<string, { count: number, orderId: number }>();
+        
+        // Remplir le Map avec les informations des plats prêts
+        readyOrders.forEach(order => {
+          const readyItemsInOrder = order.items.filter(item => 
+            item.state === 'READY' || item.state === 'COOKED'
+          ).length;
+          
+          if (readyItemsInOrder > 0) {
+            if (tableWithReadyDishes.has(order.refTable)) {
+              const existing = tableWithReadyDishes.get(order.refTable)!;
+              tableWithReadyDishes.set(order.refTable, {
+                count: existing.count + readyItemsInOrder,
+                orderId: order.id
+              });
+            } else {
+              tableWithReadyDishes.set(order.refTable, {
+                count: readyItemsInOrder,
+                orderId: order.id
+              });
+            }
+          }
+        });
+        
+        // Mettre à jour les tâches existantes ou créer de nouvelles tâches
+        const updatedReadyDishTasks: UrgentTask[] = [];
+        const tablesWithExistingTasks = new Set<string>();
+        
+        // D'abord, mettre à jour les tâches existantes pour préserver leur ordre
+        existingReadyDishTasks.forEach(task => {
+          if (task.tableName && tableWithReadyDishes.has(task.tableName)) {
+            // La table a encore des plats prêts
+            const info = tableWithReadyDishes.get(task.tableName)!;
+            tablesWithExistingTasks.add(task.tableName);
+            
+            // Mettre à jour la tâche existante
+            updatedReadyDishTasks.push({
+              ...task,
+              description: `${info.count} plat${info.count > 1 ? 's' : ''} pour la table ${task.tableName}`,
+              timestamp: new Date().toISOString() // Mettre à jour le timestamp pour indiquer une mise à jour
+            });
+          }
+          // Si la table n'a plus de plats prêts, ne pas inclure cette tâche
+        });
+        
+        // Ensuite, créer des nouvelles tâches pour les tables qui n'en avaient pas
+        tableWithReadyDishes.forEach((info, tableName) => {
+          if (!tablesWithExistingTasks.has(tableName)) {
+            updatedReadyDishTasks.push({
+              id: generateTaskId(),
+              type: 'dish_ready',
+              title: 'Plats prêts à servir',
+              description: `${info.count} plat${info.count > 1 ? 's' : ''} pour la table ${tableName}`,
+              tableId: tableName,
+              tableName: tableName,
+              timestamp: new Date().toISOString(),
+              priority: 'high',
+            });
+          }
+        });
+        
+        // Trier les tâches par timestamp pour avoir les plus récentes en premier
+        // Cela peut être adapté selon vos besoins spécifiques
+        const sortedReadyDishTasks = updatedReadyDishTasks.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        
+        // Combiner les tâches non liées aux plats prêts avec les tâches de plats prêts mises à jour
+        return [...nonReadyDishTasks, ...sortedReadyDishTasks];
+      });
+    } else {
+      // S'il n'y a pas de plats prêts, supprimer toutes les tâches de plats prêts
+      setUrgentTasks(prevTasks => 
+        prevTasks.filter(task => task.type !== 'dish_ready')
+      );
+    }
     
-    setUrgentTasks(mockUrgentTasks);
-  } catch (err: any) {
-    console.error('Error loading data:', err);
-    setError(err.message || 'Erreur lors du chargement des données');
-  } finally {
-    setIsLoading(false);
-    setRefreshing(false);
+    return readyItemsCount;
+  } catch (err) {
+    console.error('Error loading ready dishes:', err);
+    return 0;
   }
-}, [user?.tenantCode]);
+}, [user?.tenantCode, generateTaskId]);
+  // Charger les données initiales
+  const loadData = useCallback(async () => {
+    if (!user?.tenantCode) {
+      setError('Code de restaurant non disponible');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Charger les tables
+      const tablesResponse = await tableService.getTables(user.tenantCode);
+      
+      // Charger les commandes actives pour déterminer le statut des tables
+      const tablesWithStatus: TableWithStatus[] = [];
+      const tableStatusMap = new Map<number, boolean>(); // Map pour stocker le statut d'occupation des tables
+      
+      // Pour chaque table, vérifier s'il existe des commandes actives
+      for (const table of tablesResponse.content) {
+        try {
+          const activeOrders = await orderService.getActiveOrdersByTable(table.id);
+          const isOccupied = activeOrders.length > 0;
+          
+          // Stocker le statut de la table
+          tableStatusMap.set(table.id, isOccupied);
+          
+        } catch (err) {
+          console.error(`Error fetching active orders for table ${table.id}:`, err);
+          // En cas d'erreur, supposer que la table est libre
+          tableStatusMap.set(table.id, false);
+        }
+      }
+      
+      // Créer la liste finale des tables avec leur statut
+      for (const table of tablesResponse.content) {
+        const isOccupied = tableStatusMap.get(table.id) || false;
+        
+        tablesWithStatus.push({
+          tableData: table,
+          status: isOccupied ? 'occupied' : 'free',
+          occupationTime: isOccupied ? Math.floor(Math.random() * 90) + 15 : undefined, // Simuler le temps d'occupation
+          orderCount: isOccupied && Math.random() > 0.7 ? 1 : 0, // Certaines tables occupées nécessitent une attention
+        });
+      }
+      
+      setTables(tablesWithStatus);
+      
+      // Charger les plats prêts à servir
+      const readyItemsCount = await loadReadyDishes();
+      
+      // Les tâches urgentes seront mises à jour par la fonction loadReadyDishes
+    } catch (err: any) {
+      console.error('Error loading data:', err);
+      setError(err.message || 'Erreur lors du chargement des données');
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.tenantCode, loadReadyDishes]);
 
   // Rafraîchir les données
   const onRefresh = useCallback(() => {
@@ -167,6 +255,7 @@ const loadData = useCallback(async () => {
     
     setTableDialogVisible(true);
   }, []);
+
   // Gérer l'action "Nouvelle commande"
   const handleNewOrder = useCallback(() => {
     if (selectedTable) {
@@ -225,6 +314,63 @@ const loadData = useCallback(async () => {
     }
   }, [printDocument]);
 
+  // Naviguer vers la page des plats prêts
+  const handleReadyDishes = useCallback(() => {
+    // Pour l'instant, on affiche seulement la modal indiquant que cette fonctionnalité n'est pas disponible
+    setNotAvailableDialog({
+      visible: true,
+      featureName: 'Plats prêts',
+    });
+  }, []);
+
+  // Configuration du WebSocket
+  useEffect(() => {
+    if (!user?.tenantCode) return;
+
+    // Se connecter au WebSocket
+    webSocketService.connect(user.tenantCode).catch((error) => {
+      console.error("WebSocket connection error:", error);
+      setError("Erreur de connexion au service de notification en temps réel");
+    });
+
+    // S'abonner aux notifications
+    const unsubscribe = webSocketService.addSubscription(
+      user.tenantCode,
+      handleOrderNotification
+    );
+
+    // Nettoyage à la destruction du composant
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.tenantCode]);
+
+  // Gestionnaire de notifications WebSocket
+  const handleOrderNotification = useCallback(
+    (notification: OrderNotification) => {
+      console.log("Notification reçue:", notification);
+
+      // Traiter différemment selon le type de notification
+      if (notification.newState === "READY") {
+        // Un plat est passé à l'état READY, mettre à jour les plats prêts
+        loadReadyDishes();
+
+        // Pas besoin de recharger toutes les données, juste mettre à jour le compteur
+        // et créer/mettre à jour les tâches urgentes
+      } else if (notification.newState === "PENDING" && notification.previousState === "") {
+        // Nouvelle commande créée, mettre à jour l'état des tables
+        // On pourrait optimiser davantage en mettant à jour uniquement la table concernée
+        // mais pour cela il faudrait étendre le modèle de notification pour inclure la tableId
+        loadData();
+      } else if (notification.newState === "SERVED" || notification.newState === "PAID") {
+        // Un plat a été servi ou payé
+        // Mettre à jour le compteur de plats prêts
+        loadReadyDishes();
+      }
+    },
+    [loadData, loadReadyDishes]
+  );
+
   // Charger les données au démarrage et à chaque fois que l'écran est affiché
   useEffect(() => {
     loadData();
@@ -272,10 +418,7 @@ const loadData = useCallback(async () => {
           visible: true,
           featureName: 'Mes commandes',
         })}
-        onReady={() => setNotAvailableDialog({
-          visible: true,
-          featureName: 'Plats prêts',
-        })}
+        onReady={handleReadyDishes}
         readyCount={readyCount}
         disabled={isLoading}
       />
@@ -298,10 +441,17 @@ const loadData = useCallback(async () => {
             
             <UrgentTasks
               tasks={urgentTasks}
-              onTaskPress={(task) => setNotAvailableDialog({
-                visible: true,
-                featureName: 'Détails de la tâche',
-              })}
+              onTaskPress={(task) => {
+                // Si c'est une tâche de plats prêts, naviguer vers l'écran des plats prêts
+                if (task.type === 'dish_ready') {
+                  handleReadyDishes();
+                } else {
+                  setNotAvailableDialog({
+                    visible: true,
+                    featureName: 'Détails de la tâche',
+                  });
+                }
+              }}
               isLoading={isLoading}
             />
           </View>
