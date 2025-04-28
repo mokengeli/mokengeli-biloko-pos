@@ -1,13 +1,26 @@
 // src/components/kitchen/OrderCard.tsx
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Text, Button, Chip, Divider, Badge, IconButton, List, Modal, Portal, Surface, useTheme } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { DomainOrder, DomainOrderItem } from '../../api/orderService';
+import React, { useState } from "react";
+import { View, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  Card,
+  Text,
+  Button,
+  Chip,
+  Divider,
+  Badge,
+  IconButton,
+  List,
+  Modal,
+  Portal,
+  Surface,
+  useTheme,
+} from "react-native-paper";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { DomainOrder, DomainOrderItem } from "../../api/orderService";
 
 interface OrderCardProps {
   order: DomainOrder;
-  status: 'PENDING' | 'READY';
+  status: "PENDING" | "READY";
   onMarkAsReady: (itemId: number) => void;
   onReject: (itemId: number) => void;
   style?: object;
@@ -22,14 +35,16 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<DomainOrderItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DomainOrderItem | null>(
+    null
+  );
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const [actionType, setActionType] = useState<'ready' | 'reject'>('ready');
+  const [actionType, setActionType] = useState<"ready" | "reject">("ready");
 
   // Formatter la date de commande
   const formatOrderDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   // Calculer le temps écoulé depuis la commande
@@ -37,11 +52,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     const orderTime = new Date(dateString).getTime();
     const currentTime = new Date().getTime();
     const diffMinutes = Math.floor((currentTime - orderTime) / (1000 * 60));
-    
+
     if (diffMinutes < 1) return "À l'instant";
     if (diffMinutes === 1) return "1 minute";
     if (diffMinutes < 60) return `${diffMinutes} minutes`;
-    
+
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return `${hours}h ${minutes}m`;
@@ -52,7 +67,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     const diffMinutes = Math.floor(
       (new Date().getTime() - new Date(dateString).getTime()) / (1000 * 60)
     );
-    
+
     if (diffMinutes < 5) return theme.colors.success; // < 5 min: vert
     if (diffMinutes < 15) return theme.colors.warning; // 5-15 min: orange
     return theme.colors.error; // > 15 min: rouge
@@ -61,11 +76,16 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   // Grouper les items par catégorie (si nécessaire)
   const groupItemsByCategory = () => {
     // Les items sont déjà triés par catégorie depuis l'API
-    return order.items.filter(item => item.state === (status === 'PENDING' ? 'PENDING' : 'READY'));
+    return order.items.filter(
+      (item) => item.state === (status === "PENDING" ? "PENDING" : "READY")
+    );
   };
 
   // Afficher la confirmation pour marquer comme prêt ou rejeter
-  const showConfirmation = (item: DomainOrderItem, action: 'ready' | 'reject') => {
+  const showConfirmation = (
+    item: DomainOrderItem,
+    action: "ready" | "reject"
+  ) => {
     setSelectedItem(item);
     setActionType(action);
     setConfirmModalVisible(true);
@@ -74,20 +94,20 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   // Confirmer l'action
   const confirmAction = () => {
     if (!selectedItem) return;
-    
-    if (actionType === 'ready') {
+
+    if (actionType === "ready") {
       onMarkAsReady(selectedItem.id);
     } else {
       onReject(selectedItem.id);
     }
-    
+
     setConfirmModalVisible(false);
     setSelectedItem(null);
   };
 
   // Items filtrés selon le statut
   const filteredItems = order.items.filter(
-    item => item.state === (status === 'PENDING' ? 'PENDING' : 'READY')
+    (item) => item.state === (status === "PENDING" ? "PENDING" : "READY")
   );
 
   // Si aucun item ne correspond au statut, ne pas afficher la carte
@@ -98,57 +118,64 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   return (
     <Card style={[styles.card, style]}>
       <View style={styles.cardInner}>
-        <View 
+        <View
           style={[
-            styles.waitTimeIndicator, 
-            { backgroundColor: getWaitTimeColor(order.orderDate) }
-          ]} 
+            styles.waitTimeIndicator,
+            { backgroundColor: getWaitTimeColor(order.orderDate) },
+          ]}
         />
-        
+
         <Card.Content style={styles.cardContent}>
           <View style={styles.headerRow}>
             <View style={styles.orderInfo}>
               <Text style={styles.orderNumber}>Commande #{order.id}</Text>
               <View style={styles.tableTimeContainer}>
                 <Text style={styles.tableText}>Table: {order.refTable}</Text>
-                <Text style={[
-                  styles.timeText, 
-                  {color: getWaitTimeColor(order.orderDate)}
-                ]}>
+                <Text
+                  style={[
+                    styles.timeText,
+                    { color: getWaitTimeColor(order.orderDate) },
+                  ]}
+                >
                   {getElapsedTime(order.orderDate)}
                 </Text>
               </View>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.expandButton}
               onPress={() => setExpanded(!expanded)}
             >
-              <Icon 
-                name={expanded ? "chevron-up" : "chevron-down"} 
-                size={24} 
-                color={theme.colors.primary} 
+              <Icon
+                name={expanded ? "chevron-up" : "chevron-down"}
+                size={24}
+                color={theme.colors.primary}
               />
             </TouchableOpacity>
           </View>
-          
+
           <Divider style={styles.divider} />
-          
+
           {expanded ? (
             <View style={styles.itemsContainer}>
               {groupItemsByCategory().map((item, index) => {
                 // Vérifier si c'est un nouveau groupe de catégorie
-                const showCategoryHeader = index === 0 || 
-                  (index > 0 && item.categories[0] !== groupItemsByCategory()[index-1].categories[0]);
-                
+                const showCategoryHeader =
+                  index === 0 ||
+                  (index > 0 &&
+                    item.categories[0] !==
+                      groupItemsByCategory()[index - 1].categories[0]);
+
                 return (
                   <View key={item.id}>
                     {showCategoryHeader && (
                       <View style={styles.categoryHeader}>
-                        <Text style={styles.categoryTitle}>{item.categories[0]}</Text>
+                        <Text style={styles.categoryTitle}>
+                          {item.categories[0]}
+                        </Text>
                         <Divider style={styles.categoryDivider} />
                       </View>
                     )}
-                    
+
                     <View style={styles.itemRow}>
                       <View style={styles.itemInfo}>
                         <Text style={styles.itemName}>
@@ -161,12 +188,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                           </View>
                         )}
                       </View>
-                      
                       <View style={styles.itemActions}>
-                        {status === 'PENDING' ? (
-                          <Button 
-                            mode="contained" 
-                            onPress={() => showConfirmation(item, 'ready')}
+                        {status === "PENDING" ? (
+                          <Button
+                            mode="contained"
+                            onPress={() => showConfirmation(item, "ready")}
                             style={styles.readyButton}
                             compact
                           >
@@ -175,14 +201,17 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                         ) : (
                           <Badge style={styles.readyBadge}>Prêt</Badge>
                         )}
-                        
-                        <IconButton 
-                          icon="close" 
-                          size={20}
-                          color={theme.colors.error}
-                          onPress={() => showConfirmation(item, 'reject')}
-                          style={styles.rejectButton}
-                        />
+
+                        {/* Afficher le bouton de rejet uniquement pour les plats en attente (PENDING) */}
+                        {status === "PENDING" && (
+                          <IconButton
+                            icon="close"
+                            size={20}
+                            color={theme.colors.error}
+                            onPress={() => showConfirmation(item, "reject")}
+                            style={styles.rejectButton}
+                          />
+                        )}
                       </View>
                     </View>
                   </View>
@@ -192,11 +221,14 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           ) : (
             <View style={styles.collapsedContent}>
               <Text style={styles.itemCount}>
-                {filteredItems.length} {filteredItems.length > 1 ? 'plats' : 'plat'}
+                {filteredItems.length}{" "}
+                {filteredItems.length > 1 ? "plats" : "plat"}
               </Text>
               <View style={styles.chipRow}>
                 {/* Afficher jusqu'à 3 catégories */}
-                {Array.from(new Set(filteredItems.flatMap(item => item.categories)))
+                {Array.from(
+                  new Set(filteredItems.flatMap((item) => item.categories))
+                )
                   .slice(0, 3)
                   .map((category, index) => (
                     <Chip key={index} style={styles.categoryChip} compact>
@@ -208,7 +240,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           )}
         </Card.Content>
       </View>
-      
+
       {/* Modal de confirmation */}
       <Portal>
         <Modal
@@ -218,27 +250,31 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         >
           <Surface style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {actionType === 'ready' 
-                ? 'Marquer comme prêt' 
-                : 'Rejeter le plat'}
+              {actionType === "ready"
+                ? "Marquer comme prêt"
+                : "Rejeter le plat"}
             </Text>
             <Text style={styles.modalText}>
-              {actionType === 'ready'
-                ? `Confirmer que "${selectedItem?.dishName}" est prêt à servir?` 
+              {actionType === "ready"
+                ? `Confirmer que "${selectedItem?.dishName}" est prêt à servir?`
                 : `Rejeter "${selectedItem?.dishName}" de la commande #${order.id}?`}
             </Text>
             <View style={styles.modalActions}>
-              <Button 
-                onPress={() => setConfirmModalVisible(false)} 
+              <Button
+                onPress={() => setConfirmModalVisible(false)}
                 style={styles.modalButton}
               >
                 Annuler
               </Button>
-              <Button 
+              <Button
                 mode="contained"
                 onPress={confirmAction}
                 style={styles.modalButton}
-                buttonColor={actionType === 'ready' ? theme.colors.primary : theme.colors.error}
+                buttonColor={
+                  actionType === "ready"
+                    ? theme.colors.primary
+                    : theme.colors.error
+                }
               >
                 Confirmer
               </Button>
@@ -253,15 +289,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
-    position: 'relative',
-    overflow: 'hidden',
+    position: "relative",
+    overflow: "hidden",
   },
   cardInner: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
   },
   waitTimeIndicator: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
@@ -271,20 +307,20 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
   },
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   orderInfo: {
     flex: 1,
   },
   orderNumber: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   tableTimeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 4,
   },
   tableText: {
@@ -292,7 +328,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   expandButton: {
     padding: 4,
@@ -309,20 +345,20 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#666',
+    fontWeight: "bold",
+    color: "#666",
   },
   categoryDivider: {
     marginTop: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: "#ddd",
   },
   itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   itemInfo: {
     flex: 1,
@@ -330,49 +366,49 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   noteContainer: {
     marginTop: 4,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   noteLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginRight: 4,
   },
   noteText: {
     fontSize: 12,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     flex: 1,
   },
   itemActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   readyButton: {
     marginRight: 4,
   },
   readyBadge: {
-    backgroundColor: '#4CAF50',
-    color: 'white',
+    backgroundColor: "#4CAF50",
+    color: "white",
     marginRight: 8,
   },
   rejectButton: {
     margin: 0,
   },
   collapsedContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   itemCount: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap', // Permettre le retour à la ligne si nécessaire
+    flexDirection: "row",
+    flexWrap: "wrap", // Permettre le retour à la ligne si nécessaire
     flex: 1, // Prendre tout l'espace disponible
   },
   categoryChip: {
@@ -386,19 +422,19 @@ const styles = StyleSheet.create({
   },
   // Styles pour la modal
   modalContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalContent: {
     padding: 20,
     borderRadius: 8,
     elevation: 4,
-    width: '80%',
+    width: "80%",
     maxWidth: 400,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
   },
   modalText: {
@@ -406,8 +442,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
   modalButton: {
     marginLeft: 8,
