@@ -392,16 +392,11 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                   <Text style={styles.cardTitle}>Résumé de la commande</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={[styles.orderInfoValue, { marginRight: 8, fontWeight: 'bold', color: theme.colors.primary }]}>
-                      {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
-                    </Text>
-                    <Icon 
-                      name={orderSummaryExpanded ? "chevron-up" : "chevron-down"} 
-                      size={24} 
-                      color={theme.colors.primary} 
-                    />
-                  </View>
+                  <Icon 
+                    name={orderSummaryExpanded ? "chevron-up" : "chevron-down"} 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
                 </View>
               </TouchableRipple>
               
