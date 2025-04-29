@@ -93,7 +93,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     if (!orderId) {
       setError('ID de commande non spécifié');
       setIsLoading(false);
-      return;
+      return null;
     }
     
     setIsLoading(true);
@@ -119,9 +119,12 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
         // Fallback au montant total si remainingAmount n'est pas disponible
         setCustomAmount(targetOrder.totalPrice.toString());
       }
+      
+      return targetOrder;
     } catch (err: any) {
       console.error('Error loading order details:', err);
       setError(err.message || 'Erreur lors du chargement des détails de la commande');
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -133,15 +136,13 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
-      // Cas spécifiques aux états de paiement (préfixe "PAYMENT_")
-      if (notification.newState.startsWith('PAYMENT_') || 
-          ['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
+      // Cas spécifiques aux états de paiement
+      if (['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
         
         // Si le statut de paiement a changé
         if (notification.previousState !== notification.newState) {
           // Formater le message de notification
           const statusMessage = notification.newState
-            .replace('PAYMENT_', '')
             .replace('_', ' ')
             .toLowerCase();
           
@@ -149,16 +150,22 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           
           // Si la commande est maintenant entièrement payée
           if (notification.newState === 'FULLY_PAID') {
-            Alert.alert(
-              'Commande entièrement payée',
-              'Cette commande a été entièrement payée. Vous allez être redirigé vers l\'écran d\'accueil.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => navigation.navigate('ServerHome')
-                }
-              ]
-            );
+            // Recharger les détails pour vérifier
+            loadOrderDetails().then(updatedOrder => {
+              // Ne rediriger que si le montant restant est effectivement 0
+              if ((updatedOrder?.remainingAmount || 0) <= 0) {
+                Alert.alert(
+                  'Commande entièrement payée',
+                  'Cette commande a été entièrement payée. Vous allez être redirigé vers l\'écran d\'accueil.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => navigation.navigate('ServerHome')
+                    }
+                  ]
+                );
+              }
+            });
           } else {
             // Recharger les détails de la commande pour mettre à jour les montants
             loadOrderDetails();

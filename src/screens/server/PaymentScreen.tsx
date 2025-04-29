@@ -1,5 +1,4 @@
 // src/screens/server/PaymentScreen.tsx
-// src/screens/server/PaymentScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { 
@@ -152,15 +151,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
-      // Cas spécifiques aux états de paiement (préfixe "PAYMENT_")
-      if (notification.newState.startsWith('PAYMENT_') || 
-          ['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
+      // Cas spécifiques aux états de paiement
+      if (['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
         
         // Si le statut de paiement a changé
         if (notification.previousState !== notification.newState) {
           // Formater le message de notification
           const statusMessage = notification.newState
-            .replace('PAYMENT_', '')
             .replace('_', ' ')
             .toLowerCase();
           
@@ -168,21 +165,26 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           
           // Si la commande est maintenant entièrement payée
           if (notification.newState === 'FULLY_PAID') {
-            Alert.alert(
-              'Commande entièrement payée',
-              'Cette commande a été entièrement payée par un autre terminal. Vous allez être redirigé vers l\'écran d\'accueil.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => navigation.dispatch(
-                    CommonActions.reset({
-                      index: 0,
-                      routes: [{ name: 'ServerHome' }]
-                    })
-                  )
-                }
-              ]
-            );
+            // Vérifier d'abord que le montant restant est effectivement 0
+            refreshOrderData().then(updatedRemaining => {
+              if (updatedRemaining <= 0) {
+                Alert.alert(
+                  'Commande entièrement payée',
+                  'Cette commande a été entièrement payée par un autre terminal. Vous allez être redirigé vers l\'écran d\'accueil.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => navigation.dispatch(
+                        CommonActions.reset({
+                          index: 0,
+                          routes: [{ name: 'ServerHome' }]
+                        })
+                      )
+                    }
+                  ]
+                );
+              }
+            });
           } else {
             // Rafraîchir les données pour mettre à jour le montant restant
             refreshOrderData();
