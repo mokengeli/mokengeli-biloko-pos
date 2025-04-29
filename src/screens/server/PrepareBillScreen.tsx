@@ -14,7 +14,8 @@ import {
   DataTable,
   ToggleButton,
   TextInput,
-  Chip
+  Chip,
+  Snackbar
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
@@ -24,6 +25,7 @@ import { TouchableRipple } from 'react-native-paper';
 import { Dimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import orderService, { DomainOrder, DomainOrderItem } from '../../api/orderService';
+import { webSocketService, OrderNotification } from '../../services/WebSocketService';
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -76,6 +78,16 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
   const [error, setError] = useState<string | null>(null);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
   
+  // États pour les notifications WebSocket
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  
+  // Afficher une notification snackbar
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+  
   // Chargement des données de la commande
   const loadOrderDetails = useCallback(async () => {
     if (!orderId) {
@@ -114,6 +126,74 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       setIsLoading(false);
     }
   }, [orderId]);
+  
+  // Gestionnaire de notifications WebSocket
+  const handleOrderNotification = useCallback((notification: OrderNotification) => {
+    console.log('WebSocket notification received:', notification);
+    
+    // Ne traiter que les notifications pour cette commande
+    if (notification.orderId === orderId) {
+      // Cas spécifiques aux états de paiement (préfixe "PAYMENT_")
+      if (notification.newState.startsWith('PAYMENT_') || 
+          ['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
+        
+        // Si le statut de paiement a changé
+        if (notification.previousState !== notification.newState) {
+          // Formater le message de notification
+          const statusMessage = notification.newState
+            .replace('PAYMENT_', '')
+            .replace('_', ' ')
+            .toLowerCase();
+          
+          showSnackbar(`Statut de paiement mis à jour: ${statusMessage}`);
+          
+          // Si la commande est maintenant entièrement payée
+          if (notification.newState === 'FULLY_PAID') {
+            Alert.alert(
+              'Commande entièrement payée',
+              'Cette commande a été entièrement payée. Vous allez être redirigé vers l\'écran d\'accueil.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => navigation.navigate('ServerHome')
+                }
+              ]
+            );
+          } else {
+            // Recharger les détails de la commande pour mettre à jour les montants
+            loadOrderDetails();
+          }
+        }
+      }
+      // Cas des modifications d'articles (ajout, modification, etc.)
+      else if (notification.newState === 'PENDING' || notification.newState === 'REJECTED') {
+        showSnackbar('Des modifications ont été apportées à la commande');
+        loadOrderDetails(); // Recharger pour voir les changements
+      }
+    }
+  }, [orderId, loadOrderDetails, navigation]);
+  
+  // Configurer la connexion WebSocket
+  useEffect(() => {
+    if (!user?.tenantCode) return;
+    
+    // Se connecter au WebSocket
+    webSocketService.connect(user.tenantCode).catch(error => {
+      console.error('WebSocket connection error:', error);
+      setError('Erreur de connexion au service de notification en temps réel');
+    });
+    
+    // S'abonner aux notifications
+    const unsubscribe = webSocketService.addSubscription(
+      user.tenantCode,
+      handleOrderNotification
+    );
+    
+    // Nettoyage à la destruction du composant
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.tenantCode, handleOrderNotification]);
   
   // Charger les données au chargement de l'écran
   useEffect(() => {
@@ -196,6 +276,16 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
   // Passer à l'écran de paiement
   const proceedToPayment = () => {
     const remainingAmount = calculateRemainingAmount();
+    
+    // Si le montant restant est 0, afficher un message et ne pas continuer
+    if (remainingAmount <= 0) {
+      Alert.alert(
+        "Commande déjà payée",
+        "Cette commande a été entièrement payée.",
+        [{ text: "OK", onPress: () => navigation.navigate('ServerHome') }]
+      );
+      return;
+    }
     
     if (paymentMode === 'items') {
       // Vérifier qu'au moins un article est sélectionné
@@ -602,6 +692,16 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           </Surface>
         </View>
       )}
+
+      {/* Snackbar pour les notifications */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={{ backgroundColor: theme.colors.primary }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -909,5 +1009,3 @@ const styles = StyleSheet.create({
     flex: 2,
   },
 });
-
-export default PrepareBillScreen;

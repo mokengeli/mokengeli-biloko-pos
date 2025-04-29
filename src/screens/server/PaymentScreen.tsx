@@ -1,4 +1,5 @@
 // src/screens/server/PaymentScreen.tsx
+// src/screens/server/PaymentScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { 
@@ -14,7 +15,8 @@ import {
   Portal,
   Modal,
   List,
-  Chip
+  Chip,
+  Snackbar
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
@@ -25,6 +27,8 @@ import { DomainOrderItem } from '../../api/orderService';
 import orderService from '../../api/orderService';
 import { usePrinter } from '../../hooks/usePrinter';
 import { Dimensions } from 'react-native';
+import { useAuth } from '../../contexts/AuthContext';
+import { webSocketService, OrderNotification } from '../../services/WebSocketService';
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -33,7 +37,7 @@ type PaymentParamList = {
     tableName?: string;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
-    paidAmount?: number; // Montant déjà payé
+    paidAmount: number; // Montant déjà payé
     remainingAmount: number; // Montant restant à payer
     currency: string;
     paymentMode: 'items' | 'amount';
@@ -62,6 +66,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     customAmount
   } = route.params;
   
+  const { user } = useAuth();
   const theme = useTheme();
   const { printDocument } = usePrinter();
   const windowWidth = Dimensions.get('window').width;
@@ -85,12 +90,141 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const [error, setError] = useState<string | null>(null);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
   
+  // États pour les notifications WebSocket
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [currentRemaining, setCurrentRemaining] = useState<number>(remainingAmount);
+  const [orderChanged, setOrderChanged] = useState<boolean>(false);
+
+  // Afficher une notification snackbar
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
+  // Rafraîchir les données de la commande
+  const refreshOrderData = useCallback(async () => {
+    try {
+      const updatedOrder = await orderService.getOrderById(orderId);
+      
+      // Calculer le montant restant
+      const updatedRemaining = updatedOrder.remainingAmount !== undefined 
+        ? updatedOrder.remainingAmount 
+        : Math.max(0, updatedOrder.totalPrice - (updatedOrder.paidAmount || 0));
+      
+      // Mettre à jour l'état
+      setCurrentRemaining(updatedRemaining);
+      
+      // Si le montant a changé, marquer la commande comme modifiée
+      if (updatedRemaining !== remainingAmount) {
+        setOrderChanged(true);
+      }
+      
+      // Si la commande est entièrement payée, informer l'utilisateur
+      if (updatedRemaining <= 0) {
+        Alert.alert(
+          "Commande entièrement payée",
+          "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'ServerHome' }]
+                })
+              )
+            }
+          ]
+        );
+      }
+      
+      return updatedRemaining;
+    } catch (err: any) {
+      console.error('Error refreshing order data:', err);
+      return remainingAmount; // En cas d'erreur, retourner le montant initial
+    }
+  }, [orderId, remainingAmount, navigation]);
+
+  // Gestionnaire de notifications WebSocket
+  const handleOrderNotification = useCallback((notification: OrderNotification) => {
+    console.log('WebSocket notification received:', notification);
+    
+    // Ne traiter que les notifications pour cette commande
+    if (notification.orderId === orderId) {
+      // Cas spécifiques aux états de paiement (préfixe "PAYMENT_")
+      if (notification.newState.startsWith('PAYMENT_') || 
+          ['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
+        
+        // Si le statut de paiement a changé
+        if (notification.previousState !== notification.newState) {
+          // Formater le message de notification
+          const statusMessage = notification.newState
+            .replace('PAYMENT_', '')
+            .replace('_', ' ')
+            .toLowerCase();
+          
+          showSnackbar(`Statut de paiement mis à jour: ${statusMessage}`);
+          
+          // Si la commande est maintenant entièrement payée
+          if (notification.newState === 'FULLY_PAID') {
+            Alert.alert(
+              'Commande entièrement payée',
+              'Cette commande a été entièrement payée par un autre terminal. Vous allez être redirigé vers l\'écran d\'accueil.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => navigation.dispatch(
+                    CommonActions.reset({
+                      index: 0,
+                      routes: [{ name: 'ServerHome' }]
+                    })
+                  )
+                }
+              ]
+            );
+          } else {
+            // Rafraîchir les données pour mettre à jour le montant restant
+            refreshOrderData();
+          }
+        }
+      }
+      // Cas des modifications d'articles
+      else if (notification.newState === 'PENDING' || notification.newState === 'REJECTED') {
+        showSnackbar('Des modifications ont été apportées à la commande');
+        refreshOrderData();
+      }
+    }
+  }, [orderId, refreshOrderData, navigation]);
+  
+  // Configurer la connexion WebSocket
+  useEffect(() => {
+    if (!user?.tenantCode) return;
+    
+    // Se connecter au WebSocket
+    webSocketService.connect(user.tenantCode).catch(error => {
+      console.error('WebSocket connection error:', error);
+      setError('Erreur de connexion au service de notification en temps réel');
+    });
+    
+    // S'abonner aux notifications
+    const unsubscribe = webSocketService.addSubscription(
+      user.tenantCode,
+      handleOrderNotification
+    );
+    
+    // Nettoyage à la destruction du composant
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.tenantCode, handleOrderNotification]);
+  
   // Calculer la monnaie à rendre
   const calculateChange = (): number => {
     const tendered = parseFloat(amountTendered.replace(',', '.'));
     if (isNaN(tendered) || tendered < 0) return 0;
     
-    return Math.max(0, tendered - Math.min(remainingAmount, tendered));
+    return Math.max(0, tendered - Math.min(currentRemaining, tendered));
   };
   
   // Calculer le montant effectif à encaisser (ne pas dépasser le montant restant)
@@ -99,14 +233,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     if (paymentMode === 'items' && selectedItems) {
       const selectedItemsTotal = selectedItems.reduce((total, item) => 
         total + (item.unitPrice * item.count), 0);
-      return Math.min(selectedItemsTotal, remainingAmount);
+      return Math.min(selectedItemsTotal, currentRemaining);
     }
     
     // Sinon, c'est basé sur le montant entré ou personnalisé
     const tendered = parseFloat(amountTendered.replace(',', '.'));
     if (isNaN(tendered) || tendered <= 0) return 0;
     
-    return Math.min(remainingAmount, tendered);
+    return Math.min(currentRemaining, tendered);
   };
   
   // Mettre à jour le montant reçu
@@ -118,7 +252,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Définir un montant exact
   const setExactAmount = () => {
-    setAmountTendered(remainingAmount.toFixed(2));
+    setAmountTendered(currentRemaining.toFixed(2));
   };
   
   // Ajouter un montant prédéfini
@@ -132,6 +266,35 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Traiter le paiement
   const processPayment = async () => {
+    // Vérifier si la commande a été mise à jour pendant que l'utilisateur était sur cet écran
+    if (orderChanged) {
+      const updatedRemaining = await refreshOrderData();
+      
+      if (updatedRemaining <= 0) {
+        // La commande a été entièrement payée entre-temps
+        return; // L'alerte est déjà affichée dans refreshOrderData
+      }
+      
+      // Mise à jour du montant effectif
+      const newEffectivePayment = calculateEffectivePayment();
+      
+      if (newEffectivePayment !== parseFloat(amountTendered.replace(',', '.'))) {
+        Alert.alert(
+          "Commande modifiée",
+          `Le montant restant à payer a été mis à jour à ${updatedRemaining.toFixed(2)} ${currency}. Voulez-vous continuer avec un paiement de ${newEffectivePayment.toFixed(2)} ${currency}?`,
+          [
+            { text: "Annuler", style: "cancel" },
+            { 
+              text: "Continuer", 
+              onPress: () => finalizePendingPayment(newEffectivePayment) 
+            }
+          ]
+        );
+        return;
+      }
+    }
+    
+    // Procéder au paiement normal
     const tenderedAmount = parseFloat(amountTendered.replace(',', '.'));
     const effectiveAmount = calculateEffectivePayment();
     
@@ -145,6 +308,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       return;
     }
     
+    finalizePendingPayment(effectiveAmount);
+  };
+  
+  // Finaliser un paiement en attente
+  const finalizePendingPayment = async (effectiveAmount: number) => {
     setIsProcessing(true);
     setError(null);
     
@@ -198,7 +366,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         Montant de ce paiement: ${calculateEffectivePayment().toFixed(2)} ${currency}
         Montant reçu: ${parseFloat(amountTendered.replace(',', '.')).toFixed(2)} ${currency}
         Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
-        Reste à payer: ${Math.max(0, remainingAmount - calculateEffectivePayment()).toFixed(2)} ${currency}
+        Reste à payer: ${Math.max(0, currentRemaining - calculateEffectivePayment()).toFixed(2)} ${currency}
         -----------------------------------
         Mode de paiement: Espèces
         
@@ -269,9 +437,18 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           <View style={styles.amountRow}>
             <Text style={[styles.amountLabel, { fontWeight: 'bold' }]}>Reste à payer:</Text>
             <Text style={[styles.amountValue, { fontWeight: 'bold', color: theme.colors.primary }]}>
-              {remainingAmount.toFixed(2)} {currency}
+              {currentRemaining.toFixed(2)} {currency}
             </Text>
           </View>
+          
+          {orderChanged && (
+            <View style={styles.warningContainer}>
+              <Icon name="alert-circle-outline" size={16} color={theme.colors.warning} />
+              <Text style={[styles.warningText, { color: theme.colors.warning }]}>
+                Des modifications ont été apportées à cette commande par un autre terminal.
+              </Text>
+            </View>
+          )}
           
           <Divider style={[styles.divider, { marginVertical: 16 }]} />
           
@@ -286,11 +463,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               style={styles.amountInput}
             />
             
-            {parseFloat(amountTendered.replace(',', '.')) > remainingAmount && (
+            {parseFloat(amountTendered.replace(',', '.')) > currentRemaining && (
               <View style={styles.warningContainer}>
                 <Icon name="information-outline" size={16} color={theme.colors.primary} />
                 <Text style={styles.warningText}>
-                  Le montant saisi dépasse le reste à payer. Seul {remainingAmount.toFixed(2)} {currency} sera encaissé.
+                  Le montant saisi dépasse le reste à payer. Seul {currentRemaining.toFixed(2)} {currency} sera encaissé.
                 </Text>
               </View>
             )}
@@ -360,7 +537,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           onPress={processPayment}
           style={styles.payButton}
           loading={isProcessing}
-          disabled={isProcessing || parseFloat(amountTendered.replace(',', '.')) <= 0}
+          disabled={isProcessing || parseFloat(amountTendered.replace(',', '.')) <= 0 || currentRemaining <= 0}
           icon="cash-register"
         >
           {isProcessing ? 'Traitement...' : 'Valider le paiement'}
@@ -389,7 +566,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
                 Ce paiement: {calculateEffectivePayment().toFixed(2)} {currency}
               </Text>
               <Text style={styles.receiptText}>
-                Reste à payer: {Math.max(0, remainingAmount - calculateEffectivePayment()).toFixed(2)} {currency}
+                Reste à payer: {Math.max(0, currentRemaining - calculateEffectivePayment()).toFixed(2)} {currency}
               </Text>
               <Text style={styles.receiptText}>
                 Monnaie rendue: {calculateChange().toFixed(2)} {currency}
@@ -417,6 +594,16 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           </View>
         </Modal>
       </Portal>
+      
+      {/* Snackbar pour les notifications */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={{ backgroundColor: theme.colors.primary }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 };
