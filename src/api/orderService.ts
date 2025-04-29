@@ -57,6 +57,16 @@ export interface UpdateOrderRequest {
   orderItems: CreateOrderItemRequest[];
 }
 
+// Interface pour la requête de paiement
+export interface PaymentRequest {
+  orderId: number;
+  amount: number;
+  paymentMethod: string;
+  notes?: string;
+  discountAmount?: number;
+}
+
+
 const orderService = {
   async getOrdersByState(state: string): Promise<DomainOrder[]> {
     try {
@@ -186,6 +196,39 @@ const orderService = {
       throw error;
     }
   },
+
+  // Méthode pour enregistrer un paiement
+  async recordPayment(request: PaymentRequest): Promise<DomainOrder> {
+    try {
+      const response = await api.post('/api/order/payment', request);
+      return response.data;
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      throw error;
+    }
+  },
+  
+  // Méthode pour récupérer l'historique des paiements
+  async getPaymentHistory(orderId: number): Promise<any[]> {
+    try {
+      const response = await api.get(`/api/order/payment/${orderId}/history`);
+      return response.data;
+    } catch (error) {
+      console.error('Error getting payment history:', error);
+      throw error;
+    }
+  },
+  
+  // Méthode pour récupérer les commandes nécessitant un paiement
+  async getOrdersRequiringPayment(): Promise<DomainOrder[]> {
+    try {
+      const response = await api.get('/api/order/payment/requiring-payment');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting orders requiring payment:', error);
+      throw error;
+    }
+  }
 };
 
 export default orderService;

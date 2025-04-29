@@ -11,22 +11,35 @@ import {
   useTheme,
   ActivityIndicator,
   IconButton,
-  Chip,
   DataTable,
-  TouchableRipple
+  ToggleButton,
+  TextInput,
+  Chip
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { TouchableRipple } from 'react-native-paper';
+import { Dimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import orderService, { DomainOrder, DomainOrderItem } from '../../api/orderService';
 
+// Type définitions pour la navigation
 type PrepareBillParamList = {
   PrepareBill: {
     orderId: number;
     tableId?: string;
     tableName?: string;
+  };
+  PaymentScreen: {
+    orderId: number;
+    tableName?: string;
+    selectedItems?: DomainOrderItem[];
+    totalAmount: number;
+    currency: string;
+    paymentMode: 'items' | 'amount';
+    customAmount?: number;
   };
 };
 
@@ -40,24 +53,23 @@ interface PrepareBillScreenProps {
 
 // Interface pour les éléments d'addition
 interface BillItem extends DomainOrderItem {
-  selected: boolean; // Pour la sélection d'articles
-  discount?: number; // Remise éventuelle en pourcentage
+  selected: boolean;
+  discount?: number;
 }
-
-// Type de répartition
-type SplitType = 'total' | 'perPerson' | 'custom';
 
 export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation, route }) => {
   const { orderId, tableId, tableName } = route.params;
   const { user } = useAuth();
   const theme = useTheme();
+  const windowWidth = Dimensions.get('window').width;
+  const isTablet = windowWidth >= 768;
   
   // États
   const [isLoading, setIsLoading] = useState(true);
   const [order, setOrder] = useState<DomainOrder | null>(null);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
-  const [splitType, setSplitType] = useState<SplitType>('total');
-  const [numberOfPeople, setNumberOfPeople] = useState(1);
+  const [paymentMode, setPaymentMode] = useState<'items' | 'amount'>('items');
+  const [customAmount, setCustomAmount] = useState('');
   const [allSelected, setAllSelected] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -73,18 +85,20 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     setError(null);
     
     try {
-      // Utiliser la nouvelle méthode getOrderById pour récupérer les détails de la commande
+      // Récupérer les détails de la commande
       const targetOrder = await orderService.getOrderById(orderId);
-      
       setOrder(targetOrder);
       
       // Convertir les articles de commande en articles d'addition
       const items: BillItem[] = targetOrder.items.map(item => ({
         ...item,
-        selected: true, // Tous les articles sont sélectionnés par défaut
+        selected: true // Tous les articles sont sélectionnés par défaut
       }));
       
       setBillItems(items);
+      
+      // Initialiser le montant personnalisé avec le total de la commande
+      setCustomAmount(targetOrder.totalPrice.toString());
     } catch (err: any) {
       console.error('Error loading order details:', err);
       setError(err.message || 'Erreur lors du chargement des détails de la commande');
@@ -98,8 +112,8 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     loadOrderDetails();
   }, [loadOrderDetails]);
   
-  // Calculer le total de l'addition
-  const calculateTotal = useCallback(() => {
+  // Calculer le total des articles sélectionnés
+  const calculateSelectedTotal = useCallback(() => {
     return billItems
       .filter(item => item.selected && !['REJECTED', 'PAID'].includes(item.state))
       .reduce((total, item) => {
@@ -109,6 +123,18 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
         return total + discountedPrice;
       }, 0);
   }, [billItems]);
+  
+  // Calculer le montant restant après paiement partiel
+  const calculateRemainingAmount = useCallback(() => {
+    const orderTotal = order?.totalPrice || 0;
+    const customAmountValue = parseFloat(customAmount.replace(',', '.'));
+    
+    if (isNaN(customAmountValue) || customAmountValue <= 0) {
+      return orderTotal;
+    }
+    
+    return Math.max(0, orderTotal - customAmountValue);
+  }, [order, customAmount]);
   
   // Gérer la sélection/désélection d'un article
   const toggleItemSelection = (itemId: number) => {
@@ -135,56 +161,66 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     );
   };
   
-  // Appliquer une remise à un article
-  const applyDiscount = (itemId: number, discount: number) => {
-    setBillItems(prevItems => 
-      prevItems.map(item => 
-        item.id === itemId ? { ...item, discount } : item
-      )
-    );
+  // Mettre à jour le montant personnalisé
+  const updateCustomAmount = (value: string) => {
+    // Autoriser uniquement les nombres et la virgule/point
+    const numericValue = value.replace(/[^0-9.,]/g, '');
+    setCustomAmount(numericValue);
   };
   
-  // Passer à l'écran suivant (répartition ou paiement)
-  const proceedToNextScreen = () => {
-    // Vérifier qu'au moins un article est sélectionné
-    const selectedItems = billItems.filter(item => item.selected);
-    if (selectedItems.length === 0) {
-      Alert.alert(
-        "Aucun article sélectionné",
-        "Veuillez sélectionner au moins un article pour l'addition.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
-    
-    // En fonction du type de répartition, naviguer vers l'écran approprié
-    if (splitType === 'total') {
-      // Addition totale: aller directement à l'écran de paiement
-      // Créer un tableau avec une seule facture pour l'addition totale
-      const bills = [{
-        personId: 1,
-        personName: 'Addition totale',
-        amount: calculateTotal(),
-        items: selectedItems
-      }];
-      
+  // Passer à l'écran de paiement
+  const proceedToPayment = () => {
+    if (paymentMode === 'items') {
+      // Vérifier qu'au moins un article est sélectionné
+      const selectedItems = billItems.filter(item => item.selected);
+      if (selectedItems.length === 0) {
+        Alert.alert(
+          "Aucun article sélectionné",
+          "Veuillez sélectionner au moins un article pour l'addition.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      // Naviguer vers l'écran de paiement avec les articles sélectionnés
       navigation.navigate('PaymentScreen', {
         orderId,
         tableName,
-        bills, // Passer le tableau de factures formaté correctement
-        totalAmount: calculateTotal(),
-        currency: order?.currency.code || 'EUR'
+        selectedItems,
+        totalAmount: calculateSelectedTotal(),
+        currency: order?.currency.code || 'EUR',
+        paymentMode: 'items'
       });
     } else {
-      // Addition divisée: aller à l'écran de répartition
-      navigation.navigate('SplitBill', {
+      // Mode montant
+      const amountValue = parseFloat(customAmount.replace(',', '.'));
+      
+      if (isNaN(amountValue) || amountValue <= 0) {
+        Alert.alert(
+          "Montant invalide",
+          "Veuillez saisir un montant valide supérieur à 0.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      if (amountValue > (order?.totalPrice || 0)) {
+        Alert.alert(
+          "Montant trop élevé",
+          `Le montant ne peut pas dépasser le total de la commande (${order?.totalPrice.toFixed(2)} ${order?.currency.code}).`,
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Naviguer vers l'écran de paiement avec le montant personnalisé
+      navigation.navigate('PaymentScreen', {
         orderId,
         tableName,
-        billItems: billItems.filter(item => item.selected),
-        totalAmount: calculateTotal(),
-        splitType,
-        numberOfPeople,
-        currency: order?.currency.code || 'EUR'
+        totalAmount: amountValue,
+        currency: order?.currency.code || 'EUR',
+        paymentMode: 'amount',
+        customAmount: amountValue
       });
     }
   };
@@ -247,13 +283,13 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           {/* Checkbox avec icône pour meilleure visibilité iOS */}
           <TouchableRipple 
             onPress={() => !isDisabled && toggleItemSelection(item.id)}
-            disabled={isDisabled}
+            disabled={isDisabled || paymentMode === 'amount'}
             style={styles.checkboxContainer}
           >
             <Icon 
               name={item.selected ? "checkbox-marked" : "checkbox-blank-outline"} 
               size={24} 
-              color={isDisabled ? theme.colors.disabled : theme.colors.primary}
+              color={isDisabled || paymentMode === 'amount' ? theme.colors.disabled : theme.colors.primary}
               style={styles.checkboxIcon} 
             />
           </TouchableRipple>
@@ -276,9 +312,8 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
               </Text>
             )}
             
-            {/* Section du bas avec état et remise */}
+            {/* Statut de l'article */}
             <View style={styles.itemFooter}>
-              {/* Status badge - aligné à gauche avec taille fixe */}
               <View style={styles.statusContainer}>
                 <View 
                   style={[
@@ -286,49 +321,11 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
                     { backgroundColor: getStatusColor(item.state) }
                   ]}
                 >
-                  <Text style={styles.statusText} numberOfLines={1}>
+                  <Text style={styles.statusText}>
                     {getStatusText(item.state)}
                   </Text>
                 </View>
               </View>
-              
-              {/* Bouton de remise - aligné à droite */}
-              {!isDisabled && (
-                <Button
-                  mode="text"
-                  compact
-                  onPress={() => {
-                    // Ouvrir une boîte de dialogue pour la remise
-                    Alert.prompt(
-                      "Appliquer une remise",
-                      "Entrez le pourcentage de remise (0-100)",
-                      [
-                        { text: "Annuler", style: "cancel" },
-                        {
-                          text: "Appliquer",
-                          onPress: (value) => {
-                            const discount = parseInt(value || '0', 10);
-                            if (discount >= 0 && discount <= 100) {
-                              applyDiscount(item.id, discount);
-                            } else {
-                              Alert.alert(
-                                "Valeur invalide",
-                                "La remise doit être comprise entre 0 et 100%"
-                              );
-                            }
-                          }
-                        }
-                      ],
-                      "plain-text",
-                      item.discount?.toString() || "0"
-                    );
-                  }}
-                  style={styles.discountButton}
-                  labelStyle={{ fontSize: 12 }}
-                >
-                  {item.discount ? `Remise ${item.discount}%` : "Remise"}
-                </Button>
-              )}
             </View>
           </View>
         </View>
@@ -362,39 +359,102 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       ) : (
         <View style={styles.content}>
           <ScrollView>
-            {/* En-tête avec sélection globale */}
-            <Surface style={styles.selectionHeader}>
-              <View style={styles.selectionHeaderContent}>
-                <TouchableRipple 
-                  onPress={toggleAllSelection} 
-                  style={styles.selectAllContainer}
-                >
-                  <View style={styles.checkboxWrapper}>
-                    <Icon 
-                      name={allSelected ? "checkbox-marked" : "checkbox-blank-outline"} 
-                      size={24} 
-                      color={theme.colors.primary}
-                      style={styles.checkboxIcon} 
-                    />
-                    <Text style={styles.selectAllText}>
-                      Tout sélectionner
+            {/* Sélection du mode de paiement */}
+            <Surface style={styles.modeSelectionContainer}>
+              <Text style={styles.modeSelectionLabel}>Mode de paiement:</Text>
+              <ToggleButton.Row
+                onValueChange={value => value && setPaymentMode(value as 'items' | 'amount')}
+                value={paymentMode}
+                style={styles.toggleRow}
+              >
+                <ToggleButton
+                  icon="silverware-fork-knife"
+                  value="items"
+                  accessibilityLabel="Payer des plats spécifiques"
+                />
+                <ToggleButton
+                  icon="cash"
+                  value="amount"
+                  accessibilityLabel="Payer un montant spécifique"
+                />
+              </ToggleButton.Row>
+              <Text style={styles.modeDescription}>
+                {paymentMode === 'items' 
+                  ? 'Sélectionnez les plats à payer' 
+                  : 'Saisissez le montant à payer'}
+              </Text>
+              
+              {/* Section de montant personnalisé (visible uniquement en mode montant) */}
+              {paymentMode === 'amount' && (
+                <View style={styles.customAmountSection}>
+                  <View style={styles.amountRow}>
+                    <Text style={styles.amountLabel}>Montant total:</Text>
+                    <Text style={styles.amountValue}>
+                      {order?.totalPrice.toFixed(2)} {order?.currency.code}
                     </Text>
                   </View>
-                </TouchableRipple>
-                
-                <View style={styles.orderInfo}>
-                  <Text style={styles.orderIdText}>
-                    #{order?.id}
-                  </Text>
-                  <Text style={styles.orderDateText}>
-                    {new Date(order?.orderDate || '').toLocaleTimeString()}
-                  </Text>
+                  
+                  <View style={styles.amountInputContainer}>
+                    <Text style={styles.amountLabel}>Montant à payer:</Text>
+                    <TextInput
+                      mode="outlined"
+                      value={customAmount}
+                      onChangeText={updateCustomAmount}
+                      keyboardType="numeric"
+                      right={<TextInput.Affix text={order?.currency.code} />}
+                      style={styles.amountInput}
+                    />
+                  </View>
+                  
+                  <View style={styles.amountRow}>
+                    <Text style={styles.amountLabel}>Restera à payer:</Text>
+                    <Text style={[styles.amountValue, { color: theme.colors.primary }]}>
+                      {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              )}
             </Surface>
             
-            {/* Liste des articles */}
+            {/* En-tête avec sélection globale (visible uniquement en mode plats) */}
+            {paymentMode === 'items' && (
+              <Surface style={styles.selectionHeader}>
+                <View style={styles.selectionHeaderContent}>
+                  <TouchableRipple 
+                    onPress={toggleAllSelection} 
+                    style={styles.selectAllContainer}
+                  >
+                    <View style={styles.checkboxWrapper}>
+                      <Icon 
+                        name={allSelected ? "checkbox-marked" : "checkbox-blank-outline"} 
+                        size={24} 
+                        color={theme.colors.primary}
+                        style={styles.checkboxIcon} 
+                      />
+                      <Text style={styles.selectAllText}>
+                        Tout sélectionner
+                      </Text>
+                    </View>
+                  </TouchableRipple>
+                  
+                  <View style={styles.orderInfo}>
+                    <Text style={styles.orderIdText}>
+                      #{order?.id}
+                    </Text>
+                    <Text style={styles.orderDateText}>
+                      {new Date(order?.orderDate || '').toLocaleTimeString()}
+                    </Text>
+                  </View>
+                </View>
+              </Surface>
+            )}
+            
+            {/* Liste des articles (visible dans les deux modes) */}
             <View style={styles.itemsContainer}>
+              <Text style={styles.sectionTitle}>
+                {paymentMode === 'items' ? 'Sélectionnez les plats à payer:' : 'Liste des plats:'}
+              </Text>
+              
               {billItems.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>Aucun article dans cette commande</Text>
@@ -407,74 +467,25 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           
           {/* Pied avec totaux et actions */}
           <Surface style={styles.footer}>
-            <View style={styles.splitTypeContainer}>
-              <Text style={styles.splitTypeLabel}>Type d'addition:</Text>
-              <View style={styles.splitTypeButtons}>
-                <Button
-                  mode={splitType === 'total' ? 'contained' : 'outlined'}
-                  onPress={() => setSplitType('total')}
-                  style={styles.splitButton}
-                >
-                  Totale
-                </Button>
-                <Button
-                  mode={splitType === 'perPerson' ? 'contained' : 'outlined'}
-                  onPress={() => setSplitType('perPerson')}
-                  style={styles.splitButton}
-                >
-                  Par personne
-                </Button>
-                <Button
-                  mode={splitType === 'custom' ? 'contained' : 'outlined'}
-                  onPress={() => setSplitType('custom')}
-                  style={styles.splitButton}
-                >
-                  Personnalisée
-                </Button>
-              </View>
-            </View>
-            
-            {/* Sélecteur de nombre de personnes (visible uniquement si répartition par personne) */}
-            {splitType !== 'total' && (
-              <View style={styles.peopleCountContainer}>
-                <Text style={styles.peopleCountLabel}>Nombre de personnes:</Text>
-                <View style={styles.peopleCountControls}>
-                  <IconButton
-                    icon="minus"
-                    size={20}
-                    onPress={() => setNumberOfPeople(prev => Math.max(1, prev - 1))}
-                    disabled={numberOfPeople <= 1}
-                  />
-                  <Text style={styles.peopleCountValue}>{numberOfPeople}</Text>
-                  <IconButton
-                    icon="plus"
-                    size={20}
-                    onPress={() => setNumberOfPeople(prev => prev + 1)}
-                  />
-                </View>
-              </View>
-            )}
-            
-            <Divider style={styles.divider} />
-            
-            {/* Récapitulatif */}
             <DataTable style={styles.summaryTable}>
               <DataTable.Row>
-                <DataTable.Cell>Sous-total</DataTable.Cell>
+                <DataTable.Cell>
+                  {paymentMode === 'items' ? 'Sous-total sélectionné:' : 'Montant à payer:'}
+                </DataTable.Cell>
                 <DataTable.Cell numeric>
-                  {calculateTotal().toFixed(2)} {order?.currency.code}
+                  {paymentMode === 'items' 
+                    ? `${calculateSelectedTotal().toFixed(2)} ${order?.currency.code}` 
+                    : `${parseFloat(customAmount || '0').toFixed(2)} ${order?.currency.code}`}
                 </DataTable.Cell>
               </DataTable.Row>
               
-              {/* Ici, vous pourriez ajouter d'autres lignes pour taxes, service, etc. */}
-              
               <DataTable.Row>
                 <DataTable.Cell style={styles.totalCell}>
-                  <Text style={styles.totalText}>Total</Text>
+                  <Text style={styles.totalText}>Total commande:</Text>
                 </DataTable.Cell>
                 <DataTable.Cell numeric style={styles.totalCell}>
                   <Text style={styles.totalAmount}>
-                    {calculateTotal().toFixed(2)} {order?.currency.code}
+                    {order?.totalPrice.toFixed(2)} {order?.currency.code}
                   </Text>
                 </DataTable.Cell>
               </DataTable.Row>
@@ -491,11 +502,11 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
               </Button>
               <Button
                 mode="contained"
-                onPress={proceedToNextScreen}
+                onPress={proceedToPayment}
                 style={styles.continueButton}
-                icon={splitType === 'total' ? 'cash-register' : 'account-multiple'}
+                icon="cash-register"
               >
-                {splitType === 'total' ? 'Procéder au paiement' : 'Répartir l\'addition'}
+                Procéder au paiement
               </Button>
             </View>
           </Surface>
@@ -509,6 +520,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  content: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
   },
   loadingContainer: {
     flex: 1,
@@ -534,15 +550,57 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 8,
   },
-  content: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
+  modeSelectionContainer: {
+    padding: 16,
+    margin: 16,
+    borderRadius: 8,
+  },
+  modeSelectionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  toggleRow: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  modeDescription: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 8,
+  },
+  customAmountSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  amountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  amountLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  amountValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  amountInputContainer: {
+    marginBottom: 16,
+  },
+  amountInput: {
+    marginTop: 8,
+    backgroundColor: 'transparent',
   },
   selectionHeader: {
-    padding: 12,
-    marginBottom: 8,
-    elevation: 2,
+    padding: 16,
+    margin: 16,
+    marginTop: 0,
+    borderRadius: 8,
   },
   selectionHeaderContent: {
     flexDirection: 'row',
@@ -550,9 +608,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectAllContainer: {
-    flexGrow: 1,     // Utilise l'espace disponible mais sans forcer une taille fixe
-    flexShrink: 0,   // Ne permet pas de rétrécir ce conteneur
-    marginRight: 8,  // Garde une marge à droite
+    flexGrow: 1,
+    marginRight: 8,
     borderRadius: 8,
   },
   checkboxWrapper: {
@@ -565,11 +622,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   selectAllText: {
-    fontSize: 16,    // Taille d'origine
-    flexShrink: 1,   // Permet au texte de rétrécir si nécessaire, mais sans tronquer si possible
+    fontSize: 16,
+    flexShrink: 1,
   },
   orderInfo: {
-    flexShrink: 0,   // Ne permet pas de rétrécir ce conteneur
+    flexShrink: 0,
     alignItems: 'flex-end',
   },
   orderIdText: {
@@ -580,9 +637,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
   itemsContainer: {
     padding: 16,
-    paddingBottom: 150, // Espace supplémentaire pour le footer
+    paddingTop: 0,
+    paddingBottom: 150, // Espace pour le footer
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    opacity: 0.7,
   },
   itemCard: {
     marginBottom: 12,
@@ -650,9 +723,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  discountButton: {
-    marginLeft: 'auto',
-  },
   footer: {
     position: 'absolute',
     bottom: 0,
@@ -664,45 +734,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
-  splitTypeContainer: {
-    marginBottom: 16,
-  },
-  splitTypeLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  splitTypeButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  splitButton: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  peopleCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  peopleCountLabel: {
-    fontSize: 16,
-  },
-  peopleCountControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  peopleCountValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginHorizontal: 8,
-    minWidth: 24,
-    textAlign: 'center',
-  },
-  divider: {
-    marginBottom: 16,
-  },
   summaryTable: {
     marginBottom: 16,
   },
@@ -710,11 +741,11 @@ const styles = StyleSheet.create({
     height: 48,
   },
   totalText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   totalAmount: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#4CAF50',
   },
@@ -728,15 +759,6 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     flex: 2,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    opacity: 0.7,
   },
 });
 

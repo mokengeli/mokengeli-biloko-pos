@@ -15,8 +15,8 @@ import { DishCustomizationParamList } from '../screens/server/DishCustomizationS
 import { KitchenHomeScreen } from '../screens/kitchen/KitchenHomeScreen';
 import { RolesUtils } from '../utils/roles';
 import { PrepareBillScreen } from '../screens/server/PrepareBillScreen';
-import { SplitBillScreen } from '../screens/server/SplitBillScreen';
 import { PaymentScreen } from '../screens/server/PaymentScreen';
+import { DomainOrderItem } from '../api/orderService';
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -42,6 +42,15 @@ export type MainStackParamList = {
     tableId?: string;
     tableName?: string;
   };
+  PaymentScreen: {
+    orderId: number;
+    tableName?: string;
+    selectedItems?: DomainOrderItem[];
+    totalAmount: number;
+    currency: string;
+    paymentMode: 'items' | 'amount';
+    customAmount?: number;
+  };
   SplitBill: {
     orderId: number;
     tableName?: string;
@@ -49,13 +58,6 @@ export type MainStackParamList = {
     totalAmount: number;
     splitType: 'perPerson' | 'custom';
     numberOfPeople: number;
-    currency: string;
-  };
-  PaymentScreen: {
-    orderId: number;
-    tableName?: string;
-    bills: any[];
-    totalAmount: number;
     currency: string;
   };
 };
@@ -112,7 +114,6 @@ const MainNavigator: React.FC = () => {
       
       {/* Écrans de paiement */}
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
-      <MainStack.Screen name="SplitBill" component={SplitBillScreen} />
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
     </MainStack.Navigator>
   );
