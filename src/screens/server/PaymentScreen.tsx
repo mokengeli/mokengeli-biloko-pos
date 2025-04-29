@@ -68,7 +68,18 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const isTablet = windowWidth >= 768;
   
   // États
-  const [amountTendered, setAmountTendered] = useState<string>(remainingAmount.toFixed(2));
+  // Initialize amountTendered based on selected items or remaining amount
+  const initialAmount = useCallback(() => {
+    if (paymentMode === 'items' && selectedItems) {
+      const selectedItemsTotal = selectedItems.reduce((total, item) => 
+        total + (item.unitPrice * item.count), 0);
+      return Math.min(selectedItemsTotal, remainingAmount).toFixed(2);
+    } else {
+      return remainingAmount.toFixed(2);
+    }
+  }, [paymentMode, selectedItems, remainingAmount]);
+  
+  const [amountTendered, setAmountTendered] = useState<string>(initialAmount());
   const [paymentMethod] = useState<string>('cash'); // Pour l'instant, uniquement en espèces
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +95,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Calculer le montant effectif à encaisser (ne pas dépasser le montant restant)
   const calculateEffectivePayment = (): number => {
+    // Si on est en mode articles sélectionnés, le montant effectif est le total des articles sélectionnés
+    if (paymentMode === 'items' && selectedItems) {
+      const selectedItemsTotal = selectedItems.reduce((total, item) => 
+        total + (item.unitPrice * item.count), 0);
+      return Math.min(selectedItemsTotal, remainingAmount);
+    }
+    
+    // Sinon, c'est basé sur le montant entré ou personnalisé
     const tendered = parseFloat(amountTendered.replace(',', '.'));
     if (isNaN(tendered) || tendered <= 0) return 0;
     
