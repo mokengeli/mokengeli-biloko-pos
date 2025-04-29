@@ -33,6 +33,8 @@ type PaymentParamList = {
     tableName?: string;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
+    paidAmount?: number; // Montant déjà payé
+    remainingAmount: number; // Montant restant à payer
     currency: string;
     paymentMode: 'items' | 'amount';
     customAmount?: number;
@@ -53,6 +55,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     tableName, 
     selectedItems,
     totalAmount, 
+    paidAmount = 0, // Valeur par défaut à 0 si non fournie
+    remainingAmount, 
     currency,
     paymentMode,
     customAmount
@@ -64,7 +68,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const isTablet = windowWidth >= 768;
   
   // États
-  const [amountTendered, setAmountTendered] = useState<string>(totalAmount.toFixed(2));
+  const [amountTendered, setAmountTendered] = useState<string>(remainingAmount.toFixed(2));
   const [paymentMethod] = useState<string>('cash'); // Pour l'instant, uniquement en espèces
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +79,15 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     const tendered = parseFloat(amountTendered.replace(',', '.'));
     if (isNaN(tendered) || tendered < 0) return 0;
     
-    return Math.max(0, tendered - totalAmount);
+    return Math.max(0, tendered - Math.min(remainingAmount, tendered));
+  };
+  
+  // Calculer le montant effectif à encaisser (ne pas dépasser le montant restant)
+  const calculateEffectivePayment = (): number => {
+    const tendered = parseFloat(amountTendered.replace(',', '.'));
+    if (isNaN(tendered) || tendered <= 0) return 0;
+    
+    return Math.min(remainingAmount, tendered);
   };
   
   // Mettre à jour le montant reçu
@@ -87,7 +99,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Définir un montant exact
   const setExactAmount = () => {
-    setAmountTendered(totalAmount.toFixed(2));
+    setAmountTendered(remainingAmount.toFixed(2));
   };
   
   // Ajouter un montant prédéfini
@@ -102,12 +114,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   // Traiter le paiement
   const processPayment = async () => {
     const tenderedAmount = parseFloat(amountTendered.replace(',', '.'));
+    const effectiveAmount = calculateEffectivePayment();
     
-    // Vérifier que le montant donné est suffisant
-    if (tenderedAmount < totalAmount) {
+    // Vérifier que le montant donné est supérieur à zéro
+    if (tenderedAmount <= 0) {
       Alert.alert(
-        "Montant insuffisant",
-        "Le montant fourni est inférieur au montant dû.",
+        "Montant invalide",
+        "Veuillez entrer un montant supérieur à zéro.",
         [{ text: "OK" }]
       );
       return;
@@ -117,10 +130,10 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     setError(null);
     
     try {
-      // Enregistrer le paiement
+      // Enregistrer le paiement avec le montant effectif (limité au montant restant)
       const paymentRequest = {
         orderId: orderId,
-        amount: totalAmount,
+        amount: effectiveAmount,
         paymentMethod: paymentMethod,
         notes: paymentMode === 'items' ? 'Paiement par sélection d\'articles' : 'Paiement par montant personnalisé'
       };
@@ -161,9 +174,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         Commande #${orderId}
         Date: ${new Date().toLocaleString()}
         -----------------------------------
-        Montant payé: ${totalAmount.toFixed(2)} ${currency}
+        Montant total: ${totalAmount.toFixed(2)} ${currency}
+        Montant payé précédemment: ${paidAmount.toFixed(2)} ${currency}
+        Montant de ce paiement: ${calculateEffectivePayment().toFixed(2)} ${currency}
         Montant reçu: ${parseFloat(amountTendered.replace(',', '.')).toFixed(2)} ${currency}
         Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
+        Reste à payer: ${Math.max(0, remainingAmount - calculateEffectivePayment()).toFixed(2)} ${currency}
         -----------------------------------
         Mode de paiement: Espèces
         
@@ -220,9 +236,25 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           <Divider style={styles.divider} />
           
           <View style={styles.amountRow}>
-            <Text style={styles.amountLabel}>Montant à payer:</Text>
+            <Text style={styles.amountLabel}>Montant total:</Text>
             <Text style={styles.amountValue}>{totalAmount.toFixed(2)} {currency}</Text>
           </View>
+          
+          <View style={styles.amountRow}>
+            <Text style={styles.amountLabel}>Déjà payé:</Text>
+            <Text style={[styles.amountValue, { color: paidAmount > 0 ? theme.colors.success : theme.colors.text }]}>
+              {paidAmount.toFixed(2)} {currency}
+            </Text>
+          </View>
+          
+          <View style={styles.amountRow}>
+            <Text style={[styles.amountLabel, { fontWeight: 'bold' }]}>Reste à payer:</Text>
+            <Text style={[styles.amountValue, { fontWeight: 'bold', color: theme.colors.primary }]}>
+              {remainingAmount.toFixed(2)} {currency}
+            </Text>
+          </View>
+          
+          <Divider style={[styles.divider, { marginVertical: 16 }]} />
           
           <View style={styles.amountInputContainer}>
             <Text style={styles.amountInputLabel}>Montant reçu:</Text>
@@ -234,6 +266,15 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               right={<TextInput.Affix text={currency} />}
               style={styles.amountInput}
             />
+            
+            {parseFloat(amountTendered.replace(',', '.')) > remainingAmount && (
+              <View style={styles.warningContainer}>
+                <Icon name="information-outline" size={16} color={theme.colors.primary} />
+                <Text style={styles.warningText}>
+                  Le montant saisi dépasse le reste à payer. Seul {remainingAmount.toFixed(2)} {currency} sera encaissé.
+                </Text>
+              </View>
+            )}
           </View>
           
           <View style={styles.quickAmountContainer}>
@@ -249,9 +290,20 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
             </View>
           </View>
           
-          <View style={styles.changeContainer}>
-            <Text style={styles.changeLabel}>À rendre:</Text>
-            <Text style={styles.changeValue}>{calculateChange().toFixed(2)} {currency}</Text>
+          <View style={styles.paymentInfoContainer}>
+            <View style={styles.paymentInfoRow}>
+              <Text style={styles.paymentInfoLabel}>Montant à encaisser:</Text>
+              <Text style={[styles.paymentInfoValue, { color: theme.colors.success }]}>
+                {calculateEffectivePayment().toFixed(2)} {currency}
+              </Text>
+            </View>
+            
+            <View style={styles.paymentInfoRow}>
+              <Text style={styles.paymentInfoLabel}>À rendre:</Text>
+              <Text style={[styles.paymentInfoValue, { color: theme.colors.accent }]}>
+                {calculateChange().toFixed(2)} {currency}
+              </Text>
+            </View>
           </View>
         </Surface>
         
@@ -289,7 +341,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           onPress={processPayment}
           style={styles.payButton}
           loading={isProcessing}
-          disabled={isProcessing || parseFloat(amountTendered.replace(',', '.')) < totalAmount}
+          disabled={isProcessing || parseFloat(amountTendered.replace(',', '.')) <= 0}
           icon="cash-register"
         >
           {isProcessing ? 'Traitement...' : 'Valider le paiement'}
@@ -309,7 +361,16 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
             
             <View style={styles.receiptSummary}>
               <Text style={styles.receiptText}>
-                Montant payé: {totalAmount.toFixed(2)} {currency}
+                Montant total: {totalAmount.toFixed(2)} {currency}
+              </Text>
+              <Text style={styles.receiptText}>
+                Payé précédemment: {paidAmount.toFixed(2)} {currency}
+              </Text>
+              <Text style={styles.receiptText}>
+                Ce paiement: {calculateEffectivePayment().toFixed(2)} {currency}
+              </Text>
+              <Text style={styles.receiptText}>
+                Reste à payer: {Math.max(0, remainingAmount - calculateEffectivePayment()).toFixed(2)} {currency}
               </Text>
               <Text style={styles.receiptText}>
                 Monnaie rendue: {calculateChange().toFixed(2)} {currency}
@@ -366,15 +427,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   amountLabel: {
     fontSize: 16,
     fontWeight: '500',
   },
   amountValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '500',
   },
   amountInputContainer: {
     marginBottom: 16,
@@ -386,6 +447,20 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     backgroundColor: 'transparent',
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  warningText: {
+    fontSize: 12,
+    marginLeft: 8,
+    flex: 1,
+    color: '#0066CC',
   },
   quickAmountContainer: {
     marginBottom: 16,
@@ -403,22 +478,25 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 4,
   },
-  changeContainer: {
+  paymentInfoContainer: {
+    backgroundColor: '#F5F5F5',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  paymentInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: 16,
-    borderRadius: 8,
+    marginBottom: 8,
   },
-  changeLabel: {
+  paymentInfoLabel: {
     fontSize: 16,
     fontWeight: '500',
   },
-  changeValue: {
+  paymentInfoValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2196F3',
   },
   itemsCard: {
     margin: 16,

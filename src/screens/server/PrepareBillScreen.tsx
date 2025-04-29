@@ -37,6 +37,8 @@ type PrepareBillParamList = {
     tableName?: string;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
+    paidAmount: number; // Montant déjà payé
+    remainingAmount: number; // Montant restant à payer
     currency: string;
     paymentMode: 'items' | 'amount';
     customAmount?: number;
@@ -97,8 +99,13 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       
       setBillItems(items);
       
-      // Initialiser le montant personnalisé avec le total de la commande
-      setCustomAmount(targetOrder.totalPrice.toString());
+      // Initialiser le montant personnalisé avec le montant restant à payer
+      if (targetOrder.remainingAmount !== undefined) {
+        setCustomAmount(targetOrder.remainingAmount.toString());
+      } else {
+        // Fallback au montant total si remainingAmount n'est pas disponible
+        setCustomAmount(targetOrder.totalPrice.toString());
+      }
     } catch (err: any) {
       console.error('Error loading order details:', err);
       setError(err.message || 'Erreur lors du chargement des détails de la commande');
@@ -124,17 +131,34 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       }, 0);
   }, [billItems]);
   
-  // Calculer le montant restant après paiement partiel
-  const calculateRemainingAmount = useCallback(() => {
-    const orderTotal = order?.totalPrice || 0;
+  // Calculer le montant total de la commande
+  const calculateOrderTotal = useCallback((): number => {
+    return order?.totalPrice || 0;
+  }, [order]);
+
+  // Calculer le montant déjà payé
+  const calculatePaidAmount = useCallback((): number => {
+    return order?.paidAmount || 0;
+  }, [order]);
+
+  // Calculer le montant restant à payer
+  const calculateRemainingAmount = useCallback((): number => {
+    const orderTotal = calculateOrderTotal();
+    const paidAmount = calculatePaidAmount();
+    return Math.max(0, orderTotal - paidAmount);
+  }, [calculateOrderTotal, calculatePaidAmount]);
+  
+  // Calculer le montant personnalisé à payer (ne doit pas dépasser le montant restant)
+  const calculateCustomAmount = useCallback((): number => {
     const customAmountValue = parseFloat(customAmount.replace(',', '.'));
+    const remainingAmount = calculateRemainingAmount();
     
     if (isNaN(customAmountValue) || customAmountValue <= 0) {
-      return orderTotal;
+      return 0;
     }
     
-    return Math.max(0, orderTotal - customAmountValue);
-  }, [order, customAmount]);
+    return Math.min(customAmountValue, remainingAmount);
+  }, [customAmount, calculateRemainingAmount]);
   
   // Gérer la sélection/désélection d'un article
   const toggleItemSelection = (itemId: number) => {
@@ -170,6 +194,8 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
   
   // Passer à l'écran de paiement
   const proceedToPayment = () => {
+    const remainingAmount = calculateRemainingAmount();
+    
     if (paymentMode === 'items') {
       // Vérifier qu'au moins un article est sélectionné
       const selectedItems = billItems.filter(item => item.selected);
@@ -182,32 +208,28 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
         return;
       }
 
+      // Calculer le montant des articles sélectionnés (ne pas dépasser le montant restant)
+      const selectedTotal = Math.min(calculateSelectedTotal(), remainingAmount);
+
       // Naviguer vers l'écran de paiement avec les articles sélectionnés
       navigation.navigate('PaymentScreen', {
         orderId,
         tableName,
         selectedItems,
-        totalAmount: calculateSelectedTotal(),
+        totalAmount: calculateOrderTotal(),
+        paidAmount: calculatePaidAmount(),
+        remainingAmount: remainingAmount,
         currency: order?.currency.code || 'EUR',
         paymentMode: 'items'
       });
     } else {
       // Mode montant
-      const amountValue = parseFloat(customAmount.replace(',', '.'));
+      const customAmountValue = calculateCustomAmount();
       
-      if (isNaN(amountValue) || amountValue <= 0) {
+      if (customAmountValue <= 0) {
         Alert.alert(
           "Montant invalide",
           "Veuillez saisir un montant valide supérieur à 0.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-      
-      if (amountValue > (order?.totalPrice || 0)) {
-        Alert.alert(
-          "Montant trop élevé",
-          `Le montant ne peut pas dépasser le total de la commande (${order?.totalPrice.toFixed(2)} ${order?.currency.code}).`,
           [{ text: "OK" }]
         );
         return;
@@ -217,10 +239,12 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       navigation.navigate('PaymentScreen', {
         orderId,
         tableName,
-        totalAmount: amountValue,
+        totalAmount: calculateOrderTotal(),
+        paidAmount: calculatePaidAmount(),
+        remainingAmount: remainingAmount,
         currency: order?.currency.code || 'EUR',
         paymentMode: 'amount',
-        customAmount: amountValue
+        customAmount: customAmountValue
       });
     }
   };
@@ -359,6 +383,42 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       ) : (
         <View style={styles.content}>
           <ScrollView>
+            {/* Résumé de la commande */}
+            <Surface style={styles.orderSummaryContainer}>
+              <Text style={styles.cardTitle}>Résumé de la commande</Text>
+              <Divider style={styles.divider} />
+              
+              <View style={styles.orderInfoRow}>
+                <Text style={styles.orderInfoLabel}>Commande #{order?.id}</Text>
+                <Text style={styles.orderInfoValue}>{new Date(order?.orderDate || '').toLocaleDateString()}</Text>
+              </View>
+              
+              <View style={styles.orderInfoRow}>
+                <Text style={styles.orderInfoLabel}>Montant total:</Text>
+                <Text style={styles.orderInfoValue}>{calculateOrderTotal().toFixed(2)} {order?.currency.code}</Text>
+              </View>
+              
+              <View style={styles.orderInfoRow}>
+                <Text style={styles.orderInfoLabel}>Déjà payé:</Text>
+                <Text style={[
+                  styles.orderInfoValue, 
+                  { color: calculatePaidAmount() > 0 ? theme.colors.success : theme.colors.text }
+                ]}>
+                  {calculatePaidAmount().toFixed(2)} {order?.currency.code}
+                </Text>
+              </View>
+              
+              <View style={styles.orderInfoRow}>
+                <Text style={[styles.orderInfoLabel, { fontWeight: 'bold' }]}>Reste à payer:</Text>
+                <Text style={[
+                  styles.orderInfoValue, 
+                  { fontWeight: 'bold', color: theme.colors.primary }
+                ]}>
+                  {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
+                </Text>
+              </View>
+            </Surface>
+            
             {/* Sélection du mode de paiement */}
             <Surface style={styles.modeSelectionContainer}>
               <Text style={styles.modeSelectionLabel}>Mode de paiement:</Text>
@@ -387,13 +447,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
               {/* Section de montant personnalisé (visible uniquement en mode montant) */}
               {paymentMode === 'amount' && (
                 <View style={styles.customAmountSection}>
-                  <View style={styles.amountRow}>
-                    <Text style={styles.amountLabel}>Montant total:</Text>
-                    <Text style={styles.amountValue}>
-                      {order?.totalPrice.toFixed(2)} {order?.currency.code}
-                    </Text>
-                  </View>
-                  
                   <View style={styles.amountInputContainer}>
                     <Text style={styles.amountLabel}>Montant à payer:</Text>
                     <TextInput
@@ -404,12 +457,21 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
                       right={<TextInput.Affix text={order?.currency.code} />}
                       style={styles.amountInput}
                     />
+                    
+                    {parseFloat(customAmount.replace(',', '.')) > calculateRemainingAmount() && (
+                      <View style={styles.warningContainer}>
+                        <Icon name="information-outline" size={16} color={theme.colors.primary} />
+                        <Text style={styles.warningText}>
+                          Le montant saisi dépasse le reste à payer. Seul {calculateRemainingAmount().toFixed(2)} {order?.currency.code} sera encaissé.
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   
                   <View style={styles.amountRow}>
-                    <Text style={styles.amountLabel}>Restera à payer:</Text>
+                    <Text style={styles.amountLabel}>Montant effectif:</Text>
                     <Text style={[styles.amountValue, { color: theme.colors.primary }]}>
-                      {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
+                      {calculateCustomAmount().toFixed(2)} {order?.currency.code}
                     </Text>
                   </View>
                 </View>
@@ -450,19 +512,21 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
             )}
             
             {/* Liste des articles (visible dans les deux modes) */}
-            <View style={styles.itemsContainer}>
-              <Text style={styles.sectionTitle}>
-                {paymentMode === 'items' ? 'Sélectionnez les plats à payer:' : 'Liste des plats:'}
-              </Text>
-              
-              {billItems.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>Aucun article dans cette commande</Text>
-                </View>
-              ) : (
-                billItems.map(renderBillItem)
-              )}
-            </View>
+            {paymentMode === 'items' && (
+              <View style={styles.itemsContainer}>
+                <Text style={styles.sectionTitle}>
+                  Sélectionnez les plats à payer:
+                </Text>
+                
+                {billItems.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>Aucun article dans cette commande</Text>
+                  </View>
+                ) : (
+                  billItems.map(renderBillItem)
+                )}
+              </View>
+            )}
           </ScrollView>
           
           {/* Pied avec totaux et actions */}
@@ -474,18 +538,18 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
                 </DataTable.Cell>
                 <DataTable.Cell numeric>
                   {paymentMode === 'items' 
-                    ? `${calculateSelectedTotal().toFixed(2)} ${order?.currency.code}` 
-                    : `${parseFloat(customAmount || '0').toFixed(2)} ${order?.currency.code}`}
+                    ? `${Math.min(calculateSelectedTotal(), calculateRemainingAmount()).toFixed(2)} ${order?.currency.code}` 
+                    : `${calculateCustomAmount().toFixed(2)} ${order?.currency.code}`}
                 </DataTable.Cell>
               </DataTable.Row>
               
               <DataTable.Row>
                 <DataTable.Cell style={styles.totalCell}>
-                  <Text style={styles.totalText}>Total commande:</Text>
+                  <Text style={styles.totalText}>Reste à payer:</Text>
                 </DataTable.Cell>
                 <DataTable.Cell numeric style={styles.totalCell}>
                   <Text style={styles.totalAmount}>
-                    {order?.totalPrice.toFixed(2)} {order?.currency.code}
+                    {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
                   </Text>
                 </DataTable.Cell>
               </DataTable.Row>
@@ -505,6 +569,11 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
                 onPress={proceedToPayment}
                 style={styles.continueButton}
                 icon="cash-register"
+                disabled={
+                  (paymentMode === 'items' && calculateSelectedTotal() <= 0) ||
+                  (paymentMode === 'amount' && calculateCustomAmount() <= 0) ||
+                  calculateRemainingAmount() <= 0
+                }
               >
                 Procéder au paiement
               </Button>
@@ -550,9 +619,39 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 8,
   },
+  // Résumé de la commande
+  orderSummaryContainer: {
+    padding: 16,
+    margin: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  divider: {
+    marginBottom: 16,
+  },
+  orderInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  orderInfoLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  orderInfoValue: {
+    fontSize: 15,
+  },
+  // Sélection du mode
   modeSelectionContainer: {
     padding: 16,
     margin: 16,
+    marginTop: 8,
+    marginBottom: 8,
     borderRadius: 8,
   },
   modeSelectionLabel: {
@@ -579,7 +678,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 12,
   },
   amountLabel: {
     fontSize: 16,
@@ -596,10 +695,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
     backgroundColor: 'transparent',
   },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  warningText: {
+    fontSize: 12,
+    marginLeft: 8,
+    flex: 1,
+    color: '#0066CC',
+  },
   selectionHeader: {
     padding: 16,
     margin: 16,
-    marginTop: 0,
+    marginTop: 8,
     borderRadius: 8,
   },
   selectionHeaderContent: {
@@ -645,7 +758,7 @@ const styles = StyleSheet.create({
   },
   itemsContainer: {
     padding: 16,
-    paddingTop: 0,
+    paddingTop: 8,
     paddingBottom: 150, // Espace pour le footer
   },
   emptyContainer: {

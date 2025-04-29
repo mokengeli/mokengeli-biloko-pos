@@ -26,6 +26,17 @@ export interface DomainCurrency {
   code: string;
 }
 
+export interface DomainPaymentTransaction {
+  id: number;
+  amount: number;
+  paymentMethod: string;
+  createdAt: string;
+  employeeNumber: string;
+  notes?: string;
+  discountAmount?: number;
+  refund: boolean;
+}
+
 export interface DomainOrder {
   id: number;
   tenantCode: string;
@@ -35,6 +46,10 @@ export interface DomainOrder {
   totalPrice: number;
   currency: DomainCurrency;
   orderDate: string;
+  paymentStatus?: 'UNPAID' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'PAID_WITH_DISCOUNT' | 'PAID_WITH_REJECTED_ITEM';
+  paidAmount?: number; // Montant déjà payé
+  remainingAmount?: number; // Montant restant à payer
+  payments?: DomainPaymentTransaction[];
 }
 
 // Interface pour la création d'un élément de commande
@@ -177,7 +192,28 @@ const orderService = {
   async getOrderById(orderId: number): Promise<DomainOrder> {
     try {
       const response = await api.get(`/api/order/${orderId}`);
-      return response.data;
+      
+      // Si le backend ne fournit pas paidAmount ou remainingAmount, les calculer localement
+      const order = response.data;
+      
+      if (order.payments && order.payments.length > 0 && order.totalPrice) {
+        // Calculer le montant total payé si non fourni par l'API
+        if (order.paidAmount === undefined) {
+          order.paidAmount = order.payments.reduce((total, payment) => 
+            total + (payment.refund ? -payment.amount : payment.amount), 0);
+        }
+        
+        // Calculer le montant restant à payer si non fourni par l'API
+        if (order.remainingAmount === undefined) {
+          order.remainingAmount = Math.max(0, order.totalPrice - (order.paidAmount || 0));
+        }
+      } else {
+        // Si pas de paiements ou données incomplètes
+        if (order.paidAmount === undefined) order.paidAmount = 0;
+        if (order.remainingAmount === undefined) order.remainingAmount = order.totalPrice;
+      }
+      
+      return order;
     } catch (error) {
       console.error(`Error fetching order with ID ${orderId}:`, error);
       throw error;
@@ -209,7 +245,7 @@ const orderService = {
   },
   
   // Méthode pour récupérer l'historique des paiements
-  async getPaymentHistory(orderId: number): Promise<any[]> {
+  async getPaymentHistory(orderId: number): Promise<DomainPaymentTransaction[]> {
     try {
       const response = await api.get(`/api/order/payment/${orderId}/history`);
       return response.data;
@@ -226,6 +262,17 @@ const orderService = {
       return response.data;
     } catch (error) {
       console.error('Error getting orders requiring payment:', error);
+      throw error;
+    }
+  },
+  
+  // Méthode pour récupérer les commandes par statut de paiement
+  async getOrdersByPaymentStatus(status: string): Promise<DomainOrder[]> {
+    try {
+      const response = await api.get(`/api/order/payment/status/${status}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching orders with payment status ${status}:`, error);
       throw error;
     }
   }
