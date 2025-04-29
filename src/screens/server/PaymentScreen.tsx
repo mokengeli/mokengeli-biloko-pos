@@ -41,7 +41,7 @@ type PaymentParamList = {
     remainingAmount: number; // Montant restant à payer
     currency: string;
     paymentMode: 'items' | 'amount';
-    customAmount?: number;
+    customAmount?: number; // Montant personnalisé spécifié par l'utilisateur
   };
 };
 
@@ -73,16 +73,19 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const isTablet = windowWidth >= 768;
   
   // États
-  // Initialize amountTendered based on selected items or remaining amount
+  // Initialize amountTendered based on selected items, customAmount, or remaining amount
   const initialAmount = useCallback(() => {
     if (paymentMode === 'items' && selectedItems) {
       const selectedItemsTotal = selectedItems.reduce((total, item) => 
         total + (item.unitPrice * item.count), 0);
       return Math.min(selectedItemsTotal, remainingAmount).toFixed(2);
+    } else if (paymentMode === 'amount' && customAmount !== undefined) {
+      // Utiliser le montant personnalisé s'il est fourni
+      return customAmount.toString();
     } else {
       return remainingAmount.toFixed(2);
     }
-  }, [paymentMode, selectedItems, remainingAmount]);
+  }, [paymentMode, selectedItems, remainingAmount, customAmount]);
   
   const [amountTendered, setAmountTendered] = useState<string>(initialAmount());
   const [paymentMethod] = useState<string>('cash'); // Pour l'instant, uniquement en espèces
@@ -243,6 +246,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     const tendered = parseFloat(amountTendered.replace(',', '.'));
     if (isNaN(tendered) || tendered <= 0) return 0;
     
+    // S'assurer que nous ne dépassons pas le montant restant à payer
     return Math.min(currentRemaining, tendered);
   };
   
