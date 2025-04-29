@@ -15,7 +15,8 @@ import {
   Modal,
   List,
   Chip,
-  Snackbar
+  Snackbar,
+  HelperText
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
@@ -463,7 +464,15 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               keyboardType="numeric"
               right={<TextInput.Affix text={currency} />}
               style={styles.amountInput}
+              disabled={paymentMode === 'items'} // Désactivé en mode items
+              error={false}
             />
+            
+            {paymentMode === 'items' && (
+              <HelperText type="info" visible={true}>
+                Le montant est calculé automatiquement d'après les plats sélectionnés.
+              </HelperText>
+            )}
             
             {parseFloat(amountTendered.replace(',', '.')) > currentRemaining && (
               <View style={styles.warningContainer}>
@@ -476,15 +485,40 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           </View>
           
           <View style={styles.quickAmountContainer}>
-            <Button mode="outlined" onPress={setExactAmount} style={styles.exactButton}>
+            <Button 
+              mode="outlined" 
+              onPress={setExactAmount} 
+              style={styles.exactButton}
+              disabled={paymentMode === 'items'} // Désactivé en mode items
+            >
               Montant exact
             </Button>
             
             <View style={styles.presetAmounts}>
-              <Button mode="outlined" onPress={() => addPresetAmount(5)} style={styles.presetButton}>+5</Button>
-              <Button mode="outlined" onPress={() => addPresetAmount(10)} style={styles.presetButton}>+10</Button>
-              <Button mode="outlined" onPress={() => addPresetAmount(20)} style={styles.presetButton}>+20</Button>
-              <Button mode="outlined" onPress={() => addPresetAmount(50)} style={styles.presetButton}>+50</Button>
+              <Button 
+                mode="outlined" 
+                onPress={() => addPresetAmount(5)} 
+                style={styles.presetButton}
+                disabled={paymentMode === 'items'} // Désactivé en mode items
+              >+5</Button>
+              <Button 
+                mode="outlined" 
+                onPress={() => addPresetAmount(10)} 
+                style={styles.presetButton}
+                disabled={paymentMode === 'items'} // Désactivé en mode items
+              >+10</Button>
+              <Button 
+                mode="outlined" 
+                onPress={() => addPresetAmount(20)} 
+                style={styles.presetButton}
+                disabled={paymentMode === 'items'} // Désactivé en mode items
+              >+20</Button>
+              <Button 
+                mode="outlined" 
+                onPress={() => addPresetAmount(50)} 
+                style={styles.presetButton}
+                disabled={paymentMode === 'items'} // Désactivé en mode items
+              >+50</Button>
             </View>
           </View>
           
