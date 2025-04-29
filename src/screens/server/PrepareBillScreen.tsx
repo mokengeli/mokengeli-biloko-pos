@@ -383,7 +383,10 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
         </Surface>
       ) : (
         <View style={styles.content}>
-          <ScrollView>
+          <ScrollView 
+            contentContainerStyle={{paddingBottom: 150}}
+            showsVerticalScrollIndicator={true}
+          >
             {/* Résumé de la commande avec en-tête cliquable */}
             <Surface style={styles.orderSummaryContainer}>
               <TouchableRipple
@@ -789,7 +792,7 @@ const styles = StyleSheet.create({
   itemsContainer: {
     padding: 16,
     paddingTop: 8,
-    paddingBottom: 150, // Espace pour le footer
+    paddingBottom: 200, // Augmenté de 150 à 200 pour éviter le chevauchement avec le footer flottant
   },
   emptyContainer: {
     alignItems: 'center',
@@ -873,9 +876,11 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: 'white',
     padding: 16,
+    paddingBottom: 24, // Augmenté pour plus d'espace sur les appareils avec barre de navigation
     elevation: 8,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
+    zIndex: 10, // S'assurer que le footer reste au-dessus des autres éléments
   },
   summaryTable: {
     marginBottom: 16,
