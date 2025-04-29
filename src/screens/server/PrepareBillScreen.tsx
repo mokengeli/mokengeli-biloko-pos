@@ -74,6 +74,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
   const [customAmount, setCustomAmount] = useState('');
   const [allSelected, setAllSelected] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
   
   // Chargement des données de la commande
   const loadOrderDetails = useCallback(async () => {
@@ -383,40 +384,62 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       ) : (
         <View style={styles.content}>
           <ScrollView>
-            {/* Résumé de la commande */}
+            {/* Résumé de la commande avec en-tête cliquable */}
             <Surface style={styles.orderSummaryContainer}>
-              <Text style={styles.cardTitle}>Résumé de la commande</Text>
-              <Divider style={styles.divider} />
+              <TouchableRipple
+                onPress={() => setOrderSummaryExpanded(!orderSummaryExpanded)}
+                style={styles.orderSummaryHeader}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <Text style={styles.cardTitle}>Résumé de la commande</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.orderInfoValue, { marginRight: 8, fontWeight: 'bold', color: theme.colors.primary }]}>
+                      {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
+                    </Text>
+                    <Icon 
+                      name={orderSummaryExpanded ? "chevron-up" : "chevron-down"} 
+                      size={24} 
+                      color={theme.colors.primary} 
+                    />
+                  </View>
+                </View>
+              </TouchableRipple>
               
-              <View style={styles.orderInfoRow}>
-                <Text style={styles.orderInfoLabel}>Commande #{order?.id}</Text>
-                <Text style={styles.orderInfoValue}>{new Date(order?.orderDate || '').toLocaleDateString()}</Text>
-              </View>
-              
-              <View style={styles.orderInfoRow}>
-                <Text style={styles.orderInfoLabel}>Montant total:</Text>
-                <Text style={styles.orderInfoValue}>{calculateOrderTotal().toFixed(2)} {order?.currency.code}</Text>
-              </View>
-              
-              <View style={styles.orderInfoRow}>
-                <Text style={styles.orderInfoLabel}>Déjà payé:</Text>
-                <Text style={[
-                  styles.orderInfoValue, 
-                  { color: calculatePaidAmount() > 0 ? theme.colors.success : theme.colors.text }
-                ]}>
-                  {calculatePaidAmount().toFixed(2)} {order?.currency.code}
-                </Text>
-              </View>
-              
-              <View style={styles.orderInfoRow}>
-                <Text style={[styles.orderInfoLabel, { fontWeight: 'bold' }]}>Reste à payer:</Text>
-                <Text style={[
-                  styles.orderInfoValue, 
-                  { fontWeight: 'bold', color: theme.colors.primary }
-                ]}>
-                  {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
-                </Text>
-              </View>
+              {orderSummaryExpanded && (
+                <View style={styles.orderSummaryContent}>
+                  <Divider style={styles.divider} />
+                  
+                  <View style={styles.orderInfoRow}>
+                    <Text style={styles.orderInfoLabel}>Commande #{order?.id}</Text>
+                    <Text style={styles.orderInfoValue}>{new Date(order?.orderDate || '').toLocaleDateString()}</Text>
+                  </View>
+                  
+                  <View style={styles.orderInfoRow}>
+                    <Text style={styles.orderInfoLabel}>Montant total:</Text>
+                    <Text style={styles.orderInfoValue}>{calculateOrderTotal().toFixed(2)} {order?.currency.code}</Text>
+                  </View>
+                  
+                  <View style={styles.orderInfoRow}>
+                    <Text style={styles.orderInfoLabel}>Déjà payé:</Text>
+                    <Text style={[
+                      styles.orderInfoValue, 
+                      { color: calculatePaidAmount() > 0 ? theme.colors.success : theme.colors.text }
+                    ]}>
+                      {calculatePaidAmount().toFixed(2)} {order?.currency.code}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.orderInfoRow}>
+                    <Text style={[styles.orderInfoLabel, { fontWeight: 'bold' }]}>Reste à payer:</Text>
+                    <Text style={[
+                      styles.orderInfoValue, 
+                      { fontWeight: 'bold', color: theme.colors.primary }
+                    ]}>
+                      {calculateRemainingAmount().toFixed(2)} {order?.currency.code}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </Surface>
             
             {/* Sélection du mode de paiement */}
@@ -621,10 +644,22 @@ const styles = StyleSheet.create({
   },
   // Résumé de la commande
   orderSummaryContainer: {
-    padding: 16,
+    padding: 0,
     margin: 16,
     marginBottom: 8,
     borderRadius: 8,
+    overflow: 'hidden',
+  },
+  orderSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  orderSummaryContent: {
+    padding: 16,
+    paddingTop: 8,
   },
   cardTitle: {
     fontSize: 18,
