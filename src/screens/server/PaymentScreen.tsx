@@ -134,10 +134,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       
       // Si la commande est entièrement payée, informer l'utilisateur
       if (updatedRemaining <= 0) {
-        // Remplacer l'alerte par un snackbar
+        // Paiement complet - informer et rediriger vers ServerHome
         showSnackbar('Cette commande a été entièrement payée');
         
-        // Programmer la redirection après un court délai
         setTimeout(() => {
           navigation.dispatch(
             CommonActions.reset({
@@ -154,7 +153,6 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       return remainingAmount; // En cas d'erreur, retourner le montant initial
     }
   }, [orderId, remainingAmount, navigation, showSnackbar]);
-  
   // Gestionnaire de notifications WebSocket
   const handleOrderNotification = useCallback((notification: OrderNotification) => {
     console.log('WebSocket notification received:', notification);
@@ -173,10 +171,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
             // Vérifier d'abord que le montant restant est effectivement 0
             refreshOrderData().then(updatedRemaining => {
               if (updatedRemaining <= 0) {
-                // Remplacer l'alerte par un snackbar
+                // Paiement complet - informer et rediriger vers ServerHome
                 showSnackbar('Cette commande a été entièrement payée');
                 
-                // Programmer la redirection après un court délai pour permettre à l'utilisateur de voir le message
                 setTimeout(() => {
                   navigation.dispatch(
                     CommonActions.reset({
@@ -184,14 +181,33 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
                       routes: [{ name: 'ServerHome' }]
                     })
                   );
-                }, 2000); // Redirection après 2 secondes
+                }, 2000);
               } else {
+                // Paiement partiel - informer et rediriger vers PrepareBillScreen
                 showSnackbar(`Paiement reçu pour la commande #${notification.orderId}`);
+                
+                setTimeout(() => {
+                  navigation.navigate('PrepareBill', {
+                    orderId: orderId,
+                    tableId: tableName, // En supposant que tableName contient l'ID de la table
+                    tableName: tableName
+                  });
+                }, 2000);
               }
             });
           } else if (notification.newState === 'PARTIALLY_PAID') {
             showSnackbar(`Paiement partiel reçu pour la commande #${notification.orderId}`);
-            refreshOrderData();
+            
+            // Rafraîchir les données puis rediriger vers PrepareBillScreen
+            refreshOrderData().then(() => {
+              setTimeout(() => {
+                navigation.navigate('PrepareBill', {
+                  orderId: orderId,
+                  tableId: tableName,
+                  tableName: tableName
+                });
+              }, 2000);
+            });
           } else {
             refreshOrderData();
           }
@@ -206,7 +222,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           break;
       }
     }
-  }, [orderId, refreshOrderData, navigation, showSnackbar]);
+  }, [orderId, refreshOrderData, navigation, showSnackbar, tableName]);
 
   // Gérer l'action de la notification
   const handleNotificationAction = useCallback(() => {
