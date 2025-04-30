@@ -724,27 +724,27 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       )}
 
       {/* Snackbar pour les notifications */}
-      <SnackbarContainer bottomOffset={150}> {/* Ajuster le bottomOffset selon la hauteur de votre footer qui est plus grand sur cet écran */}
-        {currentNotification ? (
-          <NotificationSnackbar
-            notification={currentNotification}
-            visible={notificationVisible}
-            onDismiss={() => setNotificationVisible(false)}
-            onAction={handleNotificationAction}
-            actionLabel="Voir"
-          />
-        ) : (
-          <Snackbar
-            visible={snackbarVisible}
-            onDismiss={() => setSnackbarVisible(false)}
-            duration={3000}
-            style={{ backgroundColor: theme.colors.primary }}
-            wrapperStyle={{ position: 'relative' }} // Important pour neutraliser le positionnement absolu par défaut
-          >
-            {snackbarMessage}
-          </Snackbar>
-        )}
-      </SnackbarContainer>
+      <SnackbarContainer bottomOffset={150}>
+  {currentNotification ? (
+    <NotificationSnackbar
+      notification={currentNotification}
+      visible={notificationVisible}
+      onDismiss={() => setNotificationVisible(false)}
+      onAction={handleNotificationAction}
+      actionLabel="Voir"
+    />
+  ) : snackbarVisible ? (
+    <Snackbar
+      visible={true}
+      onDismiss={() => setSnackbarVisible(false)}
+      duration={3000}
+      style={{ backgroundColor: theme.colors.primary }}
+      wrapperStyle={{ position: 'relative' }}
+    >
+      {snackbarMessage}
+    </Snackbar>
+  ) : null}
+</SnackbarContainer>
     </SafeAreaView>
   );
 };
