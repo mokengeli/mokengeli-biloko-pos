@@ -25,7 +25,7 @@ import { TouchableRipple } from 'react-native-paper';
 import { Dimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import orderService, { DomainOrder, DomainOrderItem } from '../../api/orderService';
-import { webSocketService, OrderNotification } from '../../services/WebSocketService';
+import { webSocketService, OrderNotification, OrderNotificationStatus } from '../../services/WebSocketService';
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -136,23 +136,17 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
-      // Cas spécifiques aux états de paiement
-      if (['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
-        
-        // Si le statut de paiement a changé
-        if (notification.previousState !== notification.newState) {
-          // Formater le message de notification
-          const statusMessage = notification.newState
-            .replace('_', ' ')
-            .toLowerCase();
+      // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
+      switch (notification.orderStatus) {
+        case OrderNotificationStatus.PAYMENT_UPDATE:
+          // Un paiement a été effectué - priorité maximale
           
-          showSnackbar(`Statut de paiement mis à jour: ${statusMessage}`);
-          
-          // Si la commande est maintenant entièrement payée
+          // Messages plus détaillés et personnalisés selon le status de paiement
           if (notification.newState === 'FULLY_PAID') {
-            // Recharger les détails pour vérifier
+            showSnackbar('Commande entièrement payée!');
+            
+            // Vérifier le montant restant et rediriger si nécessaire
             loadOrderDetails().then(updatedOrder => {
-              // Ne rediriger que si le montant restant est effectivement 0
               if ((updatedOrder?.remainingAmount || 0) <= 0) {
                 Alert.alert(
                   'Commande entièrement payée',
@@ -166,20 +160,43 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
                 );
               }
             });
+          } else if (notification.newState === 'PARTIALLY_PAID') {
+            showSnackbar('Un paiement partiel a été enregistré pour cette commande');
+            loadOrderDetails(); // Recharger pour voir les changements
           } else {
-            // Recharger les détails de la commande pour mettre à jour les montants
-            loadOrderDetails();
+            showSnackbar('Le statut de paiement a été mis à jour');
+            loadOrderDetails(); // Recharger pour voir les changements
           }
-        }
-      }
-      // Cas des modifications d'articles (ajout, modification, etc.)
-      else if (notification.newState === 'PENDING' || notification.newState === 'REJECTED') {
-        showSnackbar('Des modifications ont été apportées à la commande');
-        loadOrderDetails(); // Recharger pour voir les changements
+          break;
+          
+        case OrderNotificationStatus.DISH_UPDATE:
+          // Mise à jour des plats - message précis selon le changement
+          if (notification.newState === 'REJECTED') {
+            showSnackbar('Un plat a été rejeté dans cette commande');
+          } else if (notification.previousState === '' && notification.newState === 'PENDING') {
+            showSnackbar('De nouveaux plats ont été ajoutés à la commande');
+          } else if (notification.newState === 'SERVED') {
+            showSnackbar('Un plat a été servi');
+          } else {
+            showSnackbar('Le statut d\'un plat a été modifié');
+          }
+          
+          // Recharger les détails car le total ou les articles ont changé
+          loadOrderDetails();
+          break;
+          
+        case OrderNotificationStatus.NEW_ORDER:
+          // Normalement pas pertinent sur cet écran qui traite d'une commande existante
+          break;
+          
+        default:
+          // Pour toute autre notification concernant cette commande, rafraîchir les données
+          showSnackbar('La commande a été modifiée');
+          loadOrderDetails();
+          break;
       }
     }
-  }, [orderId, loadOrderDetails, navigation]);
-  
+  }, [orderId, loadOrderDetails, navigation, showSnackbar]);
   // Configurer la connexion WebSocket
   useEffect(() => {
     if (!user?.tenantCode) return;

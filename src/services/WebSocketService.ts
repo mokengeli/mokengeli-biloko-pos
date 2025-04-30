@@ -6,12 +6,21 @@ import env from '../config/environment';
 // Type des abonnements
 export type SubscriptionCallback = (notification: OrderNotification) => void;
 
+// Enum pour le statut de notification
+export enum OrderNotificationStatus {
+  NEW_ORDER = 'NEW_ORDER',
+  DISH_UPDATE = 'DISH_UPDATE',
+  PAYMENT_UPDATE = 'PAYMENT_UPDATE'
+}
+
 // Interface pour les notifications d'ordre
 export interface OrderNotification {
   tenantCode: string;
   orderId: number;
   newState: string;
   previousState: string;
+  orderStatus: OrderNotificationStatus;
+  timestamp: string; // Date ISO au format string
 }
 
 class WebSocketService {

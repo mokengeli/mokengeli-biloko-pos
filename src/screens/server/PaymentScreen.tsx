@@ -28,7 +28,7 @@ import orderService from '../../api/orderService';
 import { usePrinter } from '../../hooks/usePrinter';
 import { Dimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { webSocketService, OrderNotification } from '../../services/WebSocketService';
+import { webSocketService, OrderNotification, OrderNotificationStatus } from '../../services/WebSocketService';
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -155,11 +155,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
-      // Cas spécifiques aux états de paiement
-      if (['UNPAID', 'PARTIALLY_PAID', 'FULLY_PAID', 'PAID_WITH_DISCOUNT'].includes(notification.newState)) {
-        
-        // Si le statut de paiement a changé
-        if (notification.previousState !== notification.newState) {
+      // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
+      switch (notification.orderStatus) {
+        case OrderNotificationStatus.PAYMENT_UPDATE:
+          // Mise à jour du paiement - priorité maximale
+          
           // Formater le message de notification
           const statusMessage = notification.newState
             .replace('_', ' ')
@@ -193,37 +193,36 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
             // Rafraîchir les données pour mettre à jour le montant restant
             refreshOrderData();
           }
-        }
-      }
-      // Cas des modifications d'articles
-      else if (notification.newState === 'PENDING' || notification.newState === 'REJECTED') {
-        showSnackbar('Des modifications ont été apportées à la commande');
-        refreshOrderData();
+          break;
+          
+        case OrderNotificationStatus.DISH_UPDATE:
+          // Mise à jour des plats (ajout, modification, rejet)
+          
+          // Message plus précis selon le changement d'état
+          if (notification.newState === 'REJECTED') {
+            showSnackbar('Un plat a été rejeté dans cette commande');
+          } else if (notification.previousState === '' && notification.newState === 'PENDING') {
+            showSnackbar('De nouveaux plats ont été ajoutés à la commande');
+          } else {
+            showSnackbar('Des modifications ont été apportées aux plats de la commande');
+          }
+          
+          // Rafraîchir les données car le total peut avoir changé
+          refreshOrderData();
+          break;
+          
+        case OrderNotificationStatus.NEW_ORDER:
+          // Traiter uniquement si pertinent pour l'écran de paiement
+          // Dans ce cas, c'est probablement une erreur ou non pertinent
+          break;
+          
+        default:
+          // Pour toute autre notification concernant cette commande, rafraîchir les données
+          refreshOrderData();
+          break;
       }
     }
-  }, [orderId, refreshOrderData, navigation]);
-  
-  // Configurer la connexion WebSocket
-  useEffect(() => {
-    if (!user?.tenantCode) return;
-    
-    // Se connecter au WebSocket
-    webSocketService.connect(user.tenantCode).catch(error => {
-      console.error('WebSocket connection error:', error);
-      setError('Erreur de connexion au service de notification en temps réel');
-    });
-    
-    // S'abonner aux notifications
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-    
-    // Nettoyage à la destruction du composant
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode, handleOrderNotification]);
+  }, [orderId, refreshOrderData, navigation, showSnackbar]);
   
   // Calculer la monnaie à rendre
   const calculateChange = (): number => {
