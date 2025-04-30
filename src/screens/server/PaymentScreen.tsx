@@ -60,6 +60,9 @@ interface PaymentScreenProps {
   route: PaymentScreenRouteProp;
 }
 
+// Définition pour le comportement de redirection après fermeture du modal
+type RedirectionTarget = 'ServerHome' | 'PrepareBill' | null;
+
 export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const { 
     orderId, 
@@ -107,6 +110,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [currentRemaining, setCurrentRemaining] = useState<number>(remainingAmount);
   const [orderChanged, setOrderChanged] = useState<boolean>(false);
+  
+  // État pour suivre où rediriger l'utilisateur après le modal de reçu
+  const [redirectAfterReceipt, setRedirectAfterReceipt] = useState<RedirectionTarget>(null);
 
   // Afficher une notification snackbar
   const showSnackbar = (message: string) => {
@@ -132,27 +138,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         setOrderChanged(true);
       }
       
-      // Si la commande est entièrement payée, informer l'utilisateur
-      if (updatedRemaining <= 0) {
-        // Paiement complet - informer et rediriger vers ServerHome
-        showSnackbar('Cette commande a été entièrement payée');
-        
-        setTimeout(() => {
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: 'ServerHome' }]
-            })
-          );
-        }, 2000);
-      }
-      
       return updatedRemaining;
     } catch (err: any) {
       console.error('Error refreshing order data:', err);
       return remainingAmount; // En cas d'erreur, retourner le montant initial
     }
-  }, [orderId, remainingAmount, navigation, showSnackbar]);
+  }, [orderId, remainingAmount]);
+
   // Gestionnaire de notifications WebSocket
   const handleOrderNotification = useCallback((notification: OrderNotification) => {
     console.log('WebSocket notification received:', notification);
@@ -163,7 +155,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       setCurrentNotification(notification);
       setNotificationVisible(true);
       
-      // Utiliser le champ orderStatus pour mieux cibler les actions
+      // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
       switch (notification.orderStatus) {
         case OrderNotificationStatus.PAYMENT_UPDATE:
           // Vérifier spécifiquement l'état de paiement
@@ -171,42 +163,20 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
             // Vérifier d'abord que le montant restant est effectivement 0
             refreshOrderData().then(updatedRemaining => {
               if (updatedRemaining <= 0) {
-                // Paiement complet - informer et rediriger vers ServerHome
                 showSnackbar('Cette commande a été entièrement payée');
-                
-                setTimeout(() => {
-                  navigation.dispatch(
-                    CommonActions.reset({
-                      index: 0,
-                      routes: [{ name: 'ServerHome' }]
-                    })
-                  );
-                }, 2000);
+                setRedirectAfterReceipt('ServerHome');
+                setReceiptModalVisible(true);
               } else {
-                // Paiement partiel - informer et rediriger vers PrepareBillScreen
                 showSnackbar(`Paiement reçu pour la commande #${notification.orderId}`);
-                
-                setTimeout(() => {
-                  navigation.navigate('PrepareBill', {
-                    orderId: orderId,
-                    tableId: tableName, // En supposant que tableName contient l'ID de la table
-                    tableName: tableName
-                  });
-                }, 2000);
+                setRedirectAfterReceipt('PrepareBill');
+                setReceiptModalVisible(true);
               }
             });
           } else if (notification.newState === 'PARTIALLY_PAID') {
             showSnackbar(`Paiement partiel reçu pour la commande #${notification.orderId}`);
-            
-            // Rafraîchir les données puis rediriger vers PrepareBillScreen
             refreshOrderData().then(() => {
-              setTimeout(() => {
-                navigation.navigate('PrepareBill', {
-                  orderId: orderId,
-                  tableId: tableName,
-                  tableName: tableName
-                });
-              }, 2000);
+              setRedirectAfterReceipt('PrepareBill');
+              setReceiptModalVisible(true);
             });
           } else {
             refreshOrderData();
@@ -214,16 +184,18 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           break;
           
         case OrderNotificationStatus.DISH_UPDATE:
+          // Rafraîchir les données car le total peut avoir changé
           refreshOrderData();
           break;
           
         default:
+          // Pour toute autre notification concernant cette commande, rafraîchir les données
           refreshOrderData();
           break;
       }
     }
-  }, [orderId, refreshOrderData, navigation, showSnackbar, tableName]);
-
+  }, [orderId, refreshOrderData, showSnackbar]);
+  
   // Gérer l'action de la notification
   const handleNotificationAction = useCallback(() => {
     setNotificationVisible(false);
@@ -314,7 +286,10 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       
       if (updatedRemaining <= 0) {
         // La commande a été entièrement payée entre-temps
-        return; // L'alerte est déjà affichée dans refreshOrderData
+        showSnackbar('Cette commande a été entièrement payée');
+        setRedirectAfterReceipt('ServerHome');
+        setReceiptModalVisible(true);
+        return;
       }
       
       // Mise à jour du montant effectif
@@ -348,6 +323,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         [{ text: "OK" }]
       );
       return;
+    }
+    
+    // Déterminer où rediriger après fermeture du modal
+    const remainingAfterPayment = Math.max(0, currentRemaining - effectiveAmount);
+    if (remainingAfterPayment <= 0) {
+      setRedirectAfterReceipt('ServerHome');
+    } else {
+      setRedirectAfterReceipt('PrepareBill');
     }
     
     finalizePendingPayment(effectiveAmount);
@@ -418,14 +401,23 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       // Imprimer le reçu
       await printDocument(receipt);
       
-      // Fermer la modale et retourner à l'écran d'accueil
+      // Fermer la modale et effectuer la redirection appropriée
       setReceiptModalVisible(false);
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'ServerHome' }]
-        })
-      );
+      
+      if (redirectAfterReceipt === 'ServerHome') {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'ServerHome' }]
+          })
+        );
+      } else if (redirectAfterReceipt === 'PrepareBill') {
+        navigation.navigate('PrepareBill', {
+          orderId: orderId,
+          tableId: tableName,
+          tableName: tableName
+        });
+      }
     } catch (err: any) {
       console.error('Error printing receipt:', err);
       setError(err.message || 'Erreur lors de l\'impression du reçu');
@@ -441,12 +433,21 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   // Terminer sans imprimer
   const finishWithoutPrinting = () => {
     setReceiptModalVisible(false);
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'ServerHome' }]
-      })
-    );
+    
+    if (redirectAfterReceipt === 'ServerHome') {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'ServerHome' }]
+        })
+      );
+    } else if (redirectAfterReceipt === 'PrepareBill') {
+      navigation.navigate('PrepareBill', {
+        orderId: orderId,
+        tableId: tableName,
+        tableName: tableName
+      });
+    }
   };
   
   return (
@@ -672,26 +673,26 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       
       {/* Snackbar pour les notifications */}
       <SnackbarContainer bottomOffset={80}>
-  {currentNotification ? (
-    <NotificationSnackbar
-      notification={currentNotification}
-      visible={notificationVisible}
-      onDismiss={() => setNotificationVisible(false)}
-      onAction={handleNotificationAction}
-      actionLabel="Voir"
-    />
-  ) : snackbarVisible ? (
-    <Snackbar
-      visible={true}
-      onDismiss={() => setSnackbarVisible(false)}
-      duration={3000}
-      style={{ backgroundColor: theme.colors.primary }}
-      wrapperStyle={{ position: 'relative' }}
-    >
-      {snackbarMessage}
-    </Snackbar>
-  ) : null}
-</SnackbarContainer>
+        {currentNotification ? (
+          <NotificationSnackbar
+            notification={currentNotification}
+            visible={notificationVisible}
+            onDismiss={() => setNotificationVisible(false)}
+            onAction={handleNotificationAction}
+            actionLabel="Voir"
+          />
+        ) : snackbarVisible ? (
+          <Snackbar
+            visible={true}
+            onDismiss={() => setSnackbarVisible(false)}
+            duration={3000}
+            style={{ backgroundColor: theme.colors.primary }}
+            wrapperStyle={{ position: 'relative' }}
+          >
+            {snackbarMessage}
+          </Snackbar>
+        ) : null}
+      </SnackbarContainer>
     </SafeAreaView>
   );
 };
