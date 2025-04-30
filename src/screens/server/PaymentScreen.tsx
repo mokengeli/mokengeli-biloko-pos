@@ -28,7 +28,14 @@ import orderService from '../../api/orderService';
 import { usePrinter } from '../../hooks/usePrinter';
 import { Dimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { webSocketService, OrderNotification, OrderNotificationStatus } from '../../services/WebSocketService';
+import { 
+  webSocketService, 
+  OrderNotification, 
+  OrderNotificationStatus 
+} from '../../services/WebSocketService';
+import { NotificationSnackbar } from '../../components/common/NotificationSnackbar';
+import { SnackbarContainer } from '../../components/common/SnackbarContainer';
+import { getNotificationMessage } from '../../utils/notificationHelpers';
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -94,6 +101,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
   
   // États pour les notifications WebSocket
+  const [currentNotification, setCurrentNotification] = useState<OrderNotification | null>(null);
+  const [notificationVisible, setNotificationVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [currentRemaining, setCurrentRemaining] = useState<number>(remainingAmount);
@@ -155,18 +164,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
+      // Stocker la notification courante pour l'afficher
+      setCurrentNotification(notification);
+      setNotificationVisible(true);
+      
       // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
       switch (notification.orderStatus) {
         case OrderNotificationStatus.PAYMENT_UPDATE:
-          // Mise à jour du paiement - priorité maximale
-          
-          // Formater le message de notification
-          const statusMessage = notification.newState
-            .replace('_', ' ')
-            .toLowerCase();
-          
-          showSnackbar(`Statut de paiement mis à jour: ${statusMessage}`);
-          
           // Si la commande est maintenant entièrement payée
           if (notification.newState === 'FULLY_PAID') {
             // Vérifier d'abord que le montant restant est effectivement 0
@@ -196,24 +200,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           break;
           
         case OrderNotificationStatus.DISH_UPDATE:
-          // Mise à jour des plats (ajout, modification, rejet)
-          
-          // Message plus précis selon le changement d'état
-          if (notification.newState === 'REJECTED') {
-            showSnackbar('Un plat a été rejeté dans cette commande');
-          } else if (notification.previousState === '' && notification.newState === 'PENDING') {
-            showSnackbar('De nouveaux plats ont été ajoutés à la commande');
-          } else {
-            showSnackbar('Des modifications ont été apportées aux plats de la commande');
-          }
-          
           // Rafraîchir les données car le total peut avoir changé
           refreshOrderData();
-          break;
-          
-        case OrderNotificationStatus.NEW_ORDER:
-          // Traiter uniquement si pertinent pour l'écran de paiement
-          // Dans ce cas, c'est probablement une erreur ou non pertinent
           break;
           
         default:
@@ -222,7 +210,43 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           break;
       }
     }
-  }, [orderId, refreshOrderData, navigation, showSnackbar]);
+  }, [orderId, refreshOrderData, navigation]);
+  
+  // Gérer l'action de la notification
+  const handleNotificationAction = useCallback(() => {
+    setNotificationVisible(false);
+    
+    // Si besoin de naviguer vers un écran spécifique selon le type de notification
+    if (currentNotification?.orderStatus === OrderNotificationStatus.PAYMENT_UPDATE) {
+      // Par exemple, rafraîchir immédiatement les données
+      refreshOrderData();
+    } else if (currentNotification?.orderStatus === OrderNotificationStatus.DISH_UPDATE) {
+      // Si on voudrait naviguer vers les détails des plats par exemple
+      refreshOrderData();
+    }
+  }, [currentNotification, refreshOrderData]);
+  
+  // Configurer la connexion WebSocket
+  useEffect(() => {
+    if (!user?.tenantCode) return;
+    
+    // Se connecter au WebSocket
+    webSocketService.connect(user.tenantCode).catch(error => {
+      console.error('WebSocket connection error:', error);
+      setError('Erreur de connexion au service de notification en temps réel');
+    });
+    
+    // S'abonner aux notifications
+    const unsubscribe = webSocketService.addSubscription(
+      user.tenantCode,
+      handleOrderNotification
+    );
+    
+    // Nettoyage à la destruction du composant
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.tenantCode, handleOrderNotification]);
   
   // Calculer la monnaie à rendre
   const calculateChange = (): number => {
@@ -635,14 +659,27 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       </Portal>
       
       {/* Snackbar pour les notifications */}
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
-        style={{ backgroundColor: theme.colors.primary }}
-      >
-        {snackbarMessage}
-      </Snackbar>
+      <SnackbarContainer bottomOffset={80}> {/* Ajuster le bottomOffset selon la hauteur de votre footer */}
+        {currentNotification ? (
+          <NotificationSnackbar
+            notification={currentNotification}
+            visible={notificationVisible}
+            onDismiss={() => setNotificationVisible(false)}
+            onAction={handleNotificationAction}
+            actionLabel="Voir"
+          />
+        ) : (
+          <Snackbar
+            visible={snackbarVisible}
+            onDismiss={() => setSnackbarVisible(false)}
+            duration={3000}
+            style={{ backgroundColor: theme.colors.primary }}
+            wrapperStyle={{ position: 'relative' }} // Important pour neutraliser le positionnement absolu par défaut
+          >
+            {snackbarMessage}
+          </Snackbar>
+        )}
+      </SnackbarContainer>
     </SafeAreaView>
   );
 };

@@ -15,17 +15,24 @@ import {
   ToggleButton,
   TextInput,
   Chip,
-  Snackbar
+  Snackbar,
+  TouchableRipple
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { TouchableRipple } from 'react-native-paper';
 import { Dimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import orderService, { DomainOrder, DomainOrderItem } from '../../api/orderService';
-import { webSocketService, OrderNotification, OrderNotificationStatus } from '../../services/WebSocketService';
+import { 
+  webSocketService, 
+  OrderNotification, 
+  OrderNotificationStatus 
+} from '../../services/WebSocketService';
+import { NotificationSnackbar } from '../../components/common/NotificationSnackbar';
+import { SnackbarContainer } from '../../components/common/SnackbarContainer';
+import { getNotificationMessage } from '../../utils/notificationHelpers';
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -79,6 +86,8 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
   
   // États pour les notifications WebSocket
+  const [currentNotification, setCurrentNotification] = useState<OrderNotification | null>(null);
+  const [notificationVisible, setNotificationVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   
@@ -136,6 +145,10 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
     
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
+      // Stocker la notification courante pour l'afficher
+      setCurrentNotification(notification);
+      setNotificationVisible(true);
+      
       // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
       switch (notification.orderStatus) {
         case OrderNotificationStatus.PAYMENT_UPDATE:
@@ -143,8 +156,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           
           // Messages plus détaillés et personnalisés selon le status de paiement
           if (notification.newState === 'FULLY_PAID') {
-            showSnackbar('Commande entièrement payée!');
-            
             // Vérifier le montant restant et rediriger si nécessaire
             loadOrderDetails().then(updatedOrder => {
               if ((updatedOrder?.remainingAmount || 0) <= 0) {
@@ -160,29 +171,14 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
                 );
               }
             });
-          } else if (notification.newState === 'PARTIALLY_PAID') {
-            showSnackbar('Un paiement partiel a été enregistré pour cette commande');
-            loadOrderDetails(); // Recharger pour voir les changements
           } else {
-            showSnackbar('Le statut de paiement a été mis à jour');
             loadOrderDetails(); // Recharger pour voir les changements
           }
           break;
           
         case OrderNotificationStatus.DISH_UPDATE:
           // Mise à jour des plats - message précis selon le changement
-          if (notification.newState === 'REJECTED') {
-            showSnackbar('Un plat a été rejeté dans cette commande');
-          } else if (notification.previousState === '' && notification.newState === 'PENDING') {
-            showSnackbar('De nouveaux plats ont été ajoutés à la commande');
-          } else if (notification.newState === 'SERVED') {
-            showSnackbar('Un plat a été servi');
-          } else {
-            showSnackbar('Le statut d\'un plat a été modifié');
-          }
-          
-          // Recharger les détails car le total ou les articles ont changé
-          loadOrderDetails();
+          loadOrderDetails(); // Recharger les détails car le total ou les articles ont changé
           break;
           
         case OrderNotificationStatus.NEW_ORDER:
@@ -191,12 +187,22 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
           
         default:
           // Pour toute autre notification concernant cette commande, rafraîchir les données
-          showSnackbar('La commande a été modifiée');
           loadOrderDetails();
           break;
       }
     }
-  }, [orderId, loadOrderDetails, navigation, showSnackbar]);
+  }, [orderId, loadOrderDetails, navigation]);
+  
+  // Gérer l'action de la notification
+  const handleNotificationAction = useCallback(() => {
+    setNotificationVisible(false);
+    
+    // Rafraîchir les données ou naviguer selon le type de notification
+    if (currentNotification) {
+      loadOrderDetails();
+    }
+  }, [currentNotification, loadOrderDetails]);
+  
   // Configurer la connexion WebSocket
   useEffect(() => {
     if (!user?.tenantCode) return;
@@ -218,11 +224,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       unsubscribe();
     };
   }, [user?.tenantCode, handleOrderNotification]);
-  
-  // Charger les données au chargement de l'écran
-  useEffect(() => {
-    loadOrderDetails();
-  }, [loadOrderDetails]);
   
   // Calculer le total des articles sélectionnés
   const calculateSelectedTotal = useCallback(() => {
@@ -404,6 +405,11 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
         return 'Inconnu';
     }
   };
+  
+  // Charger les données au chargement de l'écran
+  useEffect(() => {
+    loadOrderDetails();
+  }, [loadOrderDetails]);
   
   // Rendu d'un article d'addition
   const renderBillItem = (item: BillItem) => {
@@ -718,14 +724,27 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       )}
 
       {/* Snackbar pour les notifications */}
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
-        style={{ backgroundColor: theme.colors.primary }}
-      >
-        {snackbarMessage}
-      </Snackbar>
+      <SnackbarContainer bottomOffset={150}> {/* Ajuster le bottomOffset selon la hauteur de votre footer qui est plus grand sur cet écran */}
+        {currentNotification ? (
+          <NotificationSnackbar
+            notification={currentNotification}
+            visible={notificationVisible}
+            onDismiss={() => setNotificationVisible(false)}
+            onAction={handleNotificationAction}
+            actionLabel="Voir"
+          />
+        ) : (
+          <Snackbar
+            visible={snackbarVisible}
+            onDismiss={() => setSnackbarVisible(false)}
+            duration={3000}
+            style={{ backgroundColor: theme.colors.primary }}
+            wrapperStyle={{ position: 'relative' }} // Important pour neutraliser le positionnement absolu par défaut
+          >
+            {snackbarMessage}
+          </Snackbar>
+        )}
+      </SnackbarContainer>
     </SafeAreaView>
   );
 };
@@ -1033,3 +1052,5 @@ const styles = StyleSheet.create({
     flex: 2,
   },
 });
+
+export default PrepareBillScreen;
