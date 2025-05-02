@@ -137,7 +137,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               <View style={styles.orderInfo}>
                 <Text style={styles.orderNumber}>Commande #{order.id}</Text>
                 <View style={styles.tableTimeContainer}>
-                  <Text style={styles.tableText}>Table: {order.refTable}</Text>
+                  <Text style={styles.tableText}>Table: {order.tableName}</Text>
                   <Text
                     style={[
                       styles.timeText,

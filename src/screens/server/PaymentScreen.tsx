@@ -42,6 +42,7 @@ type PaymentParamList = {
   PaymentScreen: {
     orderId: number;
     tableName?: string;
+    tableId: number;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
     paidAmount: number; // Montant déjà payé
@@ -67,6 +68,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const { 
     orderId, 
     tableName, 
+    tableId,
     selectedItems,
     totalAmount, 
     paidAmount = 0, // Valeur par défaut à 0 si non fournie
@@ -414,7 +416,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       } else if (redirectAfterReceipt === 'PrepareBill') {
         navigation.navigate('PrepareBill', {
           orderId: orderId,
-          tableId: tableName,
+          tableId: route.params.tableId,
           tableName: tableName
         });
       }
@@ -444,7 +446,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     } else if (redirectAfterReceipt === 'PrepareBill') {
       navigation.navigate('PrepareBill', {
         orderId: orderId,
-        tableId: tableName,
+        tableId: route.params.tableId,
         tableName: tableName
       });
     }

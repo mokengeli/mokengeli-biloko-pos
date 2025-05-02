@@ -40,15 +40,16 @@ export interface DomainPaymentTransaction {
 export interface DomainOrder {
   id: number;
   tenantCode: string;
-  refTable: string;
+  tableName: string;     
+  tableId: number;      
   employeeNumber: string;
   items: DomainOrderItem[];
   totalPrice: number;
   currency: DomainCurrency;
   orderDate: string;
   paymentStatus?: 'UNPAID' | 'PARTIALLY_PAID' | 'FULLY_PAID' | 'PAID_WITH_DISCOUNT' | 'PAID_WITH_REJECTED_ITEM';
-  paidAmount?: number; // Montant déjà payé
-  remainingAmount?: number; // Montant restant à payer
+  paidAmount?: number;
+  remainingAmount?: number;
   payments?: DomainPaymentTransaction[];
 }
 
@@ -61,7 +62,8 @@ export interface CreateOrderItemRequest {
 
 // Interface pour la création d'une commande
 export interface CreateOrderRequest {
-  refTable: string;
+  tableName: string;
+  tableId: string;
   currencyId: number;
   orderItems: CreateOrderItemRequest[];
 }

@@ -158,7 +158,8 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
         
         // Créer l'objet de demande de commande
         const orderRequest: CreateOrderRequest = {
-          refTable: tableName || `Table_${tableId}`,
+          tableName: tableName,
+          tableId: tableId,
           currencyId,
           orderItems
         };

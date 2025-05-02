@@ -42,7 +42,7 @@ type ServerStackParamList = {
   };
   PrepareBill: {
     orderId: number;
-    tableId?: string;
+    tableId?: number;
     tableName?: string;
   };
   SplitBill: {
@@ -139,7 +139,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           // Créer un Map des tables avec des plats prêts
           const tableWithReadyDishes = new Map<
             string,
-            { count: number; orderId: number }
+            { count: number; orderId: number; tableId: number }
           >();
 
           // Remplir le Map avec les informations des plats prêts
@@ -147,18 +147,20 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
             const readyItemsInOrder = order.items.filter(
               (item) => item.state === "READY" || item.state === "COOKED"
             ).length;
-
+          
             if (readyItemsInOrder > 0) {
-              if (tableWithReadyDishes.has(order.refTable)) {
-                const existing = tableWithReadyDishes.get(order.refTable)!;
-                tableWithReadyDishes.set(order.refTable, {
+              if (tableWithReadyDishes.has(order.tableName)) {
+                const existing = tableWithReadyDishes.get(order.tableName)!;
+                tableWithReadyDishes.set(order.tableName, {
                   count: existing.count + readyItemsInOrder,
                   orderId: order.id,
+                  tableId: order.tableId
                 });
               } else {
-                tableWithReadyDishes.set(order.refTable, {
+                tableWithReadyDishes.set(order.tableName, {
                   count: readyItemsInOrder,
                   orderId: order.id,
+                  tableId: order.tableId
                 });
               }
             }
@@ -197,7 +199,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
                 description: `${info.count} plat${
                   info.count > 1 ? "s" : ""
                 } pour la table ${tableName}`,
-                tableId: tableName,
+                tableId: info.tableId.toString(), // Utiliser tableId comme identifiant
                 tableName: tableName,
                 timestamp: new Date().toISOString(),
                 priority: "high",
@@ -325,16 +327,15 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     (order: DomainOrder) => {
       // Naviguer vers l'écran des plats prêts à servir, filtré par table
       navigation.navigate("ReadyDishes", {
-        tableId: order.refTable,
-        tableName: order.refTable,
+        tableId: order.tableId.toString(),
+        tableName: order.tableName
       });
-
+  
       // Fermer la modal
       setTableDialogVisible(false);
     },
     [navigation]
   );
-
   // Gérer l'action "Nouvelle commande"
   const handleNewOrder = useCallback(() => {
     if (selectedTable) {
@@ -370,8 +371,8 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     // Naviguer vers l'écran de préparation d'addition
     navigation.navigate('PrepareBill', {
       orderId: order.id,
-      tableId: order.refTable,
-      tableName: order.refTable
+      tableId: order.tableId,
+      tableName: order.tableName
     });
   }, [navigation]);
 
@@ -383,7 +384,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       // Formater les données pour l'impression
       const ticketContent = `
     COMMANDE #${order.id}
-    Table: ${order.refTable}
+    Table: ${order.tableName}
     Date: ${new Date(order.orderDate).toLocaleString()}
     
     ARTICLES:

@@ -55,7 +55,7 @@ export const ReadyDishesScreen: React.FC<ReadyDishesScreenProps> = ({ navigation
       
       // Si un tableId est spécifié, filtrer pour cette table uniquement
       const filteredOrders = tableId 
-        ? readyOrders.filter(order => order.refTable === tableId)
+        ? readyOrders.filter(order => order.tableId.toString() === tableId)
         : readyOrders;
       
       // Filtrer pour ne garder que les commandes qui ont des plats prêts
@@ -213,7 +213,7 @@ export const ReadyDishesScreen: React.FC<ReadyDishesScreenProps> = ({ navigation
           <View style={styles.orderHeader}>
             <View style={styles.orderTitleContainer}>
               <Text style={styles.orderTitle}>Commande #{order.id}</Text>
-              <Text style={styles.tableText}>Table: {order.refTable}</Text>
+              <Text style={styles.tableText}>Table: {order.tableName}</Text>
             </View>
             <Badge
               style={[

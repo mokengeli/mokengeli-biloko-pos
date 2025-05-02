@@ -38,12 +38,13 @@ import { getNotificationMessage } from '../../utils/notificationHelpers';
 type PrepareBillParamList = {
   PrepareBill: {
     orderId: number;
-    tableId?: string;
+    tableId?: number;
     tableName?: string;
   };
   PaymentScreen: {
     orderId: number;
     tableName?: string;
+    tableId?: number;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
     paidAmount: number; // Montant déjà payé
@@ -331,6 +332,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
       navigation.navigate('PaymentScreen', {
         orderId,
         tableName,
+        tableId,
         selectedItems,
         totalAmount: calculateOrderTotal(),
         paidAmount: calculatePaidAmount(),
