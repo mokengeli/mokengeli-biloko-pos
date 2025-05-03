@@ -20,7 +20,10 @@ import { RolesUtils, Role } from "../../utils/roles";
 import { KitchenFilter } from "../../components/kitchen/KitchenFilter";
 import { OrderCard } from "../../components/kitchen/OrderCard";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
-import orderService, { DomainOrder, DomainOrderItem } from "../../api/orderService";
+import orderService, {
+  DomainOrder,
+  DomainOrderItem,
+} from "../../api/orderService";
 import {
   webSocketService,
   OrderNotification,
@@ -58,11 +61,15 @@ export const KitchenHomeScreen = () => {
   });
 
   // Fonction pour trier les commandes par date (plus anciennes en premier)
-  const sortOrdersByDate = useCallback((orders: DomainOrder[]): DomainOrder[] => {
-    return [...orders].sort((a, b) => 
-      new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()
-    );
-  }, []);
+  const sortOrdersByDate = useCallback(
+    (orders: DomainOrder[]): DomainOrder[] => {
+      return [...orders].sort(
+        (a, b) =>
+          new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()
+      );
+    },
+    []
+  );
 
   // Fonction pour montrer une notification informative
   const showInfoSnackbar = (message: string) => {
@@ -103,7 +110,7 @@ export const KitchenHomeScreen = () => {
       // Chargement des commandes
       const pendingResponse = await orderService.getOrdersByState("PENDING");
       const readyResponse = await orderService.getOrdersByState("READY");
-      
+
       // Tri des commandes par date
       setPendingOrders(sortOrdersByDate(pendingResponse));
       setReadyOrders(sortOrdersByDate(readyResponse));
@@ -133,17 +140,22 @@ export const KitchenHomeScreen = () => {
   };
 
   // Fonction pour trouver une commande et un de ses plats par itemId
-  const findOrderAndItemById = useCallback((orders: DomainOrder[], itemId: number): 
-    { orderIndex: number, itemIndex: number } | null => {
-    for (let orderIndex = 0; orderIndex < orders.length; orderIndex++) {
-      const order = orders[orderIndex];
-      const itemIndex = order.items.findIndex(item => item.id === itemId);
-      if (itemIndex !== -1) {
-        return { orderIndex, itemIndex };
+  const findOrderAndItemById = useCallback(
+    (
+      orders: DomainOrder[],
+      itemId: number
+    ): { orderIndex: number; itemIndex: number } | null => {
+      for (let orderIndex = 0; orderIndex < orders.length; orderIndex++) {
+        const order = orders[orderIndex];
+        const itemIndex = order.items.findIndex((item) => item.id === itemId);
+        if (itemIndex !== -1) {
+          return { orderIndex, itemIndex };
+        }
       }
-    }
-    return null;
-  }, []);
+      return null;
+    },
+    []
+  );
 
   // Marquer un plat comme prêt - Version optimisée
   const handleMarkAsReady = async (itemId: number) => {
@@ -157,62 +169,67 @@ export const KitchenHomeScreen = () => {
 
       // Envoyer la requête API pour marquer l'élément comme prêt
       await orderService.prepareOrderItem(itemId);
-      
+
       // Clone la commande concernée
       const { orderIndex } = result;
       const affectedOrder = { ...pendingOrders[orderIndex] };
 
       // Mettre à jour les états locaux pour refléter le changement
       // 1. Supprimer l'élément des commandes en attente
-      setPendingOrders(prev => {
-        const updatedItems = affectedOrder.items.filter(item => item.id !== itemId);
-        
+      setPendingOrders((prev) => {
+        const updatedItems = affectedOrder.items.filter(
+          (item) => item.id !== itemId
+        );
+
         // Si c'est le dernier élément de la commande, supprimer la commande
         if (updatedItems.length === 0) {
           return prev.filter((_, index) => index !== orderIndex);
         }
-        
+
         // Sinon, mettre à jour les éléments de la commande
         const newOrders = [...prev];
         newOrders[orderIndex] = {
           ...affectedOrder,
-          items: updatedItems
+          items: updatedItems,
         };
         return newOrders;
       });
-      
+
       // 2. Ajouter l'élément aux commandes prêtes
       // Récupérer les infos du plat avant qu'il ne soit filtré
-      const movedItem = { ...affectedOrder.items.find(item => item.id === itemId)! };
-      
+      const movedItem = {
+        ...affectedOrder.items.find((item) => item.id === itemId)!,
+      };
+
       // Modifier son état pour l'afficher correctement
       movedItem.state = "READY";
-      
-      setReadyOrders(prev => {
+
+      setReadyOrders((prev) => {
         // Vérifier si la commande existe déjà dans les commandes prêtes
-        const existingOrderIndex = prev.findIndex(o => o.id === affectedOrder.id);
-        
+        const existingOrderIndex = prev.findIndex(
+          (o) => o.id === affectedOrder.id
+        );
+
         if (existingOrderIndex !== -1) {
           // La commande existe, ajouter l'élément à ses items
           const newOrders = [...prev];
           newOrders[existingOrderIndex] = {
             ...newOrders[existingOrderIndex],
-            items: [...newOrders[existingOrderIndex].items, movedItem]
+            items: [...newOrders[existingOrderIndex].items, movedItem],
           };
           return sortOrdersByDate(newOrders);
         } else {
           // Créer une nouvelle entrée pour cette commande
           const newOrder = {
             ...affectedOrder,
-            items: [movedItem]
+            items: [movedItem],
           };
           return sortOrdersByDate([...prev, newOrder]);
         }
       });
-      
+
       // Afficher la notification de succès
       showInfoSnackbar(`Plat #${itemId} marqué comme prêt`);
-      
     } catch (err: any) {
       console.error("Error marking item as ready:", err);
 
@@ -254,33 +271,34 @@ export const KitchenHomeScreen = () => {
 
       // Envoyer la requête API pour rejeter l'élément
       await orderService.rejectDish(itemId);
-      
+
       // Clone la commande concernée
       const { orderIndex } = result;
       const affectedOrder = { ...pendingOrders[orderIndex] };
 
       // Mettre à jour les états locaux
-      setPendingOrders(prev => {
+      setPendingOrders((prev) => {
         // Filtrer pour supprimer l'élément rejeté
-        const updatedItems = affectedOrder.items.filter(item => item.id !== itemId);
-        
+        const updatedItems = affectedOrder.items.filter(
+          (item) => item.id !== itemId
+        );
+
         // Si c'est le dernier élément de la commande, supprimer la commande
         if (updatedItems.length === 0) {
           return prev.filter((_, index) => index !== orderIndex);
         }
-        
+
         // Sinon, mettre à jour les éléments de la commande
         const newOrders = [...prev];
         newOrders[orderIndex] = {
           ...affectedOrder,
-          items: updatedItems
+          items: updatedItems,
         };
         return newOrders;
       });
-      
+
       // Afficher la notification de succès
       showInfoSnackbar(`Plat #${itemId} rejeté`);
-      
     } catch (err: any) {
       console.error("Error rejecting item:", err);
 
@@ -349,9 +367,12 @@ export const KitchenHomeScreen = () => {
   const handleOrderNotification = useCallback(
     (notification: OrderNotification) => {
       console.log("Processing notification:", notification);
-      
+
       // En fonction du type de notification, mettre à jour différemment
-      if (notification.previousState === "PENDING" && notification.newState === "READY") {
+      if (
+        notification.previousState === "PENDING" &&
+        notification.newState === "READY"
+      ) {
         // Plat passé de PENDING à READY
         // On pourrait faire une mise à jour optimisée ici, mais comme nous ne disposons pas
         // de toutes les informations nécessaires dans la notification (item ID spécifique),
@@ -365,7 +386,7 @@ export const KitchenHomeScreen = () => {
         // Pour les autres types de changements d'état, également recharger
         loadOrders();
       }
-      
+
       // Afficher une notification à l'utilisateur
       showInfoSnackbar(
         `Commande #${notification.orderId} mise à jour: ${notification.newState}`

@@ -26,8 +26,9 @@ import orderService, { DomainOrder } from "../../api/orderService";
 import {
   webSocketService,
   OrderNotification,
+  OrderNotificationStatus,
 } from "../../services/WebSocketService";
-import { PrepareBillScreen } from './PrepareBillScreen';
+import { PrepareBillScreen } from "./PrepareBillScreen";
 
 // Types pour la navigation
 type ServerStackParamList = {
@@ -50,7 +51,7 @@ type ServerStackParamList = {
     tableName?: string;
     billItems: any[];
     totalAmount: number;
-    splitType: 'perPerson' | 'custom';
+    splitType: "perPerson" | "custom";
     numberOfPeople: number;
     currency: string;
   };
@@ -96,6 +97,10 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     visible: false,
     featureName: "",
   });
+
+  const [recentlyChangedTables, setRecentlyChangedTables] = useState<number[]>(
+    []
+  );
 
   // Générer un ID unique pour les tâches
   const generateTaskId = useCallback(() => {
@@ -147,20 +152,20 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
             const readyItemsInOrder = order.items.filter(
               (item) => item.state === "READY" || item.state === "COOKED"
             ).length;
-          
+
             if (readyItemsInOrder > 0) {
               if (tableWithReadyDishes.has(order.tableName)) {
                 const existing = tableWithReadyDishes.get(order.tableName)!;
                 tableWithReadyDishes.set(order.tableName, {
                   count: existing.count + readyItemsInOrder,
                   orderId: order.id,
-                  tableId: order.tableId
+                  tableId: order.tableId,
                 });
               } else {
                 tableWithReadyDishes.set(order.tableName, {
                   count: readyItemsInOrder,
                   orderId: order.id,
-                  tableId: order.tableId
+                  tableId: order.tableId,
                 });
               }
             }
@@ -328,9 +333,9 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       // Naviguer vers l'écran des plats prêts à servir, filtré par table
       navigation.navigate("ReadyDishes", {
         tableId: order.tableId.toString(),
-        tableName: order.tableName
+        tableName: order.tableName,
       });
-  
+
       // Fermer la modal
       setTableDialogVisible(false);
     },
@@ -364,17 +369,20 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   );
 
   // Gérer l'action "Demander l'addition"
-  const handleRequestBill = useCallback((order: DomainOrder) => {
-    // Fermer le dialogue de la table
-    setTableDialogVisible(false);
-    
-    // Naviguer vers l'écran de préparation d'addition
-    navigation.navigate('PrepareBill', {
-      orderId: order.id,
-      tableId: order.tableId,
-      tableName: order.tableName
-    });
-  }, [navigation]);
+  const handleRequestBill = useCallback(
+    (order: DomainOrder) => {
+      // Fermer le dialogue de la table
+      setTableDialogVisible(false);
+
+      // Naviguer vers l'écran de préparation d'addition
+      navigation.navigate("PrepareBill", {
+        orderId: order.id,
+        tableId: order.tableId,
+        tableName: order.tableName,
+      });
+    },
+    [navigation]
+  );
 
   // Gérer l'action "Imprimer le ticket"
   const handlePrintTicket = useCallback(
@@ -439,36 +447,103 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     };
   }, [user?.tenantCode]);
 
+  // Fonction pour marquer une table comme récemment modifiée (pour l'animation)
+  const markTableAsRecentlyChanged = useCallback((tableId: number) => {
+    setRecentlyChangedTables((prev) => [...prev, tableId]);
+
+    // Retirer la marque après un délai (pour terminer l'animation)
+    setTimeout(() => {
+      setRecentlyChangedTables((prev) => prev.filter((id) => id !== tableId));
+    }, 3000); // Animation de 3 secondes
+  }, []);
+
+  // Fonction pour vérifier si une table est devenue libre
+  const checkIfTableIsFreed = useCallback(
+    async (tableId: number) => {
+      try {
+        // Vérifier s'il reste des commandes actives sur la table
+        const activeOrders = await orderService.getActiveOrdersByTable(tableId);
+
+        // Si aucune commande active, la table est libre
+        if (activeOrders.length === 0) {
+          setTables((prevTables) =>
+            prevTables.map((table) => {
+              if (table.tableData.id === tableId) {
+                // Marquer la table comme récemment modifiée (pour l'animation)
+                markTableAsRecentlyChanged(tableId);
+
+                return {
+                  ...table,
+                  status: "free",
+                  occupationTime: undefined,
+                  orderCount: 0,
+                };
+              }
+              return table;
+            })
+          );
+        }
+      } catch (err) {
+        console.error(
+          `Erreur lors de la vérification du statut de la table ${tableId}:`,
+          err
+        );
+      }
+    },
+    [markTableAsRecentlyChanged]
+  );
+
   // Gestionnaire de notifications WebSocket
   const handleOrderNotification = useCallback(
     (notification: OrderNotification) => {
       console.log("Notification reçue:", notification);
 
-      // Traiter différemment selon le type de notification
-      if (notification.newState === "READY") {
-        // Un plat est passé à l'état READY, mettre à jour les plats prêts
-        loadReadyDishes();
-
-        // Pas besoin de recharger toutes les données, juste mettre à jour le compteur
-        // et créer/mettre à jour les tâches urgentes
-      } else if (
-        notification.newState === "PENDING" &&
-        notification.previousState === ""
+      // Cas d'une nouvelle commande (NEW_ORDER)
+      if (
+        notification.orderStatus === OrderNotificationStatus.NEW_ORDER &&
+        notification.tableId
       ) {
-        // Nouvelle commande créée, mettre à jour l'état des tables
-        // On pourrait optimiser davantage en mettant à jour uniquement la table concernée
-        // mais pour cela il faudrait étendre le modèle de notification pour inclure la tableId
-        loadData();
-      } else if (
+        // Mise à jour ciblée de la table concernée uniquement
+        setTables((prevTables) =>
+          prevTables.map((table) => {
+            // Si c'est la table concernée par la commande
+            if (table.tableData.id === notification.tableId) {
+              // Marquer la table comme récemment modifiée (pour l'animation)
+              markTableAsRecentlyChanged(notification.tableId);
+
+              return {
+                ...table,
+                status: "occupied", // Changer le statut à occupé
+                occupationTime: 1, // Commencer à 1 minute
+                orderCount: (table.orderCount || 0) + 1, // Incrémenter le nombre de commandes
+              };
+            }
+            return table; // Retourner les autres tables sans modification
+          })
+        );
+      }
+      // Mise à jour du statut des plats prêts
+      else if (
+        notification.newState === "READY" ||
+        notification.newState === "COOKED"
+      ) {
+        loadReadyDishes();
+      }
+      // Mise à jour des plats servis ou payés
+      else if (
         notification.newState === "SERVED" ||
         notification.newState === "PAID"
       ) {
-        // Un plat a été servi ou payé
-        // Mettre à jour le compteur de plats prêts
+        // Charger les plats prêts pour mettre à jour le compteur
         loadReadyDishes();
+
+        // Si nous avons l'ID de la table, vérifier si elle est libérée
+        if (notification.tableId) {
+          checkIfTableIsFreed(notification.tableId);
+        }
       }
     },
-    [loadData, loadReadyDishes]
+    [loadReadyDishes, markTableAsRecentlyChanged, checkIfTableIsFreed]
   );
 
   // Charger les données au démarrage et à chaque fois que l'écran est affiché
@@ -550,6 +625,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
               isLoading={isLoading}
               refreshing={refreshing}
               onRefresh={onRefresh}
+              recentlyChangedTables={recentlyChangedTables}
             />
 
             <UrgentTasks
