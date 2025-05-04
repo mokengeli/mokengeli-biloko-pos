@@ -84,7 +84,7 @@ export enum Role {
     } else if (this.hasRole(userRoles, Role.COOK)) {
       return 'KitchenHome';
     } else if (this.hasRole(userRoles, Role.MANAGER) || this.hasRole(userRoles, Role.ADMIN)) {
-      return 'AdminHome';
+      return 'ProfilHome';
     } else {
       return 'ServerHome'; // Page par défaut
     }

@@ -1,22 +1,22 @@
 // src/navigation/AppNavigator.tsx
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createStackNavigator } from "@react-navigation/stack";
 
-import { LoginScreen } from '../screens/LoginScreen';
-import { ServerHomeScreen } from '../screens/server/ServerHomeScreen';
-import { CreateOrderScreen } from '../screens/server/CreateOrderScreen';
-import { DishCustomizationScreen } from '../screens/server/DishCustomizationScreen';
-import { ReadyDishesScreen } from '../screens/server/ReadyDishesScreen';
-import { HomeScreen } from '../screens/HomeScreen'; // Conservé pour KitchenHome et AdminHome temporaires
-import { useAuth } from '../contexts/AuthContext';
-import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
-import { DishCustomizationParamList } from '../screens/server/DishCustomizationScreen';
-import { KitchenHomeScreen } from '../screens/kitchen/KitchenHomeScreen';
-import { RolesUtils } from '../utils/roles';
-import { PrepareBillScreen } from '../screens/server/PrepareBillScreen';
-import { PaymentScreen } from '../screens/server/PaymentScreen';
-import { DomainOrderItem } from '../api/orderService';
+import { LoginScreen } from "../screens/LoginScreen";
+import { ServerHomeScreen } from "../screens/server/ServerHomeScreen";
+import { CreateOrderScreen } from "../screens/server/CreateOrderScreen";
+import { DishCustomizationScreen } from "../screens/server/DishCustomizationScreen";
+import { ReadyDishesScreen } from "../screens/server/ReadyDishesScreen";
+import { HomeScreen } from "../screens/HomeScreen"; // Conservé pour KitchenHome et AdminHome temporaires
+import { useAuth } from "../contexts/AuthContext";
+import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
+import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
+import { KitchenHomeScreen } from "../screens/kitchen/KitchenHomeScreen";
+import { RolesUtils } from "../utils/roles";
+import { PrepareBillScreen } from "../screens/server/PrepareBillScreen";
+import { PaymentScreen } from "../screens/server/PaymentScreen";
+import { DomainOrderItem } from "../api/orderService";
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -27,12 +27,12 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   ServerHome: undefined;
   KitchenHome: undefined;
-  AdminHome: undefined;
+  ProfilHome: undefined;
   CreateOrder: {
     tableId: number;
     tableName: string;
   };
-  DishCustomization: DishCustomizationParamList['DishCustomization'];
+  DishCustomization: DishCustomizationParamList["DishCustomization"];
   ReadyDishes: {
     tableId?: string;
     tableName?: string;
@@ -48,7 +48,7 @@ export type MainStackParamList = {
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
     currency: string;
-    paymentMode: 'items' | 'amount';
+    paymentMode: "items" | "amount";
     customAmount?: number;
   };
   SplitBill: {
@@ -56,7 +56,7 @@ export type MainStackParamList = {
     tableName?: string;
     billItems: any[];
     totalAmount: number;
-    splitType: 'perPerson' | 'custom';
+    splitType: "perPerson" | "custom";
     numberOfPeople: number;
     currency: string;
   };
@@ -72,7 +72,7 @@ const AuthNavigator = () => {
     <AuthStack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: '#f5f5f5' },
+        cardStyle: { backgroundColor: "#f5f5f5" },
       }}
     >
       <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -83,17 +83,17 @@ const AuthNavigator = () => {
 // Composant pour les routes principales (authentifiées)
 const MainNavigator: React.FC = () => {
   const { user } = useAuth();
-  
+
   // Déterminer l'écran initial en fonction du rôle de l'utilisateur
   const getInitialRouteName = () => {
     if (!user) {
-      return 'ServerHome'; // Écran par défaut si pas d'utilisateur
+      return "ServerHome"; // Écran par défaut si pas d'utilisateur
     }
-    
+
     // Utiliser la méthode existante dans RolesUtils
     return RolesUtils.getHomeScreenForRoles(user.roles);
   };
-  
+
   // Déterminer l'écran initial
   const initialRoute = getInitialRouteName();
 
@@ -102,16 +102,19 @@ const MainNavigator: React.FC = () => {
       initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: '#f5f5f5' },
+        cardStyle: { backgroundColor: "#f5f5f5" },
       }}
     >
       <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
       <MainStack.Screen name="CreateOrder" component={CreateOrderScreen} />
-      <MainStack.Screen name="DishCustomization" component={DishCustomizationScreen} />
+      <MainStack.Screen
+        name="DishCustomization"
+        component={DishCustomizationScreen}
+      />
       <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
       <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
-      <MainStack.Screen name="AdminHome" component={HomeScreen} />
-      
+      <MainStack.Screen name="ProfilHome" component={HomeScreen} />
+
       {/* Écrans de paiement */}
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
@@ -143,13 +146,13 @@ export const AppNavigator: React.FC = () => {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#0066CC',
+    color: "#0066CC",
   },
 });

@@ -8,7 +8,7 @@ import {
   Surface,
   useTheme,
   FAB,
-  Chip,
+  Portal,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -90,6 +90,8 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([]);
   const [readyCount, setReadyCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const [fabOpen, setFabOpen] = useState(false);
 
   // États pour les dialogues
   const [selectedTable, setSelectedTable] = useState<TableWithStatus | null>(
@@ -655,16 +657,28 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       </View>
 
       {/* Bouton d'action flottant pour ajouter rapidement une commande */}
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        size="small" // Réduire la taille de l'icône
-        onPress={() =>
-          setNotAvailableDialog({
-            visible: true,
-            featureName: "Nouvelle commande rapide",
-          })
-        }
+      <FAB.Group
+        open={fabOpen}
+        icon={fabOpen ? "close" : "menu"}
+        actions={[
+          {
+            icon: "account",
+            label: "Mon compte",
+            onPress: () => {
+              navigation.navigate("ProfilHome");
+            },
+          },
+        ]}
+        onStateChange={({ open }) => setFabOpen(open)}
+        onPress={() => {
+          if (fabOpen) {
+            // Fermer le menu
+            setFabOpen(false);
+          }
+        }}
+        fabStyle={{
+          borderRadius: 16,
+        }}
       />
 
       {/* Dialogue de détail de table */}
@@ -698,12 +712,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   appbar: {
-    height: 56, // Hauteur réduite de l'Appbar
-    paddingTop: 0, // Suppression du padding supérieur
+    height: 56,
+    paddingTop: 0,
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 56, // Réduit de 80 à 56 pour diminuer l'espace avant le FAB
+    paddingBottom: 56,
   },
   mainContent: {
     flex: 1,
