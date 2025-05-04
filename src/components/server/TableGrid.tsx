@@ -14,7 +14,7 @@ import { DomainRefTable } from "../../api/tableService";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 // Types de statut de table possibles
-export type TableStatus = "free" | "occupied";
+export type TableStatus = "free" | "occupied" | "reserved";
 
 // Interface pour les données de table étendues avec statut
 export interface TableWithStatus {
@@ -30,7 +30,7 @@ interface TableGridProps {
   isLoading?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
-  recentlyChangedTables?: number[]; // Nouvelle prop pour les tables récemment modifiées
+  recentlyChangedTables?: number[]; // Pour les tables récemment modifiées
 }
 
 export const TableGrid: React.FC<TableGridProps> = ({
@@ -54,6 +54,8 @@ export const TableGrid: React.FC<TableGridProps> = ({
         return "#E3F2FD"; // Bleu très clair
       case "occupied":
         return "#FFEBEE"; // Rouge très clair
+      case "reserved":
+        return "#FFF3E0"; // Orange très clair
       default:
         return theme.colors.surface;
     }
@@ -66,11 +68,12 @@ export const TableGrid: React.FC<TableGridProps> = ({
         return "Libre";
       case "occupied":
         return "Occupée";
+      case "reserved":
+        return "Réservée";
       default:
         return "";
     }
   };
-
   // Formatter le temps d'occupation
   const formatOccupationTime = (minutes?: number) => {
     if (!minutes) return "";

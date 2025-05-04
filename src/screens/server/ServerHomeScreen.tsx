@@ -15,7 +15,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { useAuth } from "../../contexts/AuthContext";
 import { RolesUtils, Role } from "../../utils/roles";
-import { TableGrid, TableWithStatus } from "../../components/server/TableGrid";
+import {
+  TableGrid,
+  TableStatus,
+  TableWithStatus,
+} from "../../components/server/TableGrid";
 import { QuickActions } from "../../components/server/QuickActions";
 import { UrgentTasks, UrgentTask } from "../../components/server/UrgentTasks";
 import { TableDetailDialog } from "../../components/server/TableDetailDialog";
@@ -457,95 +461,113 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     }, 3000); // Animation de 3 secondes
   }, []);
 
-  // Fonction pour vérifier si une table est devenue libre
-  const checkIfTableIsFreed = useCallback(
-    async (tableId: number) => {
-      try {
-        // Vérifier s'il reste des commandes actives sur la table
-        const activeOrders = await orderService.getActiveOrdersByTable(tableId);
+  // Gestionnaire de notifications WebSocket
+  const handleOrderNotification = useCallback(
+    (notification: OrderNotification) => {
+      console.log("Notification reçue:", notification);
 
-        // Si aucune commande active, la table est libre
-        if (activeOrders.length === 0) {
+      // Gestion des mises à jour de statut de table
+      if (
+        notification.orderStatus ===
+          OrderNotificationStatus.TABLE_STATUS_UPDATE &&
+        notification.tableId
+      ) {
+        console.log(
+          `Table #${notification.tableId} nouvelle statut: ${notification.tableState}`
+        );
+
+        // Mise à jour du statut de la table selon la notification
+        setTables((prevTables) =>
+          prevTables.map((table) => {
+            if (table.tableData.id === notification.tableId) {
+              // Marquer la table comme récemment modifiée
+              markTableAsRecentlyChanged(notification.tableId);
+
+              return {
+                ...table,
+                status: notification.tableState.toLowerCase() as TableStatus,
+                // Réinitialiser les propriétés quand la table devient libre
+                ...(notification.tableState === "FREE"
+                  ? {
+                      occupationTime: undefined,
+                      orderCount: 0,
+                    }
+                  : {}),
+              };
+            }
+            return table;
+          })
+        );
+      }
+      // Gestion des nouvelles commandes
+      else if (
+        notification.orderStatus === OrderNotificationStatus.NEW_ORDER &&
+        notification.tableId
+      ) {
+        // Marquer la table comme récemment modifiée
+        markTableAsRecentlyChanged(notification.tableId);
+
+        // Mettre à jour la table avec le statut provenant du payload
+        setTables((prevTables) =>
+          prevTables.map((table) => {
+            if (table.tableData.id === notification.tableId) {
+              return {
+                ...table,
+                status: notification.tableState.toLowerCase() as TableStatus,
+                occupationTime:
+                  table.status === "free" ? 1 : table.occupationTime || 1,
+                orderCount: (table.orderCount || 0) + 1,
+              };
+            }
+            return table;
+          })
+        );
+      }
+      // Autres types de notifications (mises à jour de plats, etc.)
+      else {
+        // Mettre à jour la table avec le statut actuel si disponible
+        if (notification.tableId && notification.tableState) {
           setTables((prevTables) =>
             prevTables.map((table) => {
-              if (table.tableData.id === tableId) {
-                // Marquer la table comme récemment modifiée (pour l'animation)
-                markTableAsRecentlyChanged(tableId);
+              if (table.tableData.id === notification.tableId) {
+                // Marquer la table comme récemment modifiée pour les changements significatifs
+                if (table.status !== notification.tableState.toLowerCase()) {
+                  markTableAsRecentlyChanged(notification.tableId);
+                }
 
                 return {
                   ...table,
-                  status: "free",
-                  occupationTime: undefined,
-                  orderCount: 0,
+                  status: notification.tableState.toLowerCase() as TableStatus,
+                  // Réinitialiser les propriétés quand la table devient libre
+                  ...(notification.tableState === "FREE"
+                    ? {
+                        occupationTime: undefined,
+                        orderCount: 0,
+                      }
+                    : {}),
                 };
               }
               return table;
             })
           );
         }
-      } catch (err) {
-        console.error(
-          `Erreur lors de la vérification du statut de la table ${tableId}:`,
-          err
-        );
-      }
-    },
-    [markTableAsRecentlyChanged]
-  );
 
-  // Gestionnaire de notifications WebSocket
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("Notification reçue:", notification);
-
-      // Cas d'une nouvelle commande (NEW_ORDER)
-      if (
-        notification.orderStatus === OrderNotificationStatus.NEW_ORDER &&
-        notification.tableId
-      ) {
-        // Mise à jour ciblée de la table concernée uniquement
-        setTables((prevTables) =>
-          prevTables.map((table) => {
-            // Si c'est la table concernée par la commande
-            if (table.tableData.id === notification.tableId) {
-              // Marquer la table comme récemment modifiée (pour l'animation)
-              markTableAsRecentlyChanged(notification.tableId);
-
-              return {
-                ...table,
-                status: "occupied", // Changer le statut à occupé
-                occupationTime: 1, // Commencer à 1 minute
-                orderCount: (table.orderCount || 0) + 1, // Incrémenter le nombre de commandes
-              };
-            }
-            return table; // Retourner les autres tables sans modification
-          })
-        );
-      }
-      // Mise à jour du statut des plats prêts
-      else if (
-        notification.newState === "READY" ||
-        notification.newState === "COOKED"
-      ) {
-        loadReadyDishes();
-      }
-      // Mise à jour des plats servis ou payés
-      else if (
-        notification.newState === "SERVED" ||
-        notification.newState === "PAID"
-      ) {
-        // Charger les plats prêts pour mettre à jour le compteur
-        loadReadyDishes();
-
-        // Si nous avons l'ID de la table, vérifier si elle est libérée
-        if (notification.tableId) {
-          checkIfTableIsFreed(notification.tableId);
+        // Traiter les autres événements (plats prêts, etc.)
+        if (
+          notification.newState === "READY" ||
+          notification.newState === "COOKED"
+        ) {
+          loadReadyDishes();
+        } else if (
+          notification.newState === "SERVED" ||
+          notification.newState === "PAID"
+        ) {
+          loadReadyDishes();
         }
       }
     },
-    [loadReadyDishes, markTableAsRecentlyChanged, checkIfTableIsFreed]
+    [loadReadyDishes, markTableAsRecentlyChanged]
   );
-
   // Charger les données au démarrage et à chaque fois que l'écran est affiché
   useEffect(() => {
     loadData();
