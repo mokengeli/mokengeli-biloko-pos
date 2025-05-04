@@ -1,12 +1,25 @@
-// src/screens/HomeScreen.tsx
+// src/screens/ProfilScreen.tsx
 import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
-import { Text, Surface, Button, Card, Divider, Chip } from "react-native-paper";
+import {
+  Text,
+  Surface,
+  Button,
+  Card,
+  Divider,
+  Chip,
+  Appbar,
+  List,
+} from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
-import { RolesUtils } from "../utils/roles";
+import { RolesUtils, Role } from "../utils/roles";
+import { useNavigation } from "@react-navigation/native";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 export const ProfilScreen: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
+  const navigation = useNavigation();
 
   const handleLogout = async () => {
     await logout();
@@ -17,69 +30,129 @@ export const ProfilScreen: React.FC = () => {
     if (!roles || roles.length === 0) return <Text>Aucun rôle assigné</Text>;
 
     return roles.map((role, index) => (
-      <Chip key={index} style={styles.roleChip} mode="outlined">
+      <Chip
+        key={index}
+        style={styles.roleChip}
+        mode="outlined"
+        icon="account-group"
+      >
         {RolesUtils.getRoleDescription(role)}
       </Chip>
     ));
   };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      <Surface style={styles.surface}>
-        <Text style={styles.title}>Restaurant POS</Text>
-        <Text style={styles.subtitle}>
-          Bienvenue, {user?.firstName} {user?.lastName}
-        </Text>
+  // Fonction pour formater le nom complet
+  const getFullName = () => {
+    if (!user?.firstName && !user?.lastName) return "Utilisateur";
+    return `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+  };
 
+  return (
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
+        <Appbar.Content title="Mon profil" />
+        <Appbar.Action icon="logout" onPress={handleLogout} />
+      </Appbar.Header>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* En-tête du profil */}
+        <Surface style={styles.profileHeader} elevation={2}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {getFullName().charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.userName}>{getFullName()}</Text>
+          {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
+        </Surface>
+
+        {/* Informations personnelles */}
         <Card style={styles.card}>
           <Card.Content>
-            <Text style={styles.sectionTitle}>Informations Utilisateur</Text>
+            <Text style={styles.sectionTitle}>Informations personnelles</Text>
             <Divider style={styles.divider} />
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nom complet:</Text>
-              <Text style={styles.infoValue}>
-                {user?.firstName} {user?.lastName}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>
-                {user?.email || "Non renseigné"}
-              </Text>
-            </View>
-
-            <View style={[styles.infoRow, styles.rolesRow]}>
-              <Text style={styles.infoLabel}>Rôle(s):</Text>
-              <View style={styles.rolesContainer}>
-                {formatRoles(user?.roles)}
-              </View>
-            </View>
-
-            {user?.tenantName && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Restaurant:</Text>
-                <Text style={styles.infoValue}>{user.tenantName}</Text>
-              </View>
-            )}
+            <List.Section>
+              <List.Item
+                title="Prénom"
+                description={user?.firstName || "Non renseigné"}
+                left={(props) => <List.Icon {...props} icon="account" />}
+                titleStyle={styles.listItemTitle}
+              />
+              <List.Item
+                title="Nom"
+                description={user?.lastName || "Non renseigné"}
+                left={(props) => <List.Icon {...props} icon="account" />}
+                titleStyle={styles.listItemTitle}
+              />
+              <List.Item
+                title="Email"
+                description={user?.email || "Non renseigné"}
+                left={(props) => <List.Icon {...props} icon="email" />}
+                titleStyle={styles.listItemTitle}
+              />
+            </List.Section>
           </Card.Content>
         </Card>
 
+        {/* Rôles et permissions */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Rôles et permissions</Text>
+            <Divider style={styles.divider} />
+
+            <View style={styles.rolesContainer}>
+              {formatRoles(user?.roles)}
+            </View>
+          </Card.Content>
+        </Card>
+
+        {/* Informations du restaurant */}
+        {user?.tenantName && (
+          <Card style={styles.card}>
+            <Card.Content>
+              <Text style={styles.sectionTitle}>Restaurant</Text>
+              <Divider style={styles.divider} />
+
+              <List.Section>
+                <List.Item
+                  title="Nom du restaurant"
+                  description={user.tenantName}
+                  left={(props) => <List.Icon {...props} icon="store" />}
+                  titleStyle={styles.listItemTitle}
+                />
+                {user.tenantCode && (
+                  <List.Item
+                    title="Code"
+                    description={user.tenantCode}
+                    left={(props) => <List.Icon {...props} icon="barcode" />}
+                    titleStyle={styles.listItemTitle}
+                  />
+                )}
+              </List.Section>
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Bouton de déconnexion */}
         <Button
           mode="contained"
           onPress={handleLogout}
           style={styles.logoutButton}
           loading={isLoading}
           disabled={isLoading}
+          icon="logout"
         >
           Déconnexion
         </Button>
-      </Surface>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -88,64 +161,71 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  scrollView: {
+    flex: 1,
+  },
   contentContainer: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
   },
-  surface: {
-    padding: 20,
-    borderRadius: 10,
-    elevation: 4,
+  profileHeader: {
+    borderRadius: 12,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 24,
+    backgroundColor: "white",
   },
-  title: {
-    fontSize: 28,
+  avatarContainer: {
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#0066CC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 32,
     fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 10,
-    color: "#0066CC",
+    color: "white",
   },
-  subtitle: {
-    fontSize: 18,
-    textAlign: "center",
-    marginBottom: 20,
+  userName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 16,
+    opacity: 0.7,
   },
   card: {
-    marginVertical: 16,
+    marginBottom: 16,
+    borderRadius: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   divider: {
     marginBottom: 16,
   },
-  infoRow: {
-    flexDirection: "row",
-    marginBottom: 12,
-    flexWrap: "wrap",
-  },
-  rolesRow: {
-    alignItems: "flex-start",
-  },
-  infoLabel: {
-    fontWeight: "bold",
-    minWidth: 100,
-    marginRight: 8,
-  },
-  infoValue: {
-    flex: 1,
+  listItemTitle: {
+    fontWeight: "600",
   },
   rolesContainer: {
-    flex: 1,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
   roleChip: {
-    marginBottom: 4,
+    marginRight: 8,
+    marginBottom: 8,
   },
   logoutButton: {
-    marginTop: 10,
+    marginTop: 24,
+    paddingVertical: 4,
   },
 });
