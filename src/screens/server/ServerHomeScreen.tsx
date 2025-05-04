@@ -610,24 +610,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       </Appbar.Header>
 
       <QuickActions
-        onNewOrder={() =>
-          setNotAvailableDialog({
-            visible: true,
-            featureName: "Nouvelle commande",
-          })
-        }
-        onTakeout={() =>
-          setNotAvailableDialog({
-            visible: true,
-            featureName: "Commande à emporter",
-          })
-        }
-        onMyOrders={() =>
-          setNotAvailableDialog({
-            visible: true,
-            featureName: "Mes commandes",
-          })
-        }
         onReady={handleReadyDishes}
         readyCount={readyCount}
         disabled={isLoading}

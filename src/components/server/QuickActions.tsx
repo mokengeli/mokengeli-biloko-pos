@@ -1,8 +1,8 @@
 // src/components/server/QuickActions.tsx
-import React from 'react';
-import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Button, useTheme, Badge } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React from "react";
+import { View, StyleSheet, ScrollView, Dimensions } from "react-native";
+import { Button, useTheme, Badge } from "react-native-paper";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 interface QuickActionButtonProps {
   icon: string;
@@ -20,17 +20,21 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   disabled = false,
 }) => {
   const theme = useTheme();
-  const windowWidth = Dimensions.get('window').width;
+  const windowWidth = Dimensions.get("window").width;
   const isCompact = windowWidth < 500;
 
   return (
     <View style={styles.actionButtonContainer}>
-      {(badgeCount !== undefined && badgeCount > 0) && (
-        <Badge style={styles.badge} size={24}>{badgeCount}</Badge>
+      {badgeCount !== undefined && badgeCount > 0 && (
+        <Badge style={styles.badge} size={24}>
+          {badgeCount}
+        </Badge>
       )}
       <Button
         mode="contained"
-        icon={({ size, color }) => <Icon name={icon} size={size} color={color} />}
+        icon={({ size, color }) => (
+          <Icon name={icon} size={size} color={color} />
+        )}
         onPress={onPress}
         style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
         contentStyle={styles.actionButtonContent}
@@ -45,23 +49,17 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({
 };
 
 interface QuickActionsProps {
-  onNewOrder: () => void;
-  onTakeout: () => void;
-  onMyOrders: () => void;
   onReady: () => void;
   readyCount?: number;
   disabled?: boolean;
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
-  onNewOrder,
-  onTakeout,
-  onMyOrders,
   onReady,
   readyCount = 0,
   disabled = false,
 }) => {
-  const windowWidth = Dimensions.get('window').width;
+  const windowWidth = Dimensions.get("window").width;
   const isTablet = windowWidth >= 768;
 
   return (
@@ -71,24 +69,6 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
-        <QuickActionButton
-          icon="silverware-fork-knife"
-          label="Nouvelle commande"
-          onPress={onNewOrder}
-          disabled={disabled}
-        />
-        <QuickActionButton
-          icon="food-takeout-box"
-          label="À emporter"
-          onPress={onTakeout}
-          disabled={disabled}
-        />
-        <QuickActionButton
-          icon="clipboard-list"
-          label="Mes commandes"
-          onPress={onMyOrders}
-          disabled={disabled}
-        />
         <QuickActionButton
           icon="bell"
           label="Plats prêts"
@@ -104,7 +84,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingVertical: 8,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     elevation: 2,
   },
   tabletContainer: {
@@ -115,7 +95,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButtonContainer: {
-    position: 'relative',
+    position: "relative",
     marginVertical: 4, // Ajout de marge verticale
   },
   actionButton: {
@@ -130,10 +110,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   badge: {
-    position: 'absolute',
-    top: -6,  // Position ajustée pour éviter la troncature
+    position: "absolute",
+    top: -6, // Position ajustée pour éviter la troncature
     right: -4,
     zIndex: 1,
-    backgroundColor: '#d32f2f', // Rouge pour plus de visibilité
+    backgroundColor: "#d32f2f", // Rouge pour plus de visibilité
   },
 });
