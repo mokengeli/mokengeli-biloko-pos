@@ -1,11 +1,11 @@
 // src/screens/HomeScreen.tsx
-import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Surface, Button, Card, Divider, Chip } from 'react-native-paper';
-import { useAuth } from '../contexts/AuthContext';
-import { RolesUtils, Role } from '../utils/roles';
+import React from "react";
+import { View, StyleSheet, ScrollView } from "react-native";
+import { Text, Surface, Button, Card, Divider, Chip } from "react-native-paper";
+import { useAuth } from "../contexts/AuthContext";
+import { RolesUtils } from "../utils/roles";
 
-export const HomeScreen: React.FC = () => {
+export const ProfilScreen: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
 
   const handleLogout = async () => {
@@ -15,46 +15,51 @@ export const HomeScreen: React.FC = () => {
   // Fonction pour formater les rôles de l'utilisateur avec descriptions
   const formatRoles = (roles: string[] | undefined) => {
     if (!roles || roles.length === 0) return <Text>Aucun rôle assigné</Text>;
-    
+
     return roles.map((role, index) => (
-      <Chip 
-        key={index} 
-        style={styles.roleChip}
-        mode="outlined"
-      >
+      <Chip key={index} style={styles.roleChip} mode="outlined">
         {RolesUtils.getRoleDescription(role)}
       </Chip>
     ));
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
       <Surface style={styles.surface}>
         <Text style={styles.title}>Restaurant POS</Text>
-        <Text style={styles.subtitle}>Bienvenue, {user?.firstName} {user?.lastName}</Text>
+        <Text style={styles.subtitle}>
+          Bienvenue, {user?.firstName} {user?.lastName}
+        </Text>
 
         <Card style={styles.card}>
           <Card.Content>
             <Text style={styles.sectionTitle}>Informations Utilisateur</Text>
             <Divider style={styles.divider} />
-            
+
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Nom complet:</Text>
-              <Text style={styles.infoValue}>{user?.firstName} {user?.lastName}</Text>
+              <Text style={styles.infoValue}>
+                {user?.firstName} {user?.lastName}
+              </Text>
             </View>
-            
+
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{user?.email || 'Non renseigné'}</Text>
+              <Text style={styles.infoValue}>
+                {user?.email || "Non renseigné"}
+              </Text>
             </View>
-            
+
             <View style={[styles.infoRow, styles.rolesRow]}>
               <Text style={styles.infoLabel}>Rôle(s):</Text>
               <View style={styles.rolesContainer}>
                 {formatRoles(user?.roles)}
               </View>
             </View>
-            
+
             {user?.tenantName && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Restaurant:</Text>
@@ -64,8 +69,8 @@ export const HomeScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
-        <Button 
-          mode="contained" 
+        <Button
+          mode="contained"
           onPress={handleLogout}
           style={styles.logoutButton}
           loading={isLoading}
@@ -81,7 +86,7 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   contentContainer: {
     padding: 20,
@@ -94,14 +99,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 10,
-    color: '#0066CC',
+    color: "#0066CC",
   },
   subtitle: {
     fontSize: 18,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 20,
   },
   card: {
@@ -109,22 +114,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   divider: {
     marginBottom: 16,
   },
   infoRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 12,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   rolesRow: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   infoLabel: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     minWidth: 100,
     marginRight: 8,
   },
@@ -133,8 +138,8 @@ const styles = StyleSheet.create({
   },
   rolesContainer: {
     flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   roleChip: {

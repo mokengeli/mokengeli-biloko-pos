@@ -8,7 +8,7 @@ import { ServerHomeScreen } from "../screens/server/ServerHomeScreen";
 import { CreateOrderScreen } from "../screens/server/CreateOrderScreen";
 import { DishCustomizationScreen } from "../screens/server/DishCustomizationScreen";
 import { ReadyDishesScreen } from "../screens/server/ReadyDishesScreen";
-import { HomeScreen } from "../screens/HomeScreen"; // Conservé pour KitchenHome et AdminHome temporaires
+import { ProfilScreen } from "../screens/ProfilScreen"; // Conservé pour KitchenHome et AdminHome temporaires
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
@@ -113,7 +113,7 @@ const MainNavigator: React.FC = () => {
       />
       <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
       <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
-      <MainStack.Screen name="ProfilHome" component={HomeScreen} />
+      <MainStack.Screen name="ProfilHome" component={ProfilScreen} />
 
       {/* Écrans de paiement */}
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
