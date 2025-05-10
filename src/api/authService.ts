@@ -8,6 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 export interface LoginCredentials {
   username: string;
   password: string;
+  platformType: string
 }
 
 // Interface pour la réponse d'utilisateur
