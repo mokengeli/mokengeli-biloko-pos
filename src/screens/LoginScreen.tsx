@@ -1,5 +1,6 @@
-// src/screens/LoginScreen.tsx
-import React, { useState } from "react";
+// src/screens/LoginScreen.tsx (Mise à jour pour afficher le message de déconnexion forcée)
+
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -30,7 +31,7 @@ const LoginSchema = Yup.object().shape({
 
 // Composant écran de connexion
 export const LoginScreen: React.FC = () => {
-  const { login, error, clearError, isLoading } = useAuth();
+  const { login, error, clearError, isLoading, forceLogoutReason, clearForceLogoutReason } = useAuth();
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -38,7 +39,7 @@ export const LoginScreen: React.FC = () => {
   const handleSubmit = async (values: {
     username: string;
     password: string;
-    platfrom: string;
+    platformType: string;
   }) => {
     try {
       setLocalError(null);
@@ -56,6 +57,19 @@ export const LoginScreen: React.FC = () => {
 
   // Afficher les erreurs
   const showError = error || localError;
+  
+  // Effet pour effacer le message de déconnexion forcée après un certain temps
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (forceLogoutReason) {
+      timer = setTimeout(() => {
+        clearForceLogoutReason();
+      }, 10000); // 10 secondes
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [forceLogoutReason, clearForceLogoutReason]);
 
   return (
     <KeyboardAvoidingView
@@ -70,6 +84,23 @@ export const LoginScreen: React.FC = () => {
           <View style={styles.logoContainer}>
             <Text style={styles.logoText}>Mokengeli Biloko POS</Text>
           </View>
+
+          {/* Bannière pour le message de déconnexion forcée */}
+          {forceLogoutReason && (
+            <Banner
+              visible={true}
+              actions={[
+                {
+                  label: "Fermer",
+                  onPress: clearForceLogoutReason,
+                },
+              ]}
+              style={styles.forceLogoutBanner}
+              icon="alert-circle"
+            >
+              <Text style={styles.forceLogoutText}>{forceLogoutReason}</Text>
+            </Banner>
+          )}
 
           {showError && (
             <Banner
@@ -211,6 +242,13 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     color: "#B00020",
+  },
+  forceLogoutBanner: {
+    marginBottom: 20,
+    backgroundColor: "#FFF3E0", // Orange clair pour déconnexion forcée
+  },
+  forceLogoutText: {
+    color: "#E65100", // Orange foncé
   },
   button: {
     marginTop: 20,

@@ -1,8 +1,9 @@
-//src/api/authService.ts
-
+// src/api/authService.ts
 import api from './apiConfig';
+import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import env from '../config/environment';
 
 // Interface pour les données de connexion
 export interface LoginCredentials {
@@ -30,7 +31,6 @@ const authService = {
   // Connexion utilisateur
   async login(credentials: LoginCredentials): Promise<User> {
     try {
-     
       const response = await api.post('/api/auth/login', credentials);
       
       // Le serveur répond avec un cookie httpOnly, donc nous n'avons pas besoin
@@ -58,7 +58,46 @@ const authService = {
     }
     
     // Nettoyer le stockage local
-    await AsyncStorage.removeItem(USER_DATA_KEY);
+    await this.cleanLocalStorage();
+  },
+
+  // Déconnexion forcée (optimisée)
+  async forceLogout(): Promise<void> {
+    try {
+      // Créer une instance axios indépendante pour la déconnexion
+      const logoutClient = axios.create({
+        baseURL: env.apiUrl,
+        timeout: 5000,
+        withCredentials: true,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'X-Force-Logout': 'true' // Header optionnel pour indiquer une déconnexion forcée
+        }
+      });
+      
+      // Ajouter un timestamp pour éviter le cache
+      const timestamp = new Date().getTime();
+      await logoutClient.post(`/api/auth/logout?t=${timestamp}`);
+      
+      console.log('Déconnexion forcée effectuée avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion forcée:', error);
+      // Continuer malgré l'erreur
+    }
+    
+    // Toujours nettoyer le stockage local
+    await this.cleanLocalStorage();
+  },
+
+  // Nettoyer uniquement le stockage local
+  async cleanLocalStorage(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(USER_DATA_KEY);
+      // Supprimer d'autres données locales si nécessaire
+      console.log('Stockage local nettoyé avec succès');
+    } catch (error) {
+      console.error('Erreur lors du nettoyage du stockage local:', error);
+    }
   },
 
   // Vérifier si l'utilisateur est connecté
