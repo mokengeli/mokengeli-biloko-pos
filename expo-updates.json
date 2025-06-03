@@ -1,0 +1,11 @@
+{
+    "cli": {
+      "version": ">= 0.60.0"
+    },
+    "staging": {
+      "channel": "staging"
+    },
+    "production": {
+      "channel": "production"
+    }
+  }

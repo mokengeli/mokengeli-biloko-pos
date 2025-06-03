@@ -6,7 +6,20 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:dev": "eas build --profile development --platform all",
+    "build:staging": "eas build --profile staging --platform all",
+    "build:preview": "eas build --profile preview --platform all",
+    "build:prod": "eas build --profile production --platform all",
+    "build:android:dev": "eas build --profile development --platform android",
+    "build:android:staging": "eas build --profile staging --platform android",
+    "build:android:prod": "eas build --profile production --platform android",
+    "build:ios:dev": "eas build --profile development --platform ios",
+    "build:ios:staging": "eas build --profile staging --platform ios",
+    "build:ios:prod": "eas build --profile production --platform ios",
+    "publish:staging": "eas update --branch staging --message \"Staging update\"",
+    "publish:prod": "eas update --branch production --message \"Production update\"",
+    "test:build": "expo doctor && npm run build:preview"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -16,11 +29,12 @@
     "@react-navigation/stack": "^7.2.10",
     "@reduxjs/toolkit": "^2.7.0",
     "@stomp/stompjs": "^7.1.1",
-    "@types/react": "^19.1.2",
+    "@types/react": "~19.0.10",
     "@types/react-dom": "^19.1.3",
     "axios": "^1.9.0",
     "date-fns": "^2.30.0",
-    "expo": "^53.0.5",
+    "expo": "53.0.9",
+    "expo-constants": "~17.1.6",
     "expo-secure-store": "~14.2.3",
     "expo-status-bar": "~2.2.3",
     "formik": "^2.4.6",
@@ -39,11 +53,21 @@
     "react-redux": "^9.2.0",
     "socket.io-client": "^4.8.1",
     "sockjs-client": "^1.6.1",
-    "yup": "^1.6.1"
+    "typescript": "~5.8.3",
+    "yup": "^1.6.1",
+    "expo-updates": "~0.28.13",
+    "expo-dev-client": "~5.1.8"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "typescript": "^5.4.2"
+    "@types/node": "^22.15.23"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "typescript"
+      ]
+    }
   },
   "private": true
 }

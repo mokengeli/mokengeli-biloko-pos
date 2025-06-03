@@ -1,0 +1,45 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "API_URL": "https://hideously-smart-llama.ngrok-free.app",
+        "API_TIMEOUT": "10000",
+        "NODE_ENV": "development"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "channel": "staging",
+      "env": {
+        "API_URL": "http://104.248.206.121:8080",
+        "API_TIMEOUT": "15000",
+        "NODE_ENV": "staging"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "API_URL": "http://104.248.206.121:8080",
+        "API_TIMEOUT": "15000",
+        "NODE_ENV": "staging"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "env": {
+        "API_URL": "https://api.mokengeli-biloko.com",
+        "API_TIMEOUT": "20000",
+        "NODE_ENV": "production"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

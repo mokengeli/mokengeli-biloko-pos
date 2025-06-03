@@ -28,6 +28,15 @@ api.interceptors.response.use(
   error => {
     // Extraire le code d'erreur HTTP
     const statusCode = error.response?.status;
+    console.log('[Axios] Response error:', {
+      message: error.message,
+      code: error.code,
+      response: error.response ? {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers,
+      } : "NO ERROR CATCH",
+    });
     
     // Gérer spécifiquement les erreurs 401 et 429
     if ((statusCode === 401 || statusCode === 429) && !isHandlingForceLogout) {
