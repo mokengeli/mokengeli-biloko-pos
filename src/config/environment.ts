@@ -1,6 +1,9 @@
 // src/config/environment.ts
 import Constants from 'expo-constants';
 
+// Déclaration de la variable globale __DEV__ pour TypeScript
+declare const __DEV__: boolean;
+
 // Interface pour la configuration d'environnement
 interface EnvConfig {
   apiUrl: string;
@@ -41,11 +44,22 @@ const getEnvVars = (): EnvConfig => {
   // 2. Déterminer l'environnement
   let environment: string;
   
-  if (__DEV__) {
+  // Vérifier d'abord si on a une variable d'environnement explicite
+  if (expoConfig?.extra?.environment && expoConfig.extra.environment in ENV_CONFIGS) {
+    environment = expoConfig.extra.environment;
+  } else if (manifest?.extra?.environment && manifest.extra.environment in ENV_CONFIGS) {
+    environment = manifest.extra.environment;
+  } else if (__DEV__) {
     environment = 'development';
   } else {
-    // En production, utiliser la configuration par défaut
-    environment = 'production';
+    // En production, vérifier le releaseChannel pour différencier staging et production
+    const releaseChannel = manifest?.releaseChannel || expoConfig?.extra?.releaseChannel;
+    
+    if (releaseChannel === 'staging') {
+      environment = 'staging';
+    } else {
+      environment = 'production';
+    }
   }
   
   // 3. Charger la configuration de base
@@ -60,16 +74,32 @@ const getEnvVars = (): EnvConfig => {
     config.apiTimeout = parseInt(expoConfig.extra.apiTimeout, 10);
   }
   
-  // 5. Log de la configuration (seulement en développement)
+  // 5. Support pour une URL WebSocket personnalisée si différente de l'API
+  if (expoConfig?.extra?.wsUrl) {
+    config.wsUrl = expoConfig.extra.wsUrl;
+  } else if (!config.wsUrl) {
+    // Si pas d'URL WebSocket spécifiée, la dériver de l'URL API
+    config.wsUrl = config.apiUrl;
+  }
+  
+  // 6. Log de la configuration (seulement en développement)
   if (__DEV__) {
     console.log('🔧 Configuration loaded:', {
       environment,
       apiUrl: config.apiUrl,
-      isDev: __DEV__
+      wsUrl: config.wsUrl,
+      isDev: __DEV__,
+      releaseChannel: manifest?.releaseChannel || 'default'
     });
   }
   
   return config;
 };
 
-export default getEnvVars();
+// Exporter une instance unique de la configuration
+const envConfig = getEnvVars();
+
+export default envConfig;
+
+// Exporter également la fonction pour des tests ou des besoins spécifiques
+export { getEnvVars, ENV_CONFIGS };

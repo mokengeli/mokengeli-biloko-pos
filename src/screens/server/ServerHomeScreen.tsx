@@ -258,7 +258,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       // Charger les commandes actives pour déterminer le statut des tables
       const tablesWithStatus: TableWithStatus[] = [];
-      const tableStatusMap = new Map<number, boolean>(); // Map pour stocker le statut d'occupation des tables
+      const tableOrdersMap = new Map<number, DomainOrder[]>(); // Map pour stocker les commandes actives par table
 
       // Pour chaque table, vérifier s'il existe des commandes actives
       for (const table of tablesResponse.content) {
@@ -266,31 +266,46 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           const activeOrders = await orderService.getActiveOrdersByTable(
             table.id
           );
-          const isOccupied = activeOrders.length > 0;
-
-          // Stocker le statut de la table
-          tableStatusMap.set(table.id, isOccupied);
+          tableOrdersMap.set(table.id, activeOrders); // Stocker les commandes, pas juste un boolean
         } catch (err) {
           console.error(
             `Error fetching active orders for table ${table.id}:`,
             err
           );
-          // En cas d'erreur, supposer que la table est libre
-          tableStatusMap.set(table.id, false);
+          tableOrdersMap.set(table.id, []); // Tableau vide en cas d'erreur
         }
       }
 
+      // AJOUTER cette fonction helper
+      const calculateOccupationTime = (orders: DomainOrder[]): number => {
+        if (orders.length === 0) return 0;
+
+        // Trouver la commande la plus ancienne
+        const oldestOrder = orders.reduce((oldest, current) => {
+          const oldestTime = new Date(oldest.orderDate).getTime();
+          const currentTime = new Date(current.orderDate).getTime();
+          console.log({oldestTime, currentTime})
+          return currentTime < oldestTime ? current : oldest;
+        });
+
+        // Calculer le temps écoulé en minutes
+        const now = new Date().getTime();
+        const orderTime = new Date(oldestOrder.orderDate).getTime();
+        return Math.floor((now - orderTime) / (1000 * 60));
+      };
+
       // Créer la liste finale des tables avec leur statut
       for (const table of tablesResponse.content) {
-        const isOccupied = tableStatusMap.get(table.id) || false;
+        const activeOrders = tableOrdersMap.get(table.id) || [];
+        const isOccupied = activeOrders.length > 0;
 
         tablesWithStatus.push({
           tableData: table,
           status: isOccupied ? "occupied" : "free",
           occupationTime: isOccupied
-            ? Math.floor(Math.random() * 90) + 15
-            : undefined, // Simuler le temps d'occupation
-          orderCount: isOccupied && Math.random() > 0.7 ? 1 : 0, // Certaines tables occupées nécessitent une attention
+            ? calculateOccupationTime(activeOrders) // Temps réel calculé
+            : undefined,
+          orderCount: activeOrders.length, // Nombre réel de commandes
         });
       }
 

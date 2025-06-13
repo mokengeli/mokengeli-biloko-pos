@@ -1,45 +1,80 @@
 {
   "cli": {
-    "version": ">= 5.0.0",
-    "appVersionSource": "remote"
+    "version": ">= 7.1.2"
   },
   "build": {
+    "base": {
+      "node": "18.18.0",
+      "env": {
+        "SENTRY_DSN": "your-sentry-dsn-here"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "API_URL": "https://hideously-smart-llama.ngrok-free.app",
-        "API_TIMEOUT": "10000",
-        "NODE_ENV": "development"
-      }
+        "APP_VARIANT": "development",
+        "ENVIRONMENT": "development",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug",
+        "withoutCredentials": true
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug"
+      },
+      "channel": "development"
     },
     "staging": {
-      "distribution": "internal",
-      "channel": "staging",
-      "env": {
-        "API_URL": "http://104.248.206.121:8080",
-        "API_TIMEOUT": "15000",
-        "NODE_ENV": "staging"
-      }
-    },
-    "preview": {
+      "extends": "base",
       "distribution": "internal",
       "env": {
-        "API_URL": "http://104.248.206.121:8080",
-        "API_TIMEOUT": "15000",
-        "NODE_ENV": "staging"
-      }
+        "APP_VARIANT": "staging",
+        "ENVIRONMENT": "staging",
+        "EXPO_PUBLIC_API_URL": "https://staging-api.yourrestaurantpos.com"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "channel": "staging"
     },
     "production": {
-      "channel": "production",
+      "extends": "base",
       "env": {
-        "API_URL": "https://api.mokengeli-biloko.com",
-        "API_TIMEOUT": "20000",
-        "NODE_ENV": "production"
-      }
+        "APP_VARIANT": "production",
+        "ENVIRONMENT": "production",
+        "EXPO_PUBLIC_API_URL": "https://api.yourrestaurantpos.com"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "resourceClass": "large"
+      },
+      "ios": {
+        "buildConfiguration": "Release",
+        "resourceClass": "large"
+      },
+      "channel": "production",
+      "autoIncrement": true
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "../path/to/google-play-key.json",
+        "track": "internal"
+      },
+      "ios": {
+        "ascAppId": "your-app-store-connect-app-id",
+        "appleTeamId": "YOUR_TEAM_ID"
+      }
+    }
   }
 }
