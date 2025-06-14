@@ -29,8 +29,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# Environment files
 .env*.local
+.env.production
+.env.staging
 
 # typescript
 *.tsbuildinfo
@@ -38,3 +40,6 @@ yarn-error.*
 # Prebuild
 android/
 ios/
+
+# EAS
+.easignore

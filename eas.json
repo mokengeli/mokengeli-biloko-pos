@@ -1,0 +1,80 @@
+{
+  "cli": {
+    "version": ">= 7.1.2"
+  },
+  "build": {
+    "base": {
+      "node": "18.18.0",
+      "env": {
+        "SENTRY_DSN": "your-sentry-dsn-here"
+      }
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development",
+        "ENVIRONMENT": "development",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug",
+        "withoutCredentials": true
+      },
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Debug"
+      },
+      "channel": "development"
+    },
+    "staging": {
+      "extends": "base",
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "staging",
+        "ENVIRONMENT": "staging",
+        "EXPO_PUBLIC_API_URL": "https://staging-api.yourrestaurantpos.com"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "channel": "staging"
+    },
+    "production": {
+      "extends": "base",
+      "env": {
+        "APP_VARIANT": "production",
+        "ENVIRONMENT": "production",
+        "EXPO_PUBLIC_API_URL": "https://api.yourrestaurantpos.com"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "resourceClass": "large"
+      },
+      "ios": {
+        "buildConfiguration": "Release",
+        "resourceClass": "large"
+      },
+      "channel": "production",
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "../path/to/google-play-key.json",
+        "track": "internal"
+      },
+      "ios": {
+        "ascAppId": "your-app-store-connect-app-id",
+        "appleTeamId": "YOUR_TEAM_ID"
+      }
+    }
+  }
+}
