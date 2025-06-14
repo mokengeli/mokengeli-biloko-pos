@@ -6,48 +6,42 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    
     "// === TESTS EXPO GO (GRATUIT) ===": "",
     "test:expo-go": "expo start --tunnel",
     "qr:generate": "expo start --tunnel --qr",
-    
     "// === BUILDS DÉVELOPPEMENT ===": "",
     "build:dev": "eas build --profile development --platform all",
     "build:dev:android": "eas build --profile development --platform android",
     "build:dev:ios": "eas build --profile development --platform ios",
-    
     "// === BUILDS STAGING ===": "",
     "build:staging": "eas build --profile staging --platform all",
     "build:staging:android": "eas build --profile staging --platform android",
     "build:staging:ios": "eas build --profile staging --platform ios",
-    
     "// === BUILDS PREVIEW (TESTS) ===": "",
     "build:preview": "eas build --profile preview --platform all",
     "build:preview:android": "eas build --profile preview --platform android",
     "build:preview:ios": "eas build --profile preview --platform ios",
-    
     "// === BUILDS PRODUCTION ===": "",
     "build:prod": "eas build --profile production --platform all",
     "build:prod:android": "eas build --profile production --platform android",
     "build:prod:ios": "eas build --profile production --platform ios",
-    
     "// === DISTRIBUTION ===": "",
     "distribute:android": "eas build --profile staging --platform android --auto-submit",
     "distribute:ios:free": "eas build --profile development --platform ios",
     "distribute:ios:paid": "eas build --profile production --platform ios && eas submit --platform ios",
-    
     "// === UPDATES OTA ===": "",
     "update:staging": "eas update --branch staging --message \"Staging update\"",
     "update:prod": "eas update --branch production --message \"Production update\"",
-    
     "// === VALIDATION ET TESTS ===": "",
     "validate": "expo doctor",
     "test:build": "expo doctor && npm run build:preview",
     "credentials:check": "eas credentials",
-    
     "// === WORKFLOWS COMPLETS ===": "",
     "deploy:testing": "npm run validate && npm run build:preview",
     "deploy:staging": "npm run validate && npm run build:staging && npm run update:staging",
     "deploy:prod": "npm run validate && npm run build:prod && npm run update:prod"
+  },
+  "dependencies": {
+    "expo-updates": "~0.28.14"
   }
 }
