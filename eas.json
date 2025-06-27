@@ -6,9 +6,10 @@
   "build": {
     "development": {
       "developmentClient": true,
+      "channel": "development",
       "distribution": "internal",
       "env": {
-        "API_URL": "https://hideously-smart-llama.ngrok-free.app",
+        "API_URL": "http://104.248.206.121:8080",
         "API_TIMEOUT": "10000",
         "NODE_ENV": "development"
       }
@@ -37,6 +38,14 @@
         "API_TIMEOUT": "20000",
         "NODE_ENV": "production"
       }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "environment": "development"
     }
   },
   "submit": {

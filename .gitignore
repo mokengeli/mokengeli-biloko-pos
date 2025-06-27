@@ -43,3 +43,6 @@ ios/
 
 # EAS
 .easignore
+
+#idea
+.idea

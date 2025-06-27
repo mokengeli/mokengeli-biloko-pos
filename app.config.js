@@ -1,4 +1,6 @@
 // app.config.js
+import "dotenv/config";
+
 export default {
   expo: {
     name: "Mokengeli Biloko POS",
@@ -32,7 +34,7 @@ export default {
       // Variables d'environnement accessibles dans l'app
       apiUrl: process.env.API_URL,
       apiTimeout: process.env.API_TIMEOUT || "15000",
-      environment: process.env.NODE_ENV || "development",
+      environment: process.env.NODE_ENV,
       eas: {
         projectId: "fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
       },
