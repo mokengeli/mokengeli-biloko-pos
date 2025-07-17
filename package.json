@@ -43,8 +43,6 @@
     "deploy:prod": "npm run validate && npm run build:prod && npm run update:prod"
   },
   "dependencies": {
-    "expo-updates": "~0.28.14",
-    "react-native-safe-area-context": "^5.4.0",
     "@expo/metro-runtime": "~5.0.4",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-picker/picker": "2.11.0",
@@ -57,9 +55,12 @@
     "axios": "^1.9.0",
     "date-fns": "^2.30.0",
     "expo": "53.0.11",
+    "expo-build-properties": "^0.14.6",
     "expo-constants": "~17.1.6",
+    "expo-dev-client": "~5.2.0",
     "expo-secure-store": "~14.2.3",
     "expo-status-bar": "~2.2.3",
+    "expo-updates": "~0.28.14",
     "formik": "^2.4.6",
     "js-cookie": "^3.0.5",
     "react": "19.0.0",
@@ -69,6 +70,7 @@
     "react-native-gesture-handler": "~2.24.0",
     "react-native-keychain": "^10.0.0",
     "react-native-paper": "^5.13.5",
+    "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "^0.20.0",
@@ -76,8 +78,7 @@
     "socket.io-client": "^4.8.1",
     "sockjs-client": "^1.6.1",
     "typescript": "~5.8.3",
-    "yup": "^1.6.1",
-    "expo-dev-client": "~5.2.0"
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
