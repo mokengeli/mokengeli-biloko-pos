@@ -10,42 +10,44 @@
       "distribution": "internal",
       "env": {
         "API_URL": "http://104.248.206.121:8080",
-        "API_TIMEOUT": "10000",
+        "API_TIMEOUT": "25000",
         "NODE_ENV": "development"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "staging": {
-      "distribution": "internal",
+      "distribution": "internal", 
       "channel": "staging",
       "env": {
         "API_URL": "http://104.248.206.121:8080",
-        "API_TIMEOUT": "15000",
+        "API_TIMEOUT": "25000",
         "NODE_ENV": "staging"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview", 
       "env": {
         "API_URL": "http://104.248.206.121:8080",
-        "API_TIMEOUT": "15000",
+        "API_TIMEOUT": "25000",
         "NODE_ENV": "staging"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
       "channel": "production",
       "env": {
         "API_URL": "https://api.mokengeli-biloko.com",
-        "API_TIMEOUT": "20000",
+        "API_TIMEOUT": "30000",
         "NODE_ENV": "production"
       }
-    },
-    "development-simulator": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "ios": {
-        "simulator": true
-      },
-      "environment": "development"
     }
   },
   "submit": {
