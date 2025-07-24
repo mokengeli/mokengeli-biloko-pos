@@ -391,7 +391,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         Montant total: ${totalAmount.toFixed(2)} ${currency}
         Montant payé précédemment: ${paidAmount.toFixed(2)} ${currency}
         Montant de ce paiement: ${calculateEffectivePayment().toFixed(2)} ${currency}
-        Montant reçu: ${parseFloat(amountTendered.replace(',', '.')).toFixed(2)} ${currency}
+        Montant perçu: ${parseFloat(amountTendered.replace(',', '.')).toFixed(2)} ${currency}
         Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
         Reste à payer: ${Math.max(0, currentRemaining - calculateEffectivePayment()).toFixed(2)} ${currency}
         -----------------------------------
@@ -498,7 +498,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
           <Divider style={[styles.divider, { marginVertical: 16 }]} />
           
           <View style={styles.amountInputContainer}>
-            <Text style={styles.amountInputLabel}>Montant reçu:</Text>
+            <Text style={styles.amountInputLabel}>Montant perçu:</Text>
             <TextInput
               mode="outlined"
               value={amountTendered}
