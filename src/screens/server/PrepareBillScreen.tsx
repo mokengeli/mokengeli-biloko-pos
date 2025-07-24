@@ -584,14 +584,14 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
               <Text style={styles.modeDescription}>
                 {paymentMode === 'items' 
                   ? 'Sélectionnez les plats à payer' 
-                  : 'Saisissez le montant à payer'}
+                  : 'Saisissez le montant reçu'}
               </Text>
               
               {/* Section de montant personnalisé (visible uniquement en mode montant) */}
               {paymentMode === 'amount' && (
                 <View style={styles.customAmountSection}>
                   <View style={styles.amountInputContainer}>
-                    <Text style={styles.amountLabel}>Montant à payer:</Text>
+                    <Text style={styles.amountLabel}>Montant reçu:</Text>
                     <TextInput
                       mode="outlined"
                       value={customAmount}
@@ -677,7 +677,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({ navigation
             <DataTable style={styles.summaryTable}>
               <DataTable.Row>
                 <DataTable.Cell>
-                  {paymentMode === 'items' ? 'Sous-total sélectionné:' : 'Montant à payer:'}
+                  {paymentMode === 'items' ? 'Sous-total sélectionné:' : 'Montant reçu:'}
                 </DataTable.Cell>
                 <DataTable.Cell numeric>
                   {paymentMode === 'items' 
