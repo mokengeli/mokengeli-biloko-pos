@@ -5,7 +5,6 @@ import {
   Appbar,
   Text,
   ActivityIndicator,
-  Surface,
   useTheme,
   Divider,
   Portal,
@@ -14,24 +13,23 @@ import {
   Snackbar,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../contexts/AuthContext";
 import { RolesUtils, Role } from "../../utils/roles";
 import { KitchenFilter } from "../../components/kitchen/KitchenFilter";
 import { OrderCard } from "../../components/kitchen/OrderCard";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
-import orderService, {
-  DomainOrder,
-  DomainOrderItem,
-} from "../../api/orderService";
+import orderService, { DomainOrder } from "../../api/orderService";
 import {
   webSocketService,
   OrderNotification,
 } from "../../services/WebSocketService";
+import { HeaderMenu } from "../../components/common/HeaderMenu";
 
 export const KitchenHomeScreen = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const theme = useTheme();
+  const navigation = useNavigation();
 
   // États
   const [pendingOrders, setPendingOrders] = useState<DomainOrder[]>([]);
@@ -59,6 +57,8 @@ export const KitchenHomeScreen = () => {
     visible: false,
     message: "",
   });
+
+  const isManager = RolesUtils.hasRole(user?.roles, Role.MANAGER);
 
   // Fonction pour trier les commandes par date (plus anciennes en premier)
   const sortOrdersByDate = useCallback(
@@ -459,6 +459,12 @@ export const KitchenHomeScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
+        {/* Bouton de retour pour les managers */}
+        {isManager && (
+          <Appbar.BackAction
+            onPress={() => navigation.navigate("ManagerHome" as never)}
+          />
+        )}
         <Appbar.Content
           title="Mokengeli Biloko POS - Cuisine"
           subtitle={`${RolesUtils.getRoleDescription(Role.COOK)}: ${
@@ -470,7 +476,7 @@ export const KitchenHomeScreen = () => {
           onPress={onRefresh}
           disabled={refreshing}
         />
-        <Appbar.Action icon="logout" onPress={logout} />
+        <HeaderMenu  />
       </Appbar.Header>
 
       {/* Filtres de catégories */}
