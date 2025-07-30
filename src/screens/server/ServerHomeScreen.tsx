@@ -103,6 +103,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     visible: false,
     featureName: "",
   });
+  const isManager = RolesUtils.hasRole(user?.roles, Role.MANAGER);
 
   const [recentlyChangedTables, setRecentlyChangedTables] = useState<number[]>(
     []
@@ -284,7 +285,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         const oldestOrder = orders.reduce((oldest, current) => {
           const oldestTime = new Date(oldest.orderDate).getTime();
           const currentTime = new Date(current.orderDate).getTime();
-          console.log({oldestTime, currentTime})
+          console.log({ oldestTime, currentTime });
           return currentTime < oldestTime ? current : oldest;
         });
 
@@ -608,6 +609,11 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
+        {isManager && (
+          <Appbar.BackAction
+            onPress={() => navigation.navigate("ManagerHome")}
+          />
+        )}
         <Appbar.Content
           title="Mokengeli Biloko POS"
           subtitle={`${RolesUtils.getRoleDescription(Role.SERVER)}: ${

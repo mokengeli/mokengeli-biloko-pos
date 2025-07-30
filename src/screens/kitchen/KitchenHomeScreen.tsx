@@ -14,7 +14,7 @@ import {
   Snackbar,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../contexts/AuthContext";
 import { RolesUtils, Role } from "../../utils/roles";
 import { KitchenFilter } from "../../components/kitchen/KitchenFilter";
@@ -32,6 +32,7 @@ import {
 export const KitchenHomeScreen = () => {
   const { user, logout } = useAuth();
   const theme = useTheme();
+  const navigation = useNavigation();
 
   // États
   const [pendingOrders, setPendingOrders] = useState<DomainOrder[]>([]);
@@ -59,6 +60,8 @@ export const KitchenHomeScreen = () => {
     visible: false,
     message: "",
   });
+
+  const isManager = RolesUtils.hasRole(user?.roles, Role.MANAGER);
 
   // Fonction pour trier les commandes par date (plus anciennes en premier)
   const sortOrdersByDate = useCallback(
@@ -459,6 +462,11 @@ export const KitchenHomeScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
+        {isManager && (
+          <Appbar.BackAction
+            onPress={() => navigation.navigate("ManagerHome" as never)}
+          />
+        )}
         <Appbar.Content
           title="Mokengeli Biloko POS - Cuisine"
           subtitle={`${RolesUtils.getRoleDescription(Role.COOK)}: ${

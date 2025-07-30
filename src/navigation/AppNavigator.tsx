@@ -17,6 +17,7 @@ import { RolesUtils } from "../utils/roles";
 import { PrepareBillScreen } from "../screens/server/PrepareBillScreen";
 import { PaymentScreen } from "../screens/server/PaymentScreen";
 import { DomainOrderItem } from "../api/orderService";
+import { ManagerHomeScreen } from "../screens/manager/ManagerHomeScreen";
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -28,6 +29,7 @@ export type MainStackParamList = {
   ServerHome: undefined;
   KitchenHome: undefined;
   ProfilHome: undefined;
+   ManagerHome: undefined;
   CreateOrder: {
     tableId: number;
     tableName: string;
@@ -114,6 +116,7 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
       <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
       <MainStack.Screen name="ProfilHome" component={ProfilScreen} />
+      <MainStack.Screen name="ManagerHome" component={ManagerHomeScreen} />
 
       {/* Écrans de paiement */}
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
