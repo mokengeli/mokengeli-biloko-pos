@@ -1,6 +1,6 @@
 // src/screens/server/ServerHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, RefreshControl, Platform } from "react-native";
+import { View, StyleSheet} from "react-native";
 import {
   Appbar,
   Text,
@@ -8,7 +8,6 @@ import {
   Surface,
   useTheme,
   FAB,
-  Portal,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -32,7 +31,7 @@ import {
   OrderNotification,
   OrderNotificationStatus,
 } from "../../services/WebSocketService";
-import { PrepareBillScreen } from "./PrepareBillScreen";
+import { HeaderMenu } from "../../components/common/HeaderMenu";
 
 // Types pour la navigation
 type ServerStackParamList = {
@@ -80,7 +79,7 @@ interface ServerHomeScreenProps {
 export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   navigation,
 }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const theme = useTheme();
   const { printDocument } = usePrinter();
 
@@ -479,6 +478,20 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     }, 3000); // Animation de 3 secondes
   }, []);
 
+  // Définir les items de menu additionnels pour les serveurs
+  const serverMenuItems = [
+    {
+      title: "Configuration d'impression",
+      icon: "printer",
+      onPress: () =>
+        setNotAvailableDialog({
+          visible: true,
+          featureName: "Configuration d'impression",
+        }),
+      dividerAfter: true,
+    },
+  ];
+
   // Gestionnaire de notifications WebSocket
   const handleOrderNotification = useCallback(
     (notification: OrderNotification) => {
@@ -609,9 +622,10 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
+        {/* Bouton de retour pour les managers */}
         {isManager && (
           <Appbar.BackAction
-            onPress={() => navigation.navigate("ManagerHome")}
+            onPress={() => navigation.navigate("ManagerHome" as never)}
           />
         )}
         <Appbar.Content
@@ -620,16 +634,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
             user?.firstName || ""
           } ${user?.lastName || ""}`}
         />
-        <Appbar.Action
-          icon="printer"
-          onPress={() =>
-            setNotAvailableDialog({
-              visible: true,
-              featureName: "Configuration d'impression",
-            })
-          }
-        />
-        <Appbar.Action icon="logout" onPress={logout} />
+        <HeaderMenu additionalItems={serverMenuItems} />
       </Appbar.Header>
 
       <QuickActions

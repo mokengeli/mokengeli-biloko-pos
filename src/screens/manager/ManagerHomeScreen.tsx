@@ -16,11 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { HeaderMenu } from '../../components/common/HeaderMenu';
 
 type ViewMode = 'overview' | 'server' | 'kitchen';
 
 export const ManagerHomeScreen: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const theme = useTheme();
   const navigation = useNavigation();
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
@@ -49,10 +50,7 @@ export const ManagerHomeScreen: React.FC = () => {
           title="Mokengeli Biloko POS - Manager"
           subtitle={`${user?.firstName || ''} ${user?.lastName || ''}`}
         />
-        <Appbar.Action 
-          icon="menu" 
-          onPress={() => setMenuVisible(true)} 
-        />
+        <HeaderMenu />
       </Appbar.Header>
 
       <Surface style={styles.content}>
@@ -126,37 +124,7 @@ export const ManagerHomeScreen: React.FC = () => {
         )}
       </Surface>
 
-      {/* Menu modal */}
-      <Portal>
-        <Modal
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          contentContainerStyle={styles.modalContainer}
-        >
-          <Surface style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Menu Manager</Text>
-            <Divider style={styles.modalDivider} />
-            
-            <List.Item
-              title="Mon profil"
-              left={props => <List.Icon {...props} icon="account" />}
-              onPress={() => {
-                setMenuVisible(false);
-                navigation.navigate('ProfilHome' as never);
-              }}
-            />
-            
-            <List.Item
-              title="Déconnexion"
-              left={props => <List.Icon {...props} icon="logout" />}
-              onPress={() => {
-                setMenuVisible(false);
-                logout();
-              }}
-            />
-          </Surface>
-        </Modal>
-      </Portal>
+      
     </SafeAreaView>
   );
 };

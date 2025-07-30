@@ -5,7 +5,6 @@ import {
   Appbar,
   Text,
   ActivityIndicator,
-  Surface,
   useTheme,
   Divider,
   Portal,
@@ -20,17 +19,15 @@ import { RolesUtils, Role } from "../../utils/roles";
 import { KitchenFilter } from "../../components/kitchen/KitchenFilter";
 import { OrderCard } from "../../components/kitchen/OrderCard";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
-import orderService, {
-  DomainOrder,
-  DomainOrderItem,
-} from "../../api/orderService";
+import orderService, { DomainOrder } from "../../api/orderService";
 import {
   webSocketService,
   OrderNotification,
 } from "../../services/WebSocketService";
+import { HeaderMenu } from "../../components/common/HeaderMenu";
 
 export const KitchenHomeScreen = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const theme = useTheme();
   const navigation = useNavigation();
 
@@ -462,6 +459,7 @@ export const KitchenHomeScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
+        {/* Bouton de retour pour les managers */}
         {isManager && (
           <Appbar.BackAction
             onPress={() => navigation.navigate("ManagerHome" as never)}
@@ -478,7 +476,7 @@ export const KitchenHomeScreen = () => {
           onPress={onRefresh}
           disabled={refreshing}
         />
-        <Appbar.Action icon="logout" onPress={logout} />
+        <HeaderMenu  />
       </Appbar.Header>
 
       {/* Filtres de catégories */}
