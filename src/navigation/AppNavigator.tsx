@@ -8,9 +8,7 @@ import { ServerHomeScreen } from "../screens/server/ServerHomeScreen";
 import { CreateOrderScreen } from "../screens/server/CreateOrderScreen";
 import { DishCustomizationScreen } from "../screens/server/DishCustomizationScreen";
 import { ReadyDishesScreen } from "../screens/server/ReadyDishesScreen";
-import { ProfilScreen } from "../screens/ProfilScreen"; // Conservé pour KitchenHome et AdminHome temporaires
-import { useAuth } from "../contexts/AuthContext";
-import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
+import { ProfilScreen } from "../screens/ProfilScreen";
 import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
 import { KitchenHomeScreen } from "../screens/kitchen/KitchenHomeScreen";
 import { RolesUtils } from "../utils/roles";
@@ -18,6 +16,11 @@ import { PrepareBillScreen } from "../screens/server/PrepareBillScreen";
 import { PaymentScreen } from "../screens/server/PaymentScreen";
 import { DomainOrderItem } from "../api/orderService";
 import { ManagerHomeScreen } from "../screens/manager/ManagerHomeScreen";
+import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
+import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
+import { useAuth } from "../contexts/AuthContext";
+import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
+
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -25,11 +28,12 @@ export type AuthStackParamList = {
 };
 
 // Types des paramètres pour les routes principales
+// Types des paramètres pour les routes principales
 export type MainStackParamList = {
   ServerHome: undefined;
   KitchenHome: undefined;
   ProfilHome: undefined;
-   ManagerHome: undefined;
+  ManagerHome: undefined;
   CreateOrder: {
     tableId: number;
     tableName: string;
@@ -47,12 +51,23 @@ export type MainStackParamList = {
   PaymentScreen: {
     orderId: number;
     tableName?: string;
+    tableId: number;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
+    paidAmount: number;
+    remainingAmount: number;
     currency: string;
     paymentMode: "items" | "amount";
     customAmount?: number;
   };
+  CloseWithDebt: {
+    orderId: number;
+    tableName: string;
+    tableId: number;
+    remainingAmount: number;
+    currency: string;
+  };
+  PendingValidations: undefined;
   SplitBill: {
     orderId: number;
     tableName?: string;
@@ -121,6 +136,8 @@ const MainNavigator: React.FC = () => {
       {/* Écrans de paiement */}
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
+      <MainStack.Screen name="CloseWithDebt" component={CloseWithDebtScreen} />
+      <MainStack.Screen name="PendingValidations" component={PendingValidationsScreen} />
     </MainStack.Navigator>
   );
 };

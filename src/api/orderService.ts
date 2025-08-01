@@ -83,6 +83,34 @@ export interface PaymentRequest {
   discountAmount?: number;
 }
 
+export interface CloseWithDebtRequest {
+  orderId: number;
+  reason: string;
+  validationType: 'IMMEDIATE' | 'REMOTE';
+  validationCode?: string; // PIN pour validation immédiate
+  amount: number;
+}
+
+export interface DebtValidationRequest {
+  id: number;
+  orderId: number;
+  tableName: string;
+  tableId: number;
+  amount: number;
+  currency: string;
+  reason: string;
+  serverName: string;
+  serverId: number;
+  createdAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export interface ValidateDebtRequest {
+  debtValidationId: number;
+  validationCode?: string; // PIN pour approbation
+  approved: boolean;
+  rejectionReason?: string; // Si refusé
+}
 
 const orderService = {
   async getOrdersByState(state: string): Promise<DomainOrder[]> {
@@ -275,6 +303,38 @@ const orderService = {
       return response.data;
     } catch (error) {
       console.error(`Error fetching orders with payment status ${status}:`, error);
+      throw error;
+    }
+  },
+   // Clôturer une commande avec impayé
+  async closeWithDebt(request: CloseWithDebtRequest): Promise<void> {
+    try {
+      await api.post('/api/order/close-with-debt', request);
+    } catch (error) {
+      console.error('Error closing order with debt:', error);
+      throw error;
+    }
+  },
+
+  // Récupérer les validations en attente (pour managers)
+  async getPendingDebtValidations(tenantCode: string): Promise<DebtValidationRequest[]> {
+    try {
+      const response = await api.get('/api/order/debt-validations/pending', {
+        params: { tenantCode }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pending debt validations:', error);
+      throw error;
+    }
+  },
+
+  // Valider ou refuser une demande
+  async validateDebtRequest(request: ValidateDebtRequest): Promise<void> {
+    try {
+      await api.post('/api/order/debt-validations/validate', request);
+    } catch (error) {
+      console.error('Error validating debt request:', error);
       throw error;
     }
   }

@@ -22,6 +22,7 @@ export interface TableWithStatus {
   status: TableStatus;
   occupationTime?: number; // Temps d'occupation en minutes (optionnel)
   orderCount?: number; // Nombre de commandes actives (optionnel)
+  pendingValidation?: boolean;
 }
 
 interface TableGridProps {
@@ -159,6 +160,11 @@ export const TableGrid: React.FC<TableGridProps> = ({
                     <Icon name="alert" size={16} color="#FFA500" />
                   </View>
                 ) : null}
+                {table.pendingValidation && (
+                  <View style={styles.validationIndicator}>
+                    <Icon name="clock-alert" size={16} color="#FF9800" />
+                  </View>
+                )}
               </Surface>
             </TouchableOpacity>
           );
@@ -231,5 +237,17 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.03 }], // Légère mise à l'échelle pour attirer l'attention
     borderWidth: 3, // Bordure plus visible
     borderColor: "#FFD700", // Couleur dorée pour attirer l'attention
+  },
+  validationIndicator: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    height: 24,
+    width: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 12,
+    elevation: 2,
   },
 });
