@@ -15,7 +15,6 @@ import {
   ToggleButton,
   TextInput,
   Chip,
-  Snackbar,
   TouchableRipple,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,9 +32,6 @@ import {
   OrderNotification,
   OrderNotificationStatus,
 } from "../../services/WebSocketService";
-import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
-import { SnackbarContainer } from "../../components/common/SnackbarContainer";
-import { getNotificationMessage } from "../../utils/notificationHelpers";
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -50,12 +46,20 @@ type PrepareBillParamList = {
     tableId?: number;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
-    paidAmount: number; // Montant déjà payé
-    remainingAmount: number; // Montant restant à payer
+    paidAmount: number;
+    remainingAmount: number;
     currency: string;
     paymentMode: "items" | "amount";
     customAmount?: number;
   };
+  CloseWithDebt: {
+    orderId: number;
+    tableName: string;
+    tableId: number;
+    remainingAmount: number;
+    currency: string;
+  };
+  ServerHome: undefined;
 };
 
 type PrepareBillScreenRouteProp = RouteProp<
@@ -88,7 +92,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
   const windowWidth = Dimensions.get("window").width;
   const isTablet = windowWidth >= 768;
 
-  // États
+  // États principaux
   const [isLoading, setIsLoading] = useState(true);
   const [order, setOrder] = useState<DomainOrder | null>(null);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
@@ -98,18 +102,8 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
 
-  // États pour les notifications WebSocket
-  const [currentNotification, setCurrentNotification] =
-    useState<OrderNotification | null>(null);
-  const [notificationVisible, setNotificationVisible] = useState(false);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-
-  // Afficher une notification snackbar
-  const showSnackbar = (message: string) => {
-    setSnackbarMessage(message);
-    setSnackbarVisible(true);
-  };
+  // NOUVEL ÉTAT pour indiquer qu'on navigue vers le paiement
+  const [isNavigatingToPayment, setIsNavigatingToPayment] = useState(false);
 
   // Chargement des données de la commande
   const loadOrderDetails = useCallback(async () => {
@@ -123,23 +117,19 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     setError(null);
 
     try {
-      // Récupérer les détails de la commande
       const targetOrder = await orderService.getOrderById(orderId);
       setOrder(targetOrder);
 
-      // Convertir les articles de commande en articles d'addition
       const items: BillItem[] = targetOrder.items.map((item) => ({
         ...item,
-        selected: true, // Tous les articles sont sélectionnés par défaut
+        selected: true,
       }));
 
       setBillItems(items);
 
-      // Initialiser le montant personnalisé avec le montant restant à payer
       if (targetOrder.remainingAmount !== undefined) {
         setCustomAmount(targetOrder.remainingAmount.toString());
       } else {
-        // Fallback au montant total si remainingAmount n'est pas disponible
         setCustomAmount(targetOrder.totalPrice.toString());
       }
 
@@ -155,90 +145,71 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     }
   }, [orderId]);
 
-  // Gestionnaire de notifications WebSocket
+  // Gestionnaire de notifications WebSocket MODIFIÉ
   const handleOrderNotification = useCallback(
     (notification: OrderNotification) => {
       console.log("WebSocket notification received:", notification);
 
+      // IGNORER les notifications si on navigue vers l'écran de paiement
+      if (isNavigatingToPayment) {
+        console.log('Ignoring notification while navigating to payment');
+        return;
+      }
+
       // Ne traiter que les notifications pour cette commande
       if (notification.orderId === orderId) {
-        // Stocker la notification courante pour l'afficher
-        setCurrentNotification(notification);
-        setNotificationVisible(true);
-
-        // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
+        // SIMPLIFIER : Pas de notifications visuelles, juste rafraîchir les données
         switch (notification.orderStatus) {
           case OrderNotificationStatus.PAYMENT_UPDATE:
-            // Un paiement a été effectué - priorité maximale
-
-            // Messages plus détaillés et personnalisés selon le status de paiement
-            if (notification.newState === "FULLY_PAID") {
-              // Vérifier le montant restant et rediriger si nécessaire
-              loadOrderDetails().then((updatedOrder) => {
-                if ((updatedOrder?.remainingAmount || 0) <= 0) {
-                  Alert.alert(
-                    "Commande entièrement payée",
-                    "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
-                    [
-                      {
-                        text: "OK",
-                        onPress: () => navigation.navigate("ServerHome"),
-                      },
-                    ]
-                  );
-                }
-              });
-            } else {
-              loadOrderDetails(); // Recharger pour voir les changements
-            }
+            // Rafraîchir silencieusement les données
+            loadOrderDetails().then((updatedOrder) => {
+              // Vérifier si la commande est totalement payée
+              if ((updatedOrder?.remainingAmount || 0) <= 0) {
+                // Redirection avec message simple
+                Alert.alert(
+                  "Commande entièrement payée",
+                  "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
+                  [
+                    {
+                      text: "OK",
+                      onPress: () => navigation.navigate("ServerHome" as never),
+                    },
+                  ]
+                );
+              }
+              // Pas de snackbar pour les paiements partiels
+            });
             break;
 
           case OrderNotificationStatus.DISH_UPDATE:
-            // Mise à jour des plats - message précis selon le changement
-            loadOrderDetails(); // Recharger les détails car le total ou les articles ont changé
-            break;
-
-          case OrderNotificationStatus.NEW_ORDER:
-            // Normalement pas pertinent sur cet écran qui traite d'une commande existante
+            // Rafraîchir silencieusement
+            loadOrderDetails();
             break;
 
           default:
-            // Pour toute autre notification concernant cette commande, rafraîchir les données
+            // Rafraîchir silencieusement pour tout autre changement
             loadOrderDetails();
             break;
         }
       }
     },
-    [orderId, loadOrderDetails, navigation]
+    [orderId, loadOrderDetails, navigation, isNavigatingToPayment]
   );
-
-  // Gérer l'action de la notification
-  const handleNotificationAction = useCallback(() => {
-    setNotificationVisible(false);
-
-    // Rafraîchir les données ou naviguer selon le type de notification
-    if (currentNotification) {
-      loadOrderDetails();
-    }
-  }, [currentNotification, loadOrderDetails]);
 
   // Configurer la connexion WebSocket
   useEffect(() => {
     if (!user?.tenantCode) return;
 
-    // Se connecter au WebSocket
     webSocketService.connect(user.tenantCode).catch((error) => {
       console.error("WebSocket connection error:", error);
       setError("Erreur de connexion au service de notification en temps réel");
     });
 
-    // S'abonner aux notifications
     const unsubscribe = webSocketService.addSubscription(
       user.tenantCode,
       handleOrderNotification
     );
 
-    // Nettoyage à la destruction du composant
     return () => {
       unsubscribe();
     };
@@ -275,7 +246,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     return Math.max(0, orderTotal - paidAmount);
   }, [calculateOrderTotal, calculatePaidAmount]);
 
-  // Calculer le montant personnalisé à payer (ne doit pas dépasser le montant restant)
+  // Calculer le montant personnalisé à payer
   const calculateCustomAmount = useCallback((): number => {
     const customAmountValue = parseFloat(customAmount.replace(",", "."));
     const remainingAmount = calculateRemainingAmount();
@@ -294,7 +265,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         item.id === itemId ? { ...item, selected: !item.selected } : item
       );
 
-      // Mettre à jour l'état de sélection globale
       const allItemsSelected = updatedItems.every((item) => item.selected);
       setAllSelected(allItemsSelected);
 
@@ -314,27 +284,32 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
 
   // Mettre à jour le montant personnalisé
   const updateCustomAmount = (value: string) => {
-    // Autoriser uniquement les nombres et la virgule/point
     const numericValue = value.replace(/[^0-9.,]/g, "");
     setCustomAmount(numericValue);
   };
 
-  // Passer à l'écran de paiement
+  // Passer à l'écran de paiement MODIFIÉ
   const proceedToPayment = () => {
     const remainingAmount = calculateRemainingAmount();
 
-    // Si le montant restant est 0, afficher un message et ne pas continuer
     if (remainingAmount <= 0) {
       Alert.alert(
         "Commande déjà payée",
         "Cette commande a été entièrement payée.",
-        [{ text: "OK", onPress: () => navigation.navigate("ServerHome") }]
+        [{ text: "OK", onPress: () => navigation.navigate("ServerHome" as never) }]
       );
       return;
     }
 
+    // MARQUER qu'on navigue vers le paiement
+    setIsNavigatingToPayment(true);
+    
+    // Réinitialiser le flag après un délai
+    setTimeout(() => {
+      setIsNavigatingToPayment(false);
+    }, 2000);
+
     if (paymentMode === "items") {
-      // Vérifier qu'au moins un article est sélectionné
       const selectedItems = billItems.filter((item) => item.selected);
       if (selectedItems.length === 0) {
         Alert.alert(
@@ -342,14 +317,13 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
           "Veuillez sélectionner au moins un article pour l'addition.",
           [{ text: "OK" }]
         );
+        setIsNavigatingToPayment(false);
         return;
       }
 
-      // Calculer le montant des articles sélectionnés (ne pas dépasser le montant restant)
       const selectedTotal = Math.min(calculateSelectedTotal(), remainingAmount);
 
-      // Naviguer vers l'écran de paiement avec les articles sélectionnés
-      navigation.navigate("PaymentScreen", {
+      navigation.navigate("PaymentScreen" as never, {
         orderId,
         tableName,
         tableId,
@@ -359,9 +333,8 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         remainingAmount: remainingAmount,
         currency: order?.currency.code || "EUR",
         paymentMode: "items",
-      });
+      } as never);
     } else {
-      // Mode montant
       const customAmountValue = calculateCustomAmount();
 
       if (customAmountValue <= 0) {
@@ -370,20 +343,21 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
           "Veuillez saisir un montant valide supérieur à 0.",
           [{ text: "OK" }]
         );
+        setIsNavigatingToPayment(false);
         return;
       }
 
-      // Naviguer vers l'écran de paiement avec le montant personnalisé
-      navigation.navigate("PaymentScreen", {
+      navigation.navigate("PaymentScreen" as never, {
         orderId,
         tableName,
+        tableId,
         totalAmount: calculateOrderTotal(),
         paidAmount: calculatePaidAmount(),
         remainingAmount: remainingAmount,
         currency: order?.currency.code || "EUR",
         paymentMode: "amount",
         customAmount: customAmountValue,
-      });
+      } as never);
     }
   };
 
@@ -392,18 +366,18 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     switch (status) {
       case "PENDING":
       case "IN_PREPARATION":
-        return "#FF9800"; // Orange
+        return "#FF9800";
       case "READY":
       case "COOKED":
-        return "#4CAF50"; // Vert
+        return "#4CAF50";
       case "SERVED":
-        return "#2196F3"; // Bleu
+        return "#2196F3";
       case "REJECTED":
-        return "#F44336"; // Rouge
+        return "#F44336";
       case "PAID":
-        return "#9E9E9E"; // Gris
+        return "#9E9E9E";
       default:
-        return "#9E9E9E"; // Gris par défaut
+        return "#9E9E9E";
     }
   };
 
@@ -445,7 +419,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         style={[styles.itemCard, isDisabled ? styles.disabledItemCard : null]}
       >
         <View style={styles.itemCardContent}>
-          {/* Checkbox avec icône pour meilleure visibilité iOS */}
           <TouchableRipple
             onPress={() => !isDisabled && toggleItemSelection(item.id)}
             disabled={isDisabled || paymentMode === "amount"}
@@ -466,7 +439,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
           </TouchableRipple>
 
           <View style={styles.itemDetails}>
-            {/* En-tête avec nom et prix */}
             <View style={styles.itemHeader}>
               <Text
                 style={styles.itemName}
@@ -480,7 +452,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
               </Text>
             </View>
 
-            {/* Note (si présente) */}
             {item.note && (
               <Text
                 style={styles.itemNote}
@@ -491,7 +462,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
               </Text>
             )}
 
-            {/* Statut de l'article */}
             <View style={styles.itemFooter}>
               <View style={styles.statusContainer}>
                 <View
@@ -656,7 +626,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                   : "Saisissez le montant reçu"}
               </Text>
 
-              {/* Section de montant personnalisé (visible uniquement en mode montant) */}
+              {/* Section de montant personnalisé */}
               {paymentMode === "amount" && (
                 <View style={styles.customAmountSection}>
                   <View style={styles.amountInputContainer}>
@@ -703,7 +673,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
               )}
             </Surface>
 
-            {/* En-tête avec sélection globale (visible uniquement en mode plats) */}
+            {/* En-tête avec sélection globale */}
             {paymentMode === "items" && (
               <Surface style={styles.selectionHeader}>
                 <View style={styles.selectionHeaderContent}>
@@ -738,7 +708,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
               </Surface>
             )}
 
-            {/* Liste des articles (visible dans les deux modes) */}
+            {/* Liste des articles */}
             {paymentMode === "items" && (
               <View style={styles.itemsContainer}>
                 <Text style={styles.sectionTitle}>
@@ -815,20 +785,21 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                 Procéder au paiement
               </Button>
             </View>
-            {/* Nouveau bouton pour clôturer avec impayé */}
+            
+            {/* Bouton pour clôturer avec impayé */}
             {calculateRemainingAmount() > 0 && (
               <>
                 <Divider style={styles.footerDivider} />
                 <Button
                   mode="text"
                   onPress={() => {
-                    navigation.navigate("CloseWithDebt", {
+                    navigation.navigate("CloseWithDebt" as never, {
                       orderId,
                       tableName: tableName || "",
                       tableId: tableId || 0,
                       remainingAmount: calculateRemainingAmount(),
                       currency: order?.currency.code || "EUR",
-                    });
+                    } as never);
                   }}
                   style={styles.debtButton}
                   textColor={theme.colors.error}
@@ -842,29 +813,6 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
           </Surface>
         </View>
       )}
-
-      {/* Snackbar pour les notifications */}
-      <SnackbarContainer bottomOffset={150}>
-        {currentNotification ? (
-          <NotificationSnackbar
-            notification={currentNotification}
-            visible={notificationVisible}
-            onDismiss={() => setNotificationVisible(false)}
-            onAction={handleNotificationAction}
-            actionLabel="Voir"
-          />
-        ) : snackbarVisible ? (
-          <Snackbar
-            visible={true}
-            onDismiss={() => setSnackbarVisible(false)}
-            duration={3000}
-            style={{ backgroundColor: theme.colors.primary }}
-            wrapperStyle={{ position: "relative" }}
-          >
-            {snackbarMessage}
-          </Snackbar>
-        ) : null}
-      </SnackbarContainer>
     </SafeAreaView>
   );
 };
@@ -903,7 +851,6 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 8,
   },
-  // Résumé de la commande
   orderSummaryContainer: {
     padding: 0,
     margin: 16,
@@ -942,7 +889,6 @@ const styles = StyleSheet.create({
   orderInfoValue: {
     fontSize: 15,
   },
-  // Sélection du mode
   modeSelectionContainer: {
     padding: 16,
     margin: 16,
@@ -1055,7 +1001,7 @@ const styles = StyleSheet.create({
   itemsContainer: {
     padding: 16,
     paddingTop: 8,
-    paddingBottom: 200, // Augmenté de 150 à 200 pour éviter le chevauchement avec le footer flottant
+    paddingBottom: 200,
   },
   emptyContainer: {
     alignItems: "center",
@@ -1139,11 +1085,11 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "white",
     padding: 16,
-    paddingBottom: 24, // Augmenté pour plus d'espace sur les appareils avec barre de navigation
+    paddingBottom: 24,
     elevation: 8,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    zIndex: 10, // S'assurer que le footer reste au-dessus des autres éléments
+    zIndex: 10,
   },
   summaryTable: {
     marginBottom: 16,

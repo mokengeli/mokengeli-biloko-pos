@@ -45,11 +45,11 @@ type PaymentParamList = {
     tableId: number;
     selectedItems?: DomainOrderItem[];
     totalAmount: number;
-    paidAmount: number; // Montant déjà payé
-    remainingAmount: number; // Montant restant à payer
+    paidAmount: number;
+    remainingAmount: number;
     currency: string;
     paymentMode: 'items' | 'amount';
-    customAmount?: number; // Montant personnalisé spécifié par l'utilisateur
+    customAmount?: number;
   };
 };
 
@@ -61,7 +61,6 @@ interface PaymentScreenProps {
   route: PaymentScreenRouteProp;
 }
 
-// Définition pour le comportement de redirection après fermeture du modal
 type RedirectionTarget = 'ServerHome' | 'PrepareBill' | null;
 
 export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
@@ -71,7 +70,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     tableId,
     selectedItems,
     totalAmount, 
-    paidAmount = 0, // Valeur par défaut à 0 si non fournie
+    paidAmount = 0,
     remainingAmount, 
     currency,
     paymentMode,
@@ -84,15 +83,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   const windowWidth = Dimensions.get('window').width;
   const isTablet = windowWidth >= 768;
   
-  // États
-  // Initialize amountTendered based on selected items, customAmount, or remaining amount
+  // États principaux
   const initialAmount = useCallback(() => {
     if (paymentMode === 'items' && selectedItems) {
       const selectedItemsTotal = selectedItems.reduce((total, item) => 
         total + (item.unitPrice * item.count), 0);
       return Math.min(selectedItemsTotal, remainingAmount).toFixed(2);
     } else if (paymentMode === 'amount' && customAmount !== undefined) {
-      // Utiliser le montant personnalisé s'il est fourni
       return customAmount.toString();
     } else {
       return remainingAmount.toFixed(2);
@@ -100,7 +97,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   }, [paymentMode, selectedItems, remainingAmount, customAmount]);
   
   const [amountTendered, setAmountTendered] = useState<string>(initialAmount());
-  const [paymentMethod] = useState<string>('cash'); // Pour l'instant, uniquement en espèces
+  const [paymentMethod] = useState<string>('cash');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
@@ -108,34 +105,25 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   // États pour les notifications WebSocket
   const [currentNotification, setCurrentNotification] = useState<OrderNotification | null>(null);
   const [notificationVisible, setNotificationVisible] = useState(false);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [currentRemaining, setCurrentRemaining] = useState<number>(remainingAmount);
   const [orderChanged, setOrderChanged] = useState<boolean>(false);
-  
-  // État pour suivre où rediriger l'utilisateur après le modal de reçu
   const [redirectAfterReceipt, setRedirectAfterReceipt] = useState<RedirectionTarget>(null);
-
-  // Afficher une notification snackbar
-  const showSnackbar = (message: string) => {
-    setSnackbarMessage(message);
-    setSnackbarVisible(true);
-  };
+  
+  // NOUVEAUX ÉTATS pour ignorer les notifications pendant le traitement local
+  const [isLocalProcessing, setIsLocalProcessing] = useState(false);
+  const [lastProcessedPaymentTime, setLastProcessedPaymentTime] = useState<number>(0);
 
   // Rafraîchir les données de la commande
   const refreshOrderData = useCallback(async () => {
     try {
       const updatedOrder = await orderService.getOrderById(orderId);
       
-      // Calculer le montant restant
       const updatedRemaining = updatedOrder.remainingAmount !== undefined 
         ? updatedOrder.remainingAmount 
         : Math.max(0, updatedOrder.totalPrice - (updatedOrder.paidAmount || 0));
       
-      // Mettre à jour l'état
       setCurrentRemaining(updatedRemaining);
       
-      // Si le montant a changé, marquer la commande comme modifiée
       if (updatedRemaining !== remainingAmount) {
         setOrderChanged(true);
       }
@@ -143,92 +131,81 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       return updatedRemaining;
     } catch (err: any) {
       console.error('Error refreshing order data:', err);
-      return remainingAmount; // En cas d'erreur, retourner le montant initial
+      return remainingAmount;
     }
   }, [orderId, remainingAmount]);
 
-  // Gestionnaire de notifications WebSocket
+  // Gestionnaire de notifications WebSocket MODIFIÉ
   const handleOrderNotification = useCallback((notification: OrderNotification) => {
     console.log('WebSocket notification received:', notification);
     
+    // IGNORER les notifications pendant le traitement local ou juste après
+    const timeSinceLastPayment = Date.now() - lastProcessedPaymentTime;
+    if (isLocalProcessing || timeSinceLastPayment < 3000) {
+      console.log('Ignoring notification during local processing');
+      return;
+    }
+    
     // Ne traiter que les notifications pour cette commande
     if (notification.orderId === orderId) {
-      // Stocker la notification courante pour l'afficher
-      setCurrentNotification(notification);
-      setNotificationVisible(true);
+      // NE PAS afficher de notification si le modal de reçu est visible
+      if (receiptModalVisible) {
+        console.log('Receipt modal is visible, ignoring notification UI');
+        refreshOrderData();
+        return;
+      }
       
-      // Utiliser le nouveau champ orderStatus pour mieux cibler les actions
+      // Pour les autres cas, traiter normalement mais de manière simplifiée
       switch (notification.orderStatus) {
         case OrderNotificationStatus.PAYMENT_UPDATE:
-          // Vérifier spécifiquement l'état de paiement
-          if (notification.newState === 'FULLY_PAID') {
-            // Vérifier d'abord que le montant restant est effectivement 0
-            refreshOrderData().then(updatedRemaining => {
-              if (updatedRemaining <= 0) {
-                showSnackbar('Cette commande a été entièrement payée');
+          // Seulement rafraîchir les données, pas de snackbar
+          refreshOrderData().then(updatedRemaining => {
+            // Redirection silencieuse si nécessaire
+            if (updatedRemaining <= 0 && !receiptModalVisible && !isLocalProcessing) {
+              // Notification discrète uniquement si c'est un paiement externe
+              setCurrentNotification(notification);
+              setNotificationVisible(true);
+              
+              // Redirection après un délai
+              setTimeout(() => {
                 setRedirectAfterReceipt('ServerHome');
-                setReceiptModalVisible(true);
-              } else {
-                showSnackbar(`Paiement reçu pour la commande #${notification.orderId}`);
-                setRedirectAfterReceipt('PrepareBill');
-                setReceiptModalVisible(true);
-              }
-            });
-          } else if (notification.newState === 'PARTIALLY_PAID') {
-            showSnackbar(`Paiement partiel reçu pour la commande #${notification.orderId}`);
-            refreshOrderData().then(() => {
-              setRedirectAfterReceipt('PrepareBill');
-              setReceiptModalVisible(true);
-            });
-          } else {
-            refreshOrderData();
-          }
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: 'ServerHome' }]
+                  })
+                );
+              }, 2000);
+            }
+          });
           break;
           
         case OrderNotificationStatus.DISH_UPDATE:
-          // Rafraîchir les données car le total peut avoir changé
+          // Rafraîchir silencieusement
           refreshOrderData();
           break;
           
         default:
-          // Pour toute autre notification concernant cette commande, rafraîchir les données
           refreshOrderData();
           break;
       }
     }
-  }, [orderId, refreshOrderData, showSnackbar]);
-  
-  // Gérer l'action de la notification
-  const handleNotificationAction = useCallback(() => {
-    setNotificationVisible(false);
-    
-    // Si besoin de naviguer vers un écran spécifique selon le type de notification
-    if (currentNotification?.orderStatus === OrderNotificationStatus.PAYMENT_UPDATE) {
-      // Par exemple, rafraîchir immédiatement les données
-      refreshOrderData();
-    } else if (currentNotification?.orderStatus === OrderNotificationStatus.DISH_UPDATE) {
-      // Si on voudrait naviguer vers les détails des plats par exemple
-      refreshOrderData();
-    }
-  }, [currentNotification, refreshOrderData]);
+  }, [orderId, refreshOrderData, isLocalProcessing, lastProcessedPaymentTime, receiptModalVisible, navigation]);
   
   // Configurer la connexion WebSocket
   useEffect(() => {
     if (!user?.tenantCode) return;
     
-    // Se connecter au WebSocket
     webSocketService.connect(user.tenantCode).catch(error => {
       console.error('WebSocket connection error:', error);
       setError('Erreur de connexion au service de notification en temps réel');
     });
     
-    // S'abonner aux notifications
     const unsubscribe = webSocketService.addSubscription(
       user.tenantCode,
       handleOrderNotification
     );
     
-    // Nettoyage à la destruction du composant
     return () => {
       unsubscribe();
     };
@@ -242,26 +219,22 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     return Math.max(0, tendered - Math.min(currentRemaining, tendered));
   };
   
-  // Calculer le montant effectif à encaisser (ne pas dépasser le montant restant)
+  // Calculer le montant effectif à encaisser
   const calculateEffectivePayment = (): number => {
-    // Si on est en mode articles sélectionnés, le montant effectif est le total des articles sélectionnés
     if (paymentMode === 'items' && selectedItems) {
       const selectedItemsTotal = selectedItems.reduce((total, item) => 
         total + (item.unitPrice * item.count), 0);
       return Math.min(selectedItemsTotal, currentRemaining);
     }
     
-    // Sinon, c'est basé sur le montant entré ou personnalisé
     const tendered = parseFloat(amountTendered.replace(',', '.'));
     if (isNaN(tendered) || tendered <= 0) return 0;
     
-    // S'assurer que nous ne dépassons pas le montant restant à payer
     return Math.min(currentRemaining, tendered);
   };
   
   // Mettre à jour le montant reçu
   const updateAmountTendered = (value: string) => {
-    // Autoriser uniquement les nombres et la virgule/point
     const numericValue = value.replace(/[^0-9.,]/g, '');
     setAmountTendered(numericValue);
   };
@@ -282,19 +255,18 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   
   // Traiter le paiement
   const processPayment = async () => {
-    // Vérifier si la commande a été mise à jour pendant que l'utilisateur était sur cet écran
     if (orderChanged) {
       const updatedRemaining = await refreshOrderData();
       
       if (updatedRemaining <= 0) {
-        // La commande a été entièrement payée entre-temps
-        showSnackbar('Cette commande a été entièrement payée');
-        setRedirectAfterReceipt('ServerHome');
-        setReceiptModalVisible(true);
+        Alert.alert(
+          'Commande déjà payée',
+          'Cette commande a été entièrement payée.',
+          [{ text: 'OK', onPress: () => navigation.navigate('ServerHome') }]
+        );
         return;
       }
       
-      // Mise à jour du montant effectif
       const newEffectivePayment = calculateEffectivePayment();
       
       if (newEffectivePayment !== parseFloat(amountTendered.replace(',', '.'))) {
@@ -313,11 +285,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       }
     }
     
-    // Procéder au paiement normal
     const tenderedAmount = parseFloat(amountTendered.replace(',', '.'));
     const effectiveAmount = calculateEffectivePayment();
     
-    // Vérifier que le montant donné est supérieur à zéro
     if (tenderedAmount <= 0) {
       Alert.alert(
         "Montant invalide",
@@ -327,7 +297,6 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       return;
     }
     
-    // Déterminer où rediriger après fermeture du modal
     const remainingAfterPayment = Math.max(0, currentRemaining - effectiveAmount);
     if (remainingAfterPayment <= 0) {
       setRedirectAfterReceipt('ServerHome');
@@ -338,13 +307,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
     finalizePendingPayment(effectiveAmount);
   };
   
-  // Finaliser un paiement en attente
+  // Finaliser un paiement en attente MODIFIÉ
   const finalizePendingPayment = async (effectiveAmount: number) => {
     setIsProcessing(true);
     setError(null);
+    setIsLocalProcessing(true); // MARQUER le début du traitement local
+    setLastProcessedPaymentTime(Date.now()); // ENREGISTRER le timestamp
     
     try {
-      // Enregistrer le paiement avec le montant effectif (limité au montant restant)
       const paymentRequest = {
         orderId: orderId,
         amount: effectiveAmount,
@@ -354,7 +324,6 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       
       await orderService.recordPayment(paymentRequest);
       
-      // Si mode par articles, marquer les articles sélectionnés comme payés
       if (paymentMode === 'items' && selectedItems) {
         await Promise.all(
           selectedItems.map(item => orderService.markDishAsPaid(item.id))
@@ -363,9 +332,16 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
       
       // Afficher la modale du reçu
       setReceiptModalVisible(true);
+      
+      // Réinitialiser le flag après un délai
+      setTimeout(() => {
+        setIsLocalProcessing(false);
+      }, 3000);
+      
     } catch (err: any) {
       console.error('Error processing payment:', err);
       setError(err.message || 'Erreur lors du traitement du paiement');
+      setIsLocalProcessing(false); // RÉINITIALISER en cas d'erreur
       
       Alert.alert(
         "Erreur",
@@ -380,7 +356,6 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
   // Imprimer un reçu
   const printReceipt = async () => {
     try {
-      // Formater le reçu
       const receipt = `
         RESTAURANT XYZ
         -----------------------------------
@@ -400,10 +375,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         Merci de votre visite!
       `;
       
-      // Imprimer le reçu
       await printDocument(receipt);
       
-      // Fermer la modale et effectuer la redirection appropriée
       setReceiptModalVisible(false);
       
       if (redirectAfterReceipt === 'ServerHome') {
@@ -506,7 +479,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               keyboardType="numeric"
               right={<TextInput.Affix text={currency} />}
               style={styles.amountInput}
-              disabled={paymentMode === 'items'} // Désactivé en mode items
+              disabled={paymentMode === 'items'}
               error={false}
             />
             
@@ -531,7 +504,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
               mode="outlined" 
               onPress={setExactAmount} 
               style={styles.exactButton}
-              disabled={paymentMode === 'items'} // Désactivé en mode items
+              disabled={paymentMode === 'items'}
             >
               Montant exact
             </Button>
@@ -541,25 +514,25 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
                 mode="outlined" 
                 onPress={() => addPresetAmount(5)} 
                 style={styles.presetButton}
-                disabled={paymentMode === 'items'} // Désactivé en mode items
+                disabled={paymentMode === 'items'}
               >+5</Button>
               <Button 
                 mode="outlined" 
                 onPress={() => addPresetAmount(10)} 
                 style={styles.presetButton}
-                disabled={paymentMode === 'items'} // Désactivé en mode items
+                disabled={paymentMode === 'items'}
               >+10</Button>
               <Button 
                 mode="outlined" 
                 onPress={() => addPresetAmount(20)} 
                 style={styles.presetButton}
-                disabled={paymentMode === 'items'} // Désactivé en mode items
+                disabled={paymentMode === 'items'}
               >+20</Button>
               <Button 
                 mode="outlined" 
                 onPress={() => addPresetAmount(50)} 
                 style={styles.presetButton}
-                disabled={paymentMode === 'items'} // Désactivé en mode items
+                disabled={paymentMode === 'items'}
               >+50</Button>
             </View>
           </View>
@@ -673,28 +646,20 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route 
         </Modal>
       </Portal>
       
-      {/* Snackbar pour les notifications */}
-      <SnackbarContainer bottomOffset={80}>
-        {currentNotification ? (
+      {/* Snackbar SIMPLIFIÉ - uniquement pour les notifications externes */}
+      {!isLocalProcessing && !receiptModalVisible && currentNotification && (
+        <SnackbarContainer bottomOffset={80}>
           <NotificationSnackbar
             notification={currentNotification}
             visible={notificationVisible}
-            onDismiss={() => setNotificationVisible(false)}
-            onAction={handleNotificationAction}
-            actionLabel="Voir"
+            onDismiss={() => {
+              setNotificationVisible(false);
+              setCurrentNotification(null);
+            }}
+            duration={2000}
           />
-        ) : snackbarVisible ? (
-          <Snackbar
-            visible={true}
-            onDismiss={() => setSnackbarVisible(false)}
-            duration={3000}
-            style={{ backgroundColor: theme.colors.primary }}
-            wrapperStyle={{ position: 'relative' }}
-          >
-            {snackbarMessage}
-          </Snackbar>
-        ) : null}
-      </SnackbarContainer>
+        </SnackbarContainer>
+      )}
     </SafeAreaView>
   );
 };
