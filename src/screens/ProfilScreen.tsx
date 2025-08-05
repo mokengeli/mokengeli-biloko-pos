@@ -3,9 +3,7 @@ import React from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import {
   Text,
-  Surface,
   Button,
-  Card,
   Divider,
   Chip,
   Appbar,
@@ -13,6 +11,7 @@ import {
   Switch,
   useTheme,
 } from "react-native-paper";
+import GlassSurface from "../components/common/GlassSurface";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
 import { RolesUtils } from "../utils/roles";
@@ -67,9 +66,8 @@ export const ProfilScreen: React.FC = () => {
         contentContainerStyle={styles.contentContainer}
       >
         {/* En-tête du profil */}
-        <Surface
-          style={[styles.profileHeader, { backgroundColor: theme.colors.surface }]}
-          elevation={2}
+        <GlassSurface
+          style={[styles.profileHeader]}
         >
           <View style={styles.avatarContainer}>
             <View style={[styles.avatar, { backgroundColor: theme.colors.primary }]}> 
@@ -80,11 +78,10 @@ export const ProfilScreen: React.FC = () => {
           </View>
           <Text style={styles.userName}>{getFullName()}</Text>
           {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
-        </Surface>
+        </GlassSurface>
 
         {/* Préférences */}
-        <Card style={styles.card}>
-          <Card.Content>
+        <GlassSurface style={styles.card}>
             <Text style={styles.sectionTitle}>Préférences</Text>
             <Divider style={styles.divider} />
             <List.Section>
@@ -97,12 +94,10 @@ export const ProfilScreen: React.FC = () => {
                 titleStyle={styles.listItemTitle}
               />
             </List.Section>
-          </Card.Content>
-        </Card>
+        </GlassSurface>
 
         {/* Informations personnelles */}
-        <Card style={styles.card}>
-          <Card.Content>
+        <GlassSurface style={styles.card}>
             <Text style={styles.sectionTitle}>Informations personnelles</Text>
             <Divider style={styles.divider} />
 
@@ -126,25 +121,21 @@ export const ProfilScreen: React.FC = () => {
                 titleStyle={styles.listItemTitle}
               />
             </List.Section>
-          </Card.Content>
-        </Card>
+        </GlassSurface>
 
         {/* Rôles et permissions */}
-        <Card style={styles.card}>
-          <Card.Content>
+        <GlassSurface style={styles.card}>
             <Text style={styles.sectionTitle}>Rôles et permissions</Text>
             <Divider style={styles.divider} />
 
             <View style={styles.rolesContainer}>
               {formatRoles(user?.roles)}
             </View>
-          </Card.Content>
-        </Card>
+        </GlassSurface>
 
         {/* Informations du restaurant */}
         {user?.tenantName && (
-          <Card style={styles.card}>
-            <Card.Content>
+          <GlassSurface style={styles.card}>
               <Text style={styles.sectionTitle}>Restaurant</Text>
               <Divider style={styles.divider} />
 
@@ -164,8 +155,7 @@ export const ProfilScreen: React.FC = () => {
                   />
                 )}
               </List.Section>
-            </Card.Content>
-          </Card>
+          </GlassSurface>
         )}
 
         {/* Bouton de déconnexion */}
@@ -228,6 +218,7 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
     borderRadius: 12,
+    padding: 16,
   },
   sectionTitle: {
     fontSize: 18,

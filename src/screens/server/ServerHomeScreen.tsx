@@ -5,10 +5,10 @@ import {
   Appbar,
   Text,
   ActivityIndicator,
-  Surface,
   useTheme,
   FAB,
 } from "react-native-paper";
+import GlassSurface from "../../components/common/GlassSurface";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -648,19 +648,15 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       <View style={styles.contentContainer}>
         {error ? (
-          <Surface
+          <GlassSurface
             style={[
               styles.errorContainer,
-              {
-                backgroundColor: theme.colors.error + "20",
-                borderRadius: theme.roundness,
-              },
             ]}
           >
             <Text style={[styles.errorText, { color: theme.colors.error }]}>
               {error}
             </Text>
-          </Surface>
+          </GlassSurface>
         ) : (
           <View style={styles.mainContent}>
             <Text style={styles.sectionTitle}>Plan de salle</Text>

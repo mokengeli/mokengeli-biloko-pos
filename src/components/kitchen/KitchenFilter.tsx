@@ -1,7 +1,8 @@
 // src/components/kitchen/KitchenFilter.tsx
 import React from 'react';
 import { View, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { Chip, Text, Surface, useTheme } from 'react-native-paper';
+import { Chip, Text, useTheme } from 'react-native-paper';
+import GlassSurface from '../common/GlassSurface';
 
 interface KitchenFilterProps {
   categories: string[];
@@ -23,7 +24,7 @@ export const KitchenFilter: React.FC<KitchenFilterProps> = ({
   const isLandscape = windowWidth > windowHeight;
 
   return (
-    <Surface style={[styles.container, isTablet && styles.tabletContainer]}>
+    <GlassSurface style={[styles.container, isTablet && styles.tabletContainer]}>
       <Text style={[styles.label, isTablet && styles.tabletLabel]}>Filtrer par catégorie:</Text>
       <ScrollView 
         horizontal 
@@ -54,7 +55,7 @@ export const KitchenFilter: React.FC<KitchenFilterProps> = ({
           </Chip>
         ))}
       </ScrollView>
-    </Surface>
+    </GlassSurface>
   );
 };
 

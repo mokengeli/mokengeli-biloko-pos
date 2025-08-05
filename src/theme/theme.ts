@@ -6,7 +6,7 @@ const lightColors = {
   primary: '#4F46E5', // Indigo vif pour les éléments principaux
   accent: '#10B981', // Vert émeraude pour les actions secondaires
   background: '#F9FAFB', // Gris très clair pour l'arrière-plan
-  surface: '#FFFFFF', // Surfaces (cartes, feuilles)
+  surface: 'rgba(255,255,255,0.25)', // Surfaces translucides
   text: '#111827', // Texte principal presque noir
   error: '#EF4444', // Rouge moderne pour les erreurs
   warning: '#F59E0B', // Orange/ambre pour les avertissements
@@ -21,7 +21,7 @@ const darkColors = {
   primary: '#818CF8', // Indigo clair pour contraste sur fond sombre
   accent: '#34D399', // Vert émeraude lumineux
   background: '#1F2937', // Gris foncé pour l'arrière-plan
-  surface: '#111827', // Surfaces sombres
+  surface: 'rgba(17,24,39,0.6)', // Surfaces translucides sombres
   text: '#F9FAFB', // Texte clair
   error: '#F87171', // Rouge plus clair
   warning: '#FBBF24', // Jaune ambré

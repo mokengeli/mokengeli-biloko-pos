@@ -60,6 +60,7 @@
     "expo-dev-client": "~5.2.0",
     "expo-secure-store": "~14.2.3",
     "expo-status-bar": "~2.2.3",
+    "expo-blur": "~13.0.2",
     "expo-updates": "~0.28.14",
     "formik": "^2.4.6",
     "js-cookie": "^3.0.5",

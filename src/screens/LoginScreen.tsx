@@ -13,10 +13,10 @@ import {
   TextInput,
   Button,
   Text,
-  Surface,
   Banner,
   useTheme,
 } from "react-native-paper";
+import GlassSurface from "../components/common/GlassSurface";
 import { Formik } from "formik";
 import * as Yup from "yup";
 import { useAuth } from "../contexts/AuthContext";
@@ -79,7 +79,7 @@ export const LoginScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Surface style={[styles.surface, { backgroundColor: theme.colors.surface, borderRadius: theme.roundness }]}> 
+        <GlassSurface style={[styles.surface]}> 
           <View style={styles.logoContainer}>
             <Text style={[styles.logoText, { color: theme.colors.primary }]}>Mokengeli Biloko POS</Text>
           </View>
@@ -183,7 +183,7 @@ export const LoginScreen: React.FC = () => {
               </View>
             )}
           </Formik>
-        </Surface>
+        </GlassSurface>
       </ScrollView>
     </KeyboardAvoidingView>
   );
