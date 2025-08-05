@@ -201,52 +201,44 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                             </ScrollView>
                             
                             <View style={styles.orderActions}>
-                              <ScrollView 
-                                horizontal 
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.actionButtonsContainer}
-                              >
-                                <Button 
-                                  mode="outlined" 
-                                  icon="plus" 
+                              <View style={styles.actionButtonsGrid}>
+                                <Button
+                                  mode="outlined"
+                                  icon="plus"
                                   onPress={() => handleAddToExistingOrder(order)}
                                   style={styles.actionButton}
                                 >
                                   Ajouter
                                 </Button>
-                                
-                                {/* Nouveau bouton Servir */}
+
                                 {hasReadyDishes(order) && (
-                                  <Button 
-                                    mode="outlined" 
-                                    icon="silverware" 
+                                  <Button
+                                    mode="outlined"
+                                    icon="silverware"
                                     onPress={() => onServeReadyDishes(order)}
-                                    style={[
-                                      styles.actionButton, 
-                                      styles.serveButton
-                                    ]}
+                                    style={[styles.actionButton, styles.serveButton]}
                                   >
                                     Servir {countReadyDishes(order) > 1 ? `(${countReadyDishes(order)})` : ''}
                                   </Button>
                                 )}
-                                
-                                <Button 
-                                  mode="outlined" 
-                                  icon="printer" 
+
+                                <Button
+                                  mode="outlined"
+                                  icon="printer"
                                   onPress={() => onPrintTicket(order)}
                                   style={styles.actionButton}
                                 >
                                   Imprimer
                                 </Button>
-                                <Button 
-                                  mode="outlined" 
-                                  icon="cash-register" 
+                                <Button
+                                  mode="outlined"
+                                  icon="cash-register"
                                   onPress={() => onRequestBill(order)}
                                   style={styles.actionButton}
                                 >
                                   Addition
                                 </Button>
-                              </ScrollView>
+                              </View>
                             </View>
                           </List.Accordion>
                         </View>
@@ -358,12 +350,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 8,
   },
-  actionButtonsContainer: {
-    paddingRight: 8, // Espacement supplémentaire pour le dernier bouton
+  actionButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   actionButton: {
-    marginHorizontal: 4,
-    minWidth: 110, // Largeur minimale pour assurer la lisibilité
+    flexBasis: '48%',
+    marginVertical: 4,
   },
   serveButton: {
     borderColor: '#4CAF50',
