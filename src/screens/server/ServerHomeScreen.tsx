@@ -620,7 +620,10 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["left", "right"]}
+    >
       <Appbar.Header style={styles.appbar}>
         {/* Bouton de retour pour les managers */}
         {isManager && (
@@ -645,8 +648,18 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       <View style={styles.contentContainer}>
         {error ? (
-          <Surface style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <Surface
+            style={[
+              styles.errorContainer,
+              {
+                backgroundColor: theme.colors.error + "20",
+                borderRadius: theme.roundness,
+              },
+            ]}
+          >
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+              {error}
+            </Text>
           </Surface>
         ) : (
           <View style={styles.mainContent}>
@@ -703,7 +716,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           }
         }}
         fabStyle={{
-          borderRadius: 16,
+          borderRadius: theme.roundness,
         }}
       />
 
@@ -735,7 +748,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   appbar: {
     height: 56,
@@ -767,11 +779,8 @@ const styles = StyleSheet.create({
   errorContainer: {
     margin: 16,
     padding: 16,
-    borderRadius: 8,
-    backgroundColor: "#ffe6e6",
   },
   errorText: {
-    color: "#d32f2f",
     textAlign: "center",
   },
   fab: {

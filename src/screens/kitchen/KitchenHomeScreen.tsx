@@ -457,7 +457,10 @@ export const KitchenHomeScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["left", "right"]}
+    >
       <Appbar.Header style={styles.appbar}>
         {/* Bouton de retour pour les managers */}
         {isManager && (
@@ -500,7 +503,15 @@ export const KitchenHomeScreen = () => {
           />
         )}
         renderSectionHeader={({ section: { title } }) => (
-          <View style={styles.sectionHeader}>
+          <View
+            style={[
+              styles.sectionHeader,
+              {
+                backgroundColor: theme.colors.background,
+                borderBottomColor: theme.colors.disabled,
+              },
+            ]}
+          >
             <Text style={styles.sectionTitle}>{title}</Text>
             <Divider style={styles.divider} />
           </View>
@@ -531,7 +542,9 @@ export const KitchenHomeScreen = () => {
           visible={errorDialog.visible}
           onDismiss={() => setErrorDialog({ ...errorDialog, visible: false })}
         >
-          <Dialog.Title style={styles.errorDialogTitle}>
+          <Dialog.Title
+            style={[styles.errorDialogTitle, { color: theme.colors.error }]}
+          >
             {errorDialog.title}
           </Dialog.Title>
           <Dialog.Content>
@@ -560,7 +573,7 @@ export const KitchenHomeScreen = () => {
         visible={infoSnackbar.visible}
         onDismiss={() => setInfoSnackbar({ ...infoSnackbar, visible: false })}
         duration={3000}
-        style={styles.infoSnackbar}
+        style={[styles.infoSnackbar, { backgroundColor: theme.colors.accent }]}
       >
         {infoSnackbar.message}
       </Snackbar>
@@ -573,7 +586,7 @@ export const KitchenHomeScreen = () => {
           label: "Réessayer",
           onPress: onRefresh,
         }}
-        style={styles.errorSnackbar}
+        style={[styles.errorSnackbar, { backgroundColor: theme.colors.error }]}
       >
         {snackbarError.message}
       </Snackbar>
@@ -584,7 +597,6 @@ export const KitchenHomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   appbar: {
     height: 56,
@@ -600,11 +612,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   sectionHeader: {
-    backgroundColor: "#f5f5f5",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   sectionTitle: {
     fontSize: 18,
@@ -631,15 +641,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   errorDialogTitle: {
-    color: "#D32F2F",
   },
   errorDialogMessage: {
     fontSize: 16,
   },
   errorSnackbar: {
-    backgroundColor: "#D32F2F",
   },
   infoSnackbar: {
-    backgroundColor: "#4CAF50", // Vert pour les mises à jour
   },
 });

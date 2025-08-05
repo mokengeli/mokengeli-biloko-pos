@@ -8,16 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
 } from "react-native";
 import {
   TextInput,
   Button,
   Text,
-  Snackbar,
   Surface,
-  ActivityIndicator,
   Banner,
+  useTheme,
 } from "react-native-paper";
 import { Formik } from "formik";
 import * as Yup from "yup";
@@ -32,6 +30,7 @@ const LoginSchema = Yup.object().shape({
 // Composant écran de connexion
 export const LoginScreen: React.FC = () => {
   const { login, error, clearError, isLoading, forceLogoutReason, clearForceLogoutReason } = useAuth();
+  const theme = useTheme();
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -74,15 +73,15 @@ export const LoginScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <Surface style={styles.surface}>
+        <Surface style={[styles.surface, { backgroundColor: theme.colors.surface, borderRadius: theme.roundness }]}> 
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>Mokengeli Biloko POS</Text>
+            <Text style={[styles.logoText, { color: theme.colors.primary }]}>Mokengeli Biloko POS</Text>
           </View>
 
           {/* Bannière pour le message de déconnexion forcée */}
@@ -95,10 +94,10 @@ export const LoginScreen: React.FC = () => {
                   onPress: clearForceLogoutReason,
                 },
               ]}
-              style={styles.forceLogoutBanner}
+              style={[styles.forceLogoutBanner, { backgroundColor: `${theme.colors.warning}20` }]}
               icon="alert-circle"
             >
-              <Text style={styles.forceLogoutText}>{forceLogoutReason}</Text>
+              <Text style={[styles.forceLogoutText, { color: theme.colors.warning }]}>{forceLogoutReason}</Text>
             </Banner>
           )}
 
@@ -111,14 +110,14 @@ export const LoginScreen: React.FC = () => {
                   onPress: clearError,
                 },
               ]}
-              style={styles.errorBanner}
+              style={[styles.errorBanner, { backgroundColor: `${theme.colors.error}20` }]}
               icon="alert-circle"
             >
-              <Text style={styles.errorBannerText}>{showError}</Text>
+              <Text style={[styles.errorBannerText, { color: theme.colors.error }]}>{showError}</Text>
             </Banner>
           )}
 
-          <Text style={styles.title}>Connexion</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Connexion</Text>
 
           <Formik
             initialValues={{
@@ -149,7 +148,7 @@ export const LoginScreen: React.FC = () => {
                   disabled={isLoading}
                 />
                 {touched.username && errors.username && (
-                  <Text style={styles.errorText}>{errors.username}</Text>
+                  <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.username}</Text>
                 )}
 
                 <TextInput
@@ -169,7 +168,7 @@ export const LoginScreen: React.FC = () => {
                   disabled={isLoading}
                 />
                 {touched.password && errors.password && (
-                  <Text style={styles.errorText}>{errors.password}</Text>
+                  <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.password}</Text>
                 )}
 
                 <Button
@@ -193,7 +192,6 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   scrollContainer: {
     flexGrow: 1,
@@ -203,7 +201,6 @@ const styles = StyleSheet.create({
   },
   surface: {
     padding: 30,
-    borderRadius: 10,
     elevation: 4,
     width: "100%",
     maxWidth: 400,
@@ -215,7 +212,6 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#0066CC",
   },
   title: {
     fontSize: 24,
@@ -231,25 +227,18 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   errorText: {
-    color: "#B00020",
     fontSize: 12,
     marginBottom: 10,
     marginLeft: 5,
   },
   errorBanner: {
     marginBottom: 20,
-    backgroundColor: "#FFECEC",
   },
-  errorBannerText: {
-    color: "#B00020",
-  },
+  errorBannerText: {},
   forceLogoutBanner: {
     marginBottom: 20,
-    backgroundColor: "#FFF3E0", // Orange clair pour déconnexion forcée
   },
-  forceLogoutText: {
-    color: "#E65100", // Orange foncé
-  },
+  forceLogoutText: {},
   button: {
     marginTop: 20,
     paddingVertical: 6,
