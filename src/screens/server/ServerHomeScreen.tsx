@@ -5,10 +5,10 @@ import {
   Appbar,
   Text,
   ActivityIndicator,
-  Surface,
   useTheme,
   FAB,
 } from "react-native-paper";
+import GlassSurface from "../../components/common/GlassSurface";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -620,7 +620,10 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["left", "right"]}
+    >
       <Appbar.Header style={styles.appbar}>
         {/* Bouton de retour pour les managers */}
         {isManager && (
@@ -645,9 +648,15 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       <View style={styles.contentContainer}>
         {error ? (
-          <Surface style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </Surface>
+          <GlassSurface
+            style={[
+              styles.errorContainer,
+            ]}
+          >
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+              {error}
+            </Text>
+          </GlassSurface>
         ) : (
           <View style={styles.mainContent}>
             <Text style={styles.sectionTitle}>Plan de salle</Text>
@@ -703,7 +712,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           }
         }}
         fabStyle={{
-          borderRadius: 16,
+          borderRadius: theme.roundness,
         }}
       />
 
@@ -735,7 +744,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   appbar: {
     height: 56,
@@ -767,11 +775,8 @@ const styles = StyleSheet.create({
   errorContainer: {
     margin: 16,
     padding: 16,
-    borderRadius: 8,
-    backgroundColor: "#ffe6e6",
   },
   errorText: {
-    color: "#d32f2f",
     textAlign: "center",
   },
   fab: {

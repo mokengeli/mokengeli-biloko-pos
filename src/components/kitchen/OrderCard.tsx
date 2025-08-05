@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import {
-  Card,
   Text,
   Button,
   Chip,
@@ -12,9 +11,9 @@ import {
   List,
   Modal,
   Portal,
-  Surface,
   useTheme,
 } from "react-native-paper";
+import GlassSurface from "../common/GlassSurface";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrder, DomainOrderItem } from "../../api/orderService";
 
@@ -131,8 +130,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       
       {/* Contenu de la carte avec shadow */}
       <View style={styles.cardContainer}>
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
+        <GlassSurface style={styles.card}>
+          <View style={styles.cardContent}>
             <View style={styles.headerRow}>
               <View style={styles.orderInfo}>
                 <Text style={styles.orderNumber}>Commande #{order.id}</Text>
@@ -245,8 +244,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 </View>
               </View>
             )}
-          </Card.Content>
-        </Card>
+          </View>
+        </GlassSurface>
       </View>
 
       {/* Modal de confirmation */}
@@ -256,7 +255,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           onDismiss={() => setConfirmModalVisible(false)}
           contentContainerStyle={styles.modalContainer}
         >
-          <Surface style={styles.modalContent}>
+          <GlassSurface style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               {actionType === "ready"
                 ? "Marquer comme prêt"
@@ -287,7 +286,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 Confirmer
               </Button>
             </View>
-          </Surface>
+          </GlassSurface>
         </Modal>
       </Portal>
     </View>
