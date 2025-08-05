@@ -1,33 +1,60 @@
 // src/theme/theme.ts
-import { DefaultTheme } from 'react-native-paper';
+import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 
-// Définition des couleurs principales de l'application
-const colors = {
-  primary: '#0066CC',       // Bleu principal
-  accent: '#FF9500',        // Orange accent
-  background: '#F5F5F5',    // Fond clair
-  surface: '#FFFFFF',       // Surface des cartes et éléments
-  text: '#212121',          // Texte principal
-  error: '#D32F2F',         // Rouge pour les erreurs
-  warning: '#FFA500',       // Orange pour les avertissements
-  success: '#4CAF50',       // Vert pour les succès
-  disabled: '#9E9E9E',      // Gris pour les éléments désactivés
-  placeholder: '#9E9E9E',   // Texte placeholder
-  backdrop: 'rgba(0, 0, 0, 0.5)', // Arrière-plan modal
+// Définition des couleurs principales pour le thème clair
+const lightColors = {
+  primary: '#4F46E5', // Indigo vif pour les éléments principaux
+  accent: '#10B981', // Vert émeraude pour les actions secondaires
+  background: '#F9FAFB', // Gris très clair pour l'arrière-plan
+  surface: '#FFFFFF', // Surfaces (cartes, feuilles)
+  text: '#111827', // Texte principal presque noir
+  error: '#EF4444', // Rouge moderne pour les erreurs
+  warning: '#F59E0B', // Orange/ambre pour les avertissements
+  success: '#10B981', // Vert pour les succès
+  disabled: '#9CA3AF', // Gris pour les éléments désactivés
+  placeholder: '#9CA3AF', // Couleur du texte placeholder
+  backdrop: 'rgba(17, 24, 39, 0.5)', // Arrière-plan modal assombri
 };
 
-// Création du thème personnalisé
-export const theme = {
-  ...DefaultTheme,
+// Palette de couleurs pour le thème sombre
+const darkColors = {
+  primary: '#818CF8', // Indigo clair pour contraste sur fond sombre
+  accent: '#34D399', // Vert émeraude lumineux
+  background: '#1F2937', // Gris foncé pour l'arrière-plan
+  surface: '#111827', // Surfaces sombres
+  text: '#F9FAFB', // Texte clair
+  error: '#F87171', // Rouge plus clair
+  warning: '#FBBF24', // Jaune ambré
+  success: '#34D399', // Vert pour les succès
+  disabled: '#6B7280', // Gris pour les éléments désactivés
+  placeholder: '#9CA3AF',
+  backdrop: 'rgba(0, 0, 0, 0.5)',
+};
+
+// Thème clair
+export const lightTheme = {
+  ...MD3LightTheme,
   colors: {
-    ...DefaultTheme.colors,
-    ...colors,
+    ...MD3LightTheme.colors,
+    ...lightColors,
   },
-  roundness: 8,
-  animation: {
-    scale: 1.0,
+  roundness: 12,
+  animation: { scale: 1.0 },
+};
+
+// Thème sombre
+export const darkTheme = {
+  ...MD3DarkTheme,
+  colors: {
+    ...MD3DarkTheme.colors,
+    ...darkColors,
   },
+  roundness: 12,
+  animation: { scale: 1.0 },
 };
 
 // Types pour utiliser le thème dans l'application
-export type AppTheme = typeof theme;
+export type AppTheme = typeof lightTheme;
+
+// Export par défaut pour compatibilité
+export const theme = lightTheme;
