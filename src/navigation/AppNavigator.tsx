@@ -20,6 +20,7 @@ import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
+import { useTheme } from "react-native-paper";
 
 
 // Types des paramètres pour les routes d'authentification
@@ -85,11 +86,12 @@ const MainStack = createStackNavigator<MainStackParamList>();
 
 // Composant pour les routes d'authentification
 const AuthNavigator = () => {
+  const theme = useTheme();
   return (
     <AuthStack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: "#f5f5f5" },
+        cardStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -100,6 +102,7 @@ const AuthNavigator = () => {
 // Composant pour les routes principales (authentifiées)
 const MainNavigator: React.FC = () => {
   const { user } = useAuth();
+  const theme = useTheme();
 
   // Déterminer l'écran initial en fonction du rôle de l'utilisateur
   const getInitialRouteName = () => {
@@ -119,7 +122,7 @@ const MainNavigator: React.FC = () => {
       initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: "#f5f5f5" },
+        cardStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <MainStack.Screen name="ServerHome" component={ServerHomeScreen} />
@@ -145,13 +148,16 @@ const MainNavigator: React.FC = () => {
 // Composant de navigation principale
 export const AppNavigator: React.FC = () => {
   const { user, isLoading } = useAuth();
+  const theme = useTheme();
 
   // Afficher un indicateur de chargement pendant la vérification de l'authentification
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0066CC" />
-        <Text style={styles.loadingText}>Chargement...</Text>
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.primary }]}>Chargement...</Text>
       </View>
     );
   }
@@ -168,11 +174,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: "#0066CC",
   },
 });
