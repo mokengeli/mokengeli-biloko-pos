@@ -1,7 +1,8 @@
 // src/screens/server/CreateOrderScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, Divider, useTheme, Button } from 'react-native-paper';
+import { Appbar, Text, Chip, ActivityIndicator, Surface, useTheme, Button } from 'react-native-paper';
+import GlassSurface from '../../components/common/GlassSurface';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -339,45 +340,50 @@ const handleCancelOrder = () => {
               <FlatList
                 data={dishes}
                 renderItem={({ item }) => (
-                  <Card
-                    style={[styles.dishCard, { borderLeftColor: theme.colors.accent }]}
-                    elevation={3}
+                  <GlassSurface
+                    style={[
+                      styles.dishCard,
+                      {
+                        borderLeftColor: theme.colors.accent,
+                        borderLeftWidth: 4,
+                      },
+                    ]}
                   >
-                    <Card.Content>
-                      <View style={styles.dishHeader}>
-                        <Text style={styles.dishName}>{item.name}</Text>
-                        <Text style={[styles.dishPrice, { color: theme.colors.accent }]}>
-                          {item.price.toFixed(2)} {item.currency.code}
-                        </Text>
+                    <View style={styles.dishHeader}>
+                      <Text style={styles.dishName}>{item.name}</Text>
+                      <Text style={[styles.dishPrice, { color: theme.colors.accent }]}>
+                        {item.price.toFixed(2)} {item.currency.code}
+                      </Text>
+                    </View>
+                    {item.categories && item.categories.length > 0 && (
+                      <View style={styles.dishCategories}>
+                        {item.categories.map((cat, index) => (
+                          <Chip
+                            key={index}
+                            style={[
+                              styles.dishCategoryChip,
+                              { backgroundColor: theme.colors.accent + '20' },
+                            ]}
+                            textStyle={{ fontSize: 10 }}
+                          >
+                            {cat}
+                          </Chip>
+                        ))}
                       </View>
-                      {item.categories && item.categories.length > 0 && (
-                        <View style={styles.dishCategories}>
-                          {item.categories.map((cat, index) => (
-                            <Chip
-                              key={index}
-                              style={[
-                                styles.dishCategoryChip,
-                                { backgroundColor: theme.colors.accent + '20' },
-                              ]}
-                              textStyle={{ fontSize: 10 }}
-                            >
-                              {cat}
-                            </Chip>
-                          ))}
-                        </View>
-                      )}
-                    </Card.Content>
-                    <Card.Actions style={styles.dishActions}>
+                    )}
+                    <View style={styles.dishActions}>
                       <Button
-                        mode="outlined"
+                        mode="contained"
                         icon="plus-circle"
                         onPress={() => navigateToDishCustomization(item)}
-                        style={[styles.addButton, { borderColor: theme.colors.accent }]}
+                        buttonColor={theme.colors.accent}
+                        textColor="white"
+                        style={styles.addButton}
                       >
                         Ajouter
                       </Button>
-                    </Card.Actions>
-                  </Card>
+                    </View>
+                  </GlassSurface>
                 )}
                 keyExtractor={item => item.id.toString()}
                 numColumns={isTablet ? 2 : 1}
@@ -495,8 +501,14 @@ const styles = StyleSheet.create({
   dishCard: {
     marginBottom: 12,
     marginHorizontal: 4,
+    padding: 16,
     flex: 1,
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
   dishHeader: {
     flexDirection: 'row',
@@ -526,11 +538,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, // Padding horizontal pour plus d'espace
   },
   dishActions: {
+    marginTop: 12,
+    flexDirection: 'row',
     justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
   },
   addButton: {
+    borderRadius: 24,
   },
   loadingDishesContainer: {
     padding: 24,
