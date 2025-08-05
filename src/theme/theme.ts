@@ -2,18 +2,19 @@
 import { DefaultTheme } from 'react-native-paper';
 
 // Définition des couleurs principales de l'application
+// Palette inspirée des tendances modernes (bleu/indigo + gris clair)
 const colors = {
-  primary: '#0066CC',       // Bleu principal
-  accent: '#FF9500',        // Orange accent
-  background: '#F5F5F5',    // Fond clair
-  surface: '#FFFFFF',       // Surface des cartes et éléments
-  text: '#212121',          // Texte principal
-  error: '#D32F2F',         // Rouge pour les erreurs
-  warning: '#FFA500',       // Orange pour les avertissements
-  success: '#4CAF50',       // Vert pour les succès
-  disabled: '#9E9E9E',      // Gris pour les éléments désactivés
-  placeholder: '#9E9E9E',   // Texte placeholder
-  backdrop: 'rgba(0, 0, 0, 0.5)', // Arrière-plan modal
+  primary: '#4F46E5',        // Indigo vif pour les éléments principaux
+  accent: '#10B981',         // Vert émeraude pour les actions secondaires
+  background: '#F9FAFB',     // Gris très clair pour l'arrière-plan
+  surface: '#FFFFFF',        // Surfaces (cartes, feuilles)
+  text: '#111827',           // Texte principal presque noir
+  error: '#EF4444',          // Rouge moderne pour les erreurs
+  warning: '#F59E0B',        // Orange/ambre pour les avertissements
+  success: '#10B981',        // Vert pour les succès
+  disabled: '#9CA3AF',       // Gris pour les éléments désactivés
+  placeholder: '#9CA3AF',    // Couleur du texte placeholder
+  backdrop: 'rgba(17, 24, 39, 0.5)', // Arrière-plan modal assombri
 };
 
 // Création du thème personnalisé
@@ -23,7 +24,8 @@ export const theme = {
     ...DefaultTheme.colors,
     ...colors,
   },
-  roundness: 8,
+  // Bords légèrement plus arrondis pour un rendu plus moderne
+  roundness: 12,
   animation: {
     scale: 1.0,
   },
