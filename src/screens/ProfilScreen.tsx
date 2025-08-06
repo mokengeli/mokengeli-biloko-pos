@@ -11,7 +11,7 @@ import {
   Switch,
   useTheme,
 } from "react-native-paper";
-import GlassSurface from "../components/common/GlassSurface";
+import NeumorphicSurface from "../components/common/NeumorphicSurface";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
 import { RolesUtils } from "../utils/roles";
@@ -66,7 +66,7 @@ export const ProfilScreen: React.FC = () => {
         contentContainerStyle={styles.contentContainer}
       >
         {/* En-tête du profil */}
-        <GlassSurface
+        <NeumorphicSurface
           style={[styles.profileHeader]}
         >
           <View style={styles.avatarContainer}>
@@ -78,10 +78,10 @@ export const ProfilScreen: React.FC = () => {
           </View>
           <Text style={styles.userName}>{getFullName()}</Text>
           {user?.email && <Text style={styles.userEmail}>{user.email}</Text>}
-        </GlassSurface>
+        </NeumorphicSurface>
 
         {/* Préférences */}
-        <GlassSurface style={styles.card}>
+        <NeumorphicSurface style={styles.card}>
             <Text style={styles.sectionTitle}>Préférences</Text>
             <Divider style={styles.divider} />
             <List.Section>
@@ -94,10 +94,10 @@ export const ProfilScreen: React.FC = () => {
                 titleStyle={styles.listItemTitle}
               />
             </List.Section>
-        </GlassSurface>
+        </NeumorphicSurface>
 
         {/* Informations personnelles */}
-        <GlassSurface style={styles.card}>
+        <NeumorphicSurface style={styles.card}>
             <Text style={styles.sectionTitle}>Informations personnelles</Text>
             <Divider style={styles.divider} />
 
@@ -121,21 +121,21 @@ export const ProfilScreen: React.FC = () => {
                 titleStyle={styles.listItemTitle}
               />
             </List.Section>
-        </GlassSurface>
+        </NeumorphicSurface>
 
         {/* Rôles et permissions */}
-        <GlassSurface style={styles.card}>
+        <NeumorphicSurface style={styles.card}>
             <Text style={styles.sectionTitle}>Rôles et permissions</Text>
             <Divider style={styles.divider} />
 
             <View style={styles.rolesContainer}>
               {formatRoles(user?.roles)}
             </View>
-        </GlassSurface>
+        </NeumorphicSurface>
 
         {/* Informations du restaurant */}
         {user?.tenantName && (
-          <GlassSurface style={styles.card}>
+          <NeumorphicSurface style={styles.card}>
               <Text style={styles.sectionTitle}>Restaurant</Text>
               <Divider style={styles.divider} />
 
@@ -155,7 +155,7 @@ export const ProfilScreen: React.FC = () => {
                   />
                 )}
               </List.Section>
-          </GlassSurface>
+          </NeumorphicSurface>
         )}
 
         {/* Bouton de déconnexion */}

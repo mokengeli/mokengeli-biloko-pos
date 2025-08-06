@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Appbar, Text, Chip, ActivityIndicator, Surface, useTheme, Button } from 'react-native-paper';
-import GlassSurface from '../../components/common/GlassSurface';
+import NeumorphicSurface from '../../components/common/NeumorphicSurface';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -340,7 +340,7 @@ const handleCancelOrder = () => {
               <FlatList
                 data={dishes}
                 renderItem={({ item }) => (
-                  <GlassSurface
+                  <NeumorphicSurface
                     style={[
                       styles.dishCard,
                       {
@@ -383,7 +383,7 @@ const handleCancelOrder = () => {
                         Ajouter
                       </Button>
                     </View>
-                  </GlassSurface>
+                  </NeumorphicSurface>
                 )}
                 keyExtractor={item => item.id.toString()}
                 numColumns={isTablet ? 2 : 1}

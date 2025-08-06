@@ -5,8 +5,10 @@ import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 const lightColors = {
   primary: '#4F46E5', // Indigo vif pour les éléments principaux
   accent: '#10B981', // Vert émeraude pour les actions secondaires
-  background: '#F9FAFB', // Gris très clair pour l'arrière-plan
-  surface: 'rgba(255,255,255,0.25)', // Surfaces translucides
+  background: '#E0E0E0', // Gris doux pour le fond
+  surface: '#E0E0E0', // Surfaces unies pour le néomorphisme
+  shadowLight: '#FFFFFF', // Ombre claire
+  shadowDark: '#A3B1C6', // Ombre foncée
   text: '#111827', // Texte principal presque noir
   error: '#EF4444', // Rouge moderne pour les erreurs
   warning: '#F59E0B', // Orange/ambre pour les avertissements
@@ -20,8 +22,10 @@ const lightColors = {
 const darkColors = {
   primary: '#818CF8', // Indigo clair pour contraste sur fond sombre
   accent: '#34D399', // Vert émeraude lumineux
-  background: '#1F2937', // Gris foncé pour l'arrière-plan
-  surface: 'rgba(17,24,39,0.6)', // Surfaces translucides sombres
+  background: '#2E2E2E', // Fond sombre doux
+  surface: '#2E2E2E', // Surfaces unies pour le néomorphisme
+  shadowLight: '#3A3A3A', // Ombre claire
+  shadowDark: '#232323', // Ombre foncée
   text: '#F9FAFB', // Texte clair
   error: '#F87171', // Rouge plus clair
   warning: '#FBBF24', // Jaune ambré

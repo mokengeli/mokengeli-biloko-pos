@@ -13,7 +13,7 @@ import {
   Portal,
   useTheme,
 } from "react-native-paper";
-import GlassSurface from "../common/GlassSurface";
+import NeumorphicSurface from "../common/NeumorphicSurface";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrder, DomainOrderItem } from "../../api/orderService";
 
@@ -130,7 +130,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       
       {/* Contenu de la carte avec shadow */}
       <View style={styles.cardContainer}>
-        <GlassSurface style={styles.card}>
+        <NeumorphicSurface style={styles.card}>
           <View style={styles.cardContent}>
             <View style={styles.headerRow}>
               <View style={styles.orderInfo}>
@@ -245,7 +245,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               </View>
             )}
           </View>
-        </GlassSurface>
+        </NeumorphicSurface>
       </View>
 
       {/* Modal de confirmation */}
@@ -255,7 +255,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           onDismiss={() => setConfirmModalVisible(false)}
           contentContainerStyle={styles.modalContainer}
         >
-          <GlassSurface style={styles.modalContent}>
+          <NeumorphicSurface style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               {actionType === "ready"
                 ? "Marquer comme prêt"
@@ -286,7 +286,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 Confirmer
               </Button>
             </View>
-          </GlassSurface>
+          </NeumorphicSurface>
         </Modal>
       </Portal>
     </View>

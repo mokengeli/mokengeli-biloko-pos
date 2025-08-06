@@ -16,7 +16,7 @@ import {
   Banner,
   useTheme,
 } from "react-native-paper";
-import GlassSurface from "../components/common/GlassSurface";
+import NeumorphicSurface from "../components/common/NeumorphicSurface";
 import { Formik } from "formik";
 import * as Yup from "yup";
 import { useAuth } from "../contexts/AuthContext";
@@ -79,7 +79,7 @@ export const LoginScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
-        <GlassSurface style={[styles.surface]}> 
+        <NeumorphicSurface style={[styles.surface]}> 
           <View style={styles.logoContainer}>
             <Text style={[styles.logoText, { color: theme.colors.primary }]}>Mokengeli Biloko POS</Text>
           </View>
@@ -183,7 +183,7 @@ export const LoginScreen: React.FC = () => {
               </View>
             )}
           </Formik>
-        </GlassSurface>
+        </NeumorphicSurface>
       </ScrollView>
     </KeyboardAvoidingView>
   );

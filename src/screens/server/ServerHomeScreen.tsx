@@ -8,7 +8,7 @@ import {
   useTheme,
   FAB,
 } from "react-native-paper";
-import GlassSurface from "../../components/common/GlassSurface";
+import NeumorphicSurface from "../../components/common/NeumorphicSurface";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -648,7 +648,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       <View style={styles.contentContainer}>
         {error ? (
-          <GlassSurface
+          <NeumorphicSurface
             style={[
               styles.errorContainer,
             ]}
@@ -656,7 +656,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
             <Text style={[styles.errorText, { color: theme.colors.error }]}>
               {error}
             </Text>
-          </GlassSurface>
+          </NeumorphicSurface>
         ) : (
           <View style={styles.mainContent}>
             <Text style={styles.sectionTitle}>Plan de salle</Text>
