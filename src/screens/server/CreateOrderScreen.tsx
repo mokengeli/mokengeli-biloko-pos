@@ -1,8 +1,7 @@
 // src/screens/server/CreateOrderScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { Appbar, Text, Chip, ActivityIndicator, Surface, useTheme, Button } from 'react-native-paper';
-import GlassSurface from '../../components/common/GlassSurface';
+import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, Divider, useTheme, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -175,10 +174,7 @@ const handleCancelOrder = () => {
   // Si les catégories sont en cours de chargement
   if (isLoadingCategories && categories.length === 0) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-        edges={['left', 'right']}
-      >
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
         <Appbar.Header style={[styles.appbar, { backgroundColor: theme.colors.primary }]}>
           <Appbar.BackAction color="white" onPress={() => navigation.goBack()} />
           <Appbar.Content title={`Nouvelle commande - ${tableName}`} titleStyle={{ color: 'white' }} />
@@ -193,39 +189,28 @@ const handleCancelOrder = () => {
   }
   
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={['left', 'right']}
-    >
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <Appbar.Header style={[styles.appbar, { backgroundColor: theme.colors.primary }]}>
         <Appbar.BackAction color="white" onPress={() => navigation.goBack()} />
         <Appbar.Content title={`Nouvelle commande - ${tableName}`} titleStyle={{ color: 'white' }} />
       </Appbar.Header>
       
       {error ? (
-        <Surface
-          style={[
-            styles.errorContainer,
-            {
-              backgroundColor: theme.colors.error + '20',
-              borderRadius: theme.roundness,
-            },
-          ]}
-        >
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>
-            {error}
-          </Text>
+        <Surface style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
         </Surface>
       ) : (
         <View style={styles.content}>
           {/* Panier de commande */}
-          <OrderCart 
-            onFinishOrder={handleFinishOrder}
-            onCancelOrder={handleCancelOrder}
-          />
-          
+          <View style={styles.sectionSpacing}>
+            <OrderCart
+              onFinishOrder={handleFinishOrder}
+              onCancelOrder={handleCancelOrder}
+            />
+          </View>
+
           {/* Section des catégories */}
-          <Surface style={[styles.categoriesContainer, { elevation: 4, borderRadius: 8 }]}>
+          <Surface style={[styles.categoriesContainer, styles.sectionSpacing, { elevation: 4, borderRadius: 8 }]}>
             <TouchableOpacity 
               style={[
                 styles.categoriesHeader,
@@ -340,50 +325,35 @@ const handleCancelOrder = () => {
               <FlatList
                 data={dishes}
                 renderItem={({ item }) => (
-                  <GlassSurface
-                    style={[
-                      styles.dishCard,
-                      {
-                        borderLeftColor: theme.colors.accent,
-                        borderLeftWidth: 4,
-                      },
-                    ]}
-                  >
-                    <View style={styles.dishHeader}>
-                      <Text style={styles.dishName}>{item.name}</Text>
-                      <Text style={[styles.dishPrice, { color: theme.colors.accent }]}>
-                        {item.price.toFixed(2)} {item.currency.code}
-                      </Text>
-                    </View>
-                    {item.categories && item.categories.length > 0 && (
-                      <View style={styles.dishCategories}>
-                        {item.categories.map((cat, index) => (
-                          <Chip
-                            key={index}
-                            style={[
-                              styles.dishCategoryChip,
-                              { backgroundColor: theme.colors.accent + '20' },
-                            ]}
-                            textStyle={{ fontSize: 10 }}
-                          >
-                            {cat}
-                          </Chip>
-                        ))}
+                  <Card style={styles.dishCard} elevation={3}>
+                    <Card.Content>
+                      <View style={styles.dishHeader}>
+                        <Text style={styles.dishName}>{item.name}</Text>
+                        <Text style={styles.dishPrice}>
+                          {item.price.toFixed(2)} {item.currency.code}
+                        </Text>
                       </View>
-                    )}
-                    <View style={styles.dishActions}>
-                      <Button
-                        mode="contained"
+                      {item.categories && item.categories.length > 0 && (
+                        <View style={styles.dishCategories}>
+                          {item.categories.map((cat, index) => (
+                            <Chip key={index} style={styles.dishCategoryChip} textStyle={{ fontSize: 10 }}>
+                              {cat}
+                            </Chip>
+                          ))}
+                        </View>
+                      )}
+                    </Card.Content>
+                    <Card.Actions style={styles.dishActions}>
+                      <Button 
+                        mode="outlined"
                         icon="plus-circle"
                         onPress={() => navigateToDishCustomization(item)}
-                        buttonColor={theme.colors.accent}
-                        textColor="white"
                         style={styles.addButton}
                       >
                         Ajouter
                       </Button>
-                    </View>
-                  </GlassSurface>
+                    </Card.Actions>
+                  </Card>
                 )}
                 keyExtractor={item => item.id.toString()}
                 numColumns={isTablet ? 2 : 1}
@@ -407,6 +377,7 @@ const handleCancelOrder = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f0f4f8', // Fond légèrement bleuté
   },
   appbar: {
     height: 56,
@@ -415,7 +386,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 12,
-    gap: 16, // Espacement entre les sections
+  },
+  sectionSpacing: {
+    marginBottom: 16, // Espacement vertical entre les sections
   },
   loadingContainer: {
     flex: 1,
@@ -429,8 +402,11 @@ const styles = StyleSheet.create({
   errorContainer: {
     margin: 16,
     padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#ffe6e6',
   },
   errorText: {
+    color: '#d32f2f',
     textAlign: 'center',
   },
   sectionTitle: {
@@ -461,7 +437,6 @@ const styles = StyleSheet.create({
   },
   categoriesScrollContent: {
     padding: 16,
-    gap: 8,
   },
   categoriesList: {
     padding: 8,
@@ -501,14 +476,9 @@ const styles = StyleSheet.create({
   dishCard: {
     marginBottom: 12,
     marginHorizontal: 4,
-    padding: 16,
     flex: 1,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50', // Bordure verte
   },
   dishHeader: {
     flexDirection: 'row',
@@ -525,6 +495,7 @@ const styles = StyleSheet.create({
   dishPrice: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#4CAF50', // Prix en vert
   },
   dishCategories: {
     flexDirection: 'row',
@@ -532,18 +503,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   dishCategoryChip: {
+    backgroundColor: '#E8F5E9', // Fond vert clair
     marginRight: 4,
     marginBottom: 4,
     height: 30, // Hauteur augmentée pour éviter la troncature
     paddingHorizontal: 8, // Padding horizontal pour plus d'espace
   },
   dishActions: {
-    marginTop: 12,
-    flexDirection: 'row',
     justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
   addButton: {
-    borderRadius: 24,
+    borderColor: '#4CAF50',
   },
   loadingDishesContainer: {
     padding: 24,
