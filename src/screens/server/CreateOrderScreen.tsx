@@ -202,13 +202,15 @@ const handleCancelOrder = () => {
       ) : (
         <View style={styles.content}>
           {/* Panier de commande */}
-          <OrderCart 
-            onFinishOrder={handleFinishOrder}
-            onCancelOrder={handleCancelOrder}
-          />
-          
+          <View style={styles.sectionSpacing}>
+            <OrderCart
+              onFinishOrder={handleFinishOrder}
+              onCancelOrder={handleCancelOrder}
+            />
+          </View>
+
           {/* Section des catégories */}
-          <Surface style={[styles.categoriesContainer, { elevation: 4, borderRadius: 8 }]}>
+          <Surface style={[styles.categoriesContainer, styles.sectionSpacing, { elevation: 4, borderRadius: 8 }]}>
             <TouchableOpacity 
               style={[
                 styles.categoriesHeader,
@@ -384,7 +386,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 12,
-    gap: 16, // Espacement entre les sections
+  },
+  sectionSpacing: {
+    marginBottom: 16, // Espacement vertical entre les sections
   },
   loadingContainer: {
     flex: 1,
@@ -433,7 +437,6 @@ const styles = StyleSheet.create({
   },
   categoriesScrollContent: {
     padding: 16,
-    gap: 8,
   },
   categoriesList: {
     padding: 8,
