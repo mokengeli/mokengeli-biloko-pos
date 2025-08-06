@@ -10,16 +10,20 @@ import {
   Chip,
   Appbar,
   List,
+  Switch,
+  useTheme,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
-import { RolesUtils, Role } from "../utils/roles";
+import { RolesUtils } from "../utils/roles";
 import { useNavigation } from "@react-navigation/native";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 export const ProfilScreen: React.FC = () => {
   const { user, logout, isLoading } = useAuth();
   const navigation = useNavigation();
+  const paperTheme = useTheme();
+  const { isDarkMode, toggleTheme } = useAppTheme();
 
   const handleLogout = async () => {
     await logout();
@@ -48,7 +52,10 @@ export const ProfilScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: paperTheme.colors.background }]}
+      edges={["left", "right"]}
+    >
       <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Mon profil" />
@@ -60,10 +67,13 @@ export const ProfilScreen: React.FC = () => {
         contentContainerStyle={styles.contentContainer}
       >
         {/* En-tête du profil */}
-        <Surface style={styles.profileHeader} elevation={2}>
+        <Surface
+          style={[styles.profileHeader, { backgroundColor: paperTheme.colors.surface }]}
+          elevation={2}
+        >
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
+            <View style={[styles.avatar, { backgroundColor: paperTheme.colors.primary }]}>
+              <Text style={[styles.avatarText, { color: paperTheme.colors.onPrimary }] }>
                 {getFullName().charAt(0).toUpperCase()}
               </Text>
             </View>
@@ -107,9 +117,7 @@ export const ProfilScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Rôles et permissions</Text>
             <Divider style={styles.divider} />
 
-            <View style={styles.rolesContainer}>
-              {formatRoles(user?.roles)}
-            </View>
+            <View style={styles.rolesContainer}>{formatRoles(user?.roles)}</View>
           </Card.Content>
         </Card>
 
@@ -139,6 +147,22 @@ export const ProfilScreen: React.FC = () => {
             </Card.Content>
           </Card>
         )}
+
+        {/* Apparence */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text style={styles.sectionTitle}>Apparence</Text>
+            <Divider style={styles.divider} />
+            <List.Item
+              title="Mode sombre"
+              left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
+              right={() => (
+                <Switch value={isDarkMode} onValueChange={toggleTheme} />
+              )}
+              titleStyle={styles.listItemTitle}
+            />
+          </Card.Content>
+        </Card>
 
         {/* Bouton de déconnexion */}
         <Button
