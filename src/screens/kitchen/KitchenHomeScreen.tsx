@@ -476,45 +476,48 @@ export const KitchenHomeScreen = () => {
           onPress={onRefresh}
           disabled={refreshing}
         />
-        <HeaderMenu  />
+      <HeaderMenu  />
       </Appbar.Header>
-
-      {/* Filtres de catégories */}
-      <KitchenFilter
-        categories={getAllCategories()}
-        selectedCategories={selectedCategories}
-        onSelectCategory={handleCategorySelect}
-      />
-
-      {/* Liste des commandes */}
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, section }) => (
-          <OrderCard
-            order={item}
-            status={section.status}
-            onMarkAsReady={handleMarkAsReady}
-            onReject={handleRejectItem}
-            style={styles.orderCard}
+      <View style={styles.content}>
+        {/* Filtres de catégories */}
+        <View style={styles.sectionSpacing}>
+          <KitchenFilter
+            categories={getAllCategories()}
+            selectedCategories={selectedCategories}
+            onSelectCategory={handleCategorySelect}
           />
-        )}
-        renderSectionHeader={({ section: { title } }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Divider style={styles.divider} />
-          </View>
-        )}
-        stickySectionHeadersEnabled={true}
-        contentContainerStyle={styles.listContent}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Aucune commande disponible</Text>
-          </View>
-        }
-      />
+        </View>
+
+        {/* Liste des commandes */}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, section }) => (
+            <OrderCard
+              order={item}
+              status={section.status}
+              onMarkAsReady={handleMarkAsReady}
+              onReject={handleRejectItem}
+              style={styles.orderCard}
+            />
+          )}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <Divider style={styles.divider} />
+            </View>
+          )}
+          stickySectionHeadersEnabled={true}
+          contentContainerStyle={styles.listContent}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Aucune commande disponible</Text>
+            </View>
+          }
+        />
+      </View>
 
       {/* Dialogue pour les fonctionnalités non disponibles */}
       <NotAvailableDialog
@@ -589,6 +592,13 @@ const styles = StyleSheet.create({
   appbar: {
     height: 56,
     paddingTop: 0,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  sectionSpacing: {
+    marginBottom: 16,
   },
   loadingContainer: {
     flex: 1,
