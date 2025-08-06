@@ -457,10 +457,7 @@ export const KitchenHomeScreen = () => {
   }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={["left", "right"]}
-    >
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
         {/* Bouton de retour pour les managers */}
         {isManager && (
@@ -479,53 +476,48 @@ export const KitchenHomeScreen = () => {
           onPress={onRefresh}
           disabled={refreshing}
         />
-        <HeaderMenu  />
+      <HeaderMenu  />
       </Appbar.Header>
-
-      {/* Filtres de catégories */}
-      <KitchenFilter
-        categories={getAllCategories()}
-        selectedCategories={selectedCategories}
-        onSelectCategory={handleCategorySelect}
-      />
-
-      {/* Liste des commandes */}
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, section }) => (
-          <OrderCard
-            order={item}
-            status={section.status}
-            onMarkAsReady={handleMarkAsReady}
-            onReject={handleRejectItem}
-            style={styles.orderCard}
+      <View style={styles.content}>
+        {/* Filtres de catégories */}
+        <View style={styles.sectionSpacing}>
+          <KitchenFilter
+            categories={getAllCategories()}
+            selectedCategories={selectedCategories}
+            onSelectCategory={handleCategorySelect}
           />
-        )}
-        renderSectionHeader={({ section: { title } }) => (
-          <View
-            style={[
-              styles.sectionHeader,
-              {
-                backgroundColor: theme.colors.background,
-                borderBottomColor: theme.colors.disabled,
-              },
-            ]}
-          >
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Divider style={styles.divider} />
-          </View>
-        )}
-        stickySectionHeadersEnabled={true}
-        contentContainerStyle={styles.listContent}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Aucune commande disponible</Text>
-          </View>
-        }
-      />
+        </View>
+
+        {/* Liste des commandes */}
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, section }) => (
+            <OrderCard
+              order={item}
+              status={section.status}
+              onMarkAsReady={handleMarkAsReady}
+              onReject={handleRejectItem}
+              style={styles.orderCard}
+            />
+          )}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <Divider style={styles.divider} />
+            </View>
+          )}
+          stickySectionHeadersEnabled={true}
+          contentContainerStyle={styles.listContent}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Aucune commande disponible</Text>
+            </View>
+          }
+        />
+      </View>
 
       {/* Dialogue pour les fonctionnalités non disponibles */}
       <NotAvailableDialog
@@ -542,9 +534,7 @@ export const KitchenHomeScreen = () => {
           visible={errorDialog.visible}
           onDismiss={() => setErrorDialog({ ...errorDialog, visible: false })}
         >
-          <Dialog.Title
-            style={[styles.errorDialogTitle, { color: theme.colors.error }]}
-          >
+          <Dialog.Title style={styles.errorDialogTitle}>
             {errorDialog.title}
           </Dialog.Title>
           <Dialog.Content>
@@ -573,7 +563,7 @@ export const KitchenHomeScreen = () => {
         visible={infoSnackbar.visible}
         onDismiss={() => setInfoSnackbar({ ...infoSnackbar, visible: false })}
         duration={3000}
-        style={[styles.infoSnackbar, { backgroundColor: theme.colors.accent }]}
+        style={styles.infoSnackbar}
       >
         {infoSnackbar.message}
       </Snackbar>
@@ -586,7 +576,7 @@ export const KitchenHomeScreen = () => {
           label: "Réessayer",
           onPress: onRefresh,
         }}
-        style={[styles.errorSnackbar, { backgroundColor: theme.colors.error }]}
+        style={styles.errorSnackbar}
       >
         {snackbarError.message}
       </Snackbar>
@@ -597,10 +587,18 @@ export const KitchenHomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f5f5f5",
   },
   appbar: {
     height: 56,
     paddingTop: 0,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  sectionSpacing: {
+    marginBottom: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -612,9 +610,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   sectionHeader: {
+    backgroundColor: "#f5f5f5",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
   },
   sectionTitle: {
     fontSize: 18,
@@ -641,12 +641,15 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   errorDialogTitle: {
+    color: "#D32F2F",
   },
   errorDialogMessage: {
     fontSize: 16,
   },
   errorSnackbar: {
+    backgroundColor: "#D32F2F",
   },
   infoSnackbar: {
+    backgroundColor: "#4CAF50", // Vert pour les mises à jour
   },
 });

@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import {
+  Card,
   Text,
   Button,
   Chip,
@@ -11,9 +12,9 @@ import {
   List,
   Modal,
   Portal,
+  Surface,
   useTheme,
 } from "react-native-paper";
-import GlassSurface from "../common/GlassSurface";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrder, DomainOrderItem } from "../../api/orderService";
 
@@ -130,8 +131,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       
       {/* Contenu de la carte avec shadow */}
       <View style={styles.cardContainer}>
-        <GlassSurface style={styles.card}>
-          <View style={styles.cardContent}>
+        <Card style={styles.card}>
+          <Card.Content style={styles.cardContent}>
             <View style={styles.headerRow}>
               <View style={styles.orderInfo}>
                 <Text style={styles.orderNumber}>Commande #{order.id}</Text>
@@ -244,8 +245,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 </View>
               </View>
             )}
-          </View>
-        </GlassSurface>
+          </Card.Content>
+        </Card>
       </View>
 
       {/* Modal de confirmation */}
@@ -255,7 +256,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           onDismiss={() => setConfirmModalVisible(false)}
           contentContainerStyle={styles.modalContainer}
         >
-          <GlassSurface style={styles.modalContent}>
+          <Surface style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               {actionType === "ready"
                 ? "Marquer comme prêt"
@@ -286,7 +287,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 Confirmer
               </Button>
             </View>
-          </GlassSurface>
+          </Surface>
         </Modal>
       </Portal>
     </View>
@@ -433,15 +434,18 @@ const styles = StyleSheet.create({
   },
   // Styles pour la modal
   modalContainer: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
   },
   modalContent: {
     padding: 20,
     borderRadius: 8,
     elevation: 4,
-    width: "80%",
+    width: "90%",
     maxWidth: 400,
+    backgroundColor: "white",
   },
   modalTitle: {
     fontSize: 18,
@@ -455,6 +459,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    marginTop: 16,
   },
   modalButton: {
     marginLeft: 8,
