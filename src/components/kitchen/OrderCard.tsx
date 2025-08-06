@@ -24,6 +24,7 @@ interface OrderCardProps {
   onMarkAsReady: (itemId: number) => void;
   onReject: (itemId: number) => void;
   style?: object;
+  defaultExpanded?: boolean
 }
 
 export const OrderCard: React.FC<OrderCardProps> = ({
@@ -32,9 +33,10 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onMarkAsReady,
   onReject,
   style,
+  defaultExpanded= false,
 }) => {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [selectedItem, setSelectedItem] = useState<DomainOrderItem | null>(
     null
   );

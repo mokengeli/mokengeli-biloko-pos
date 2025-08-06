@@ -497,6 +497,7 @@ export const KitchenHomeScreen = () => {
             onMarkAsReady={handleMarkAsReady}
             onReject={handleRejectItem}
             style={styles.orderCard}
+            defaultExpanded={true}
           />
         )}
         renderSectionHeader={({ section: { title } }) => (
