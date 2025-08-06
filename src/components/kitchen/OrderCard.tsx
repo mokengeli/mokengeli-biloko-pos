@@ -434,15 +434,18 @@ const styles = StyleSheet.create({
   },
   // Styles pour la modal
   modalContainer: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
   },
   modalContent: {
     padding: 20,
     borderRadius: 8,
     elevation: 4,
-    width: "80%",
+    width: "90%",
     maxWidth: 400,
+    backgroundColor: "white",
   },
   modalTitle: {
     fontSize: 18,
@@ -456,6 +459,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    marginTop: 16,
   },
   modalButton: {
     marginLeft: 8,
