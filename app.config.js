@@ -1,5 +1,34 @@
 import "dotenv/config";
 
+// Fonction pour extraire le domaine de l'URL
+const extractDomain = (url) => {
+  if (!url) return null;
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch {
+    // Si ce n'est pas une URL valide, retourner tel quel
+    return url;
+  }
+};
+
+// Déterminer l'environnement et l'URL de l'API
+const getApiConfig = () => {
+  const apiUrl =
+    process.env.API_URL || "https://api.preprod.pos.mokengeli-biloko.com";
+  const environment = process.env.NODE_ENV || "production";
+  const useSecure = process.env.USE_SECURE_CONNECTION === "true";
+
+  return {
+    apiUrl,
+    environment,
+    useSecure,
+    domain: extractDomain(apiUrl),
+  };
+};
+
+const config = getApiConfig();
+
 export default {
   expo: {
     name: "Mokengeli Biloko POS",
@@ -17,29 +46,52 @@ export default {
     assetBundlePatterns: ["**/*"],
 
     // =============================================================================
-    // CONFIGURATION IOS : Autoriser HTTP
+    // CONFIGURATION IOS DYNAMIQUE
     // =============================================================================
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.mokengelibiloko.pos",
-      // Autoriser les connexions HTTP non sécurisées
       infoPlist: {
-        NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: true,
-          // Ou plus spécifique pour votre IP :
-          NSExceptionDomains: {
-            "104.248.206.121": {
-              NSExceptionAllowsInsecureHTTPLoads: true,
-              NSExceptionMinimumTLSVersion: "1.0",
-              NSIncludesSubdomains: true,
+        NSAppTransportSecurity: config.useSecure
+          ? {
+              // En HTTPS, on peut être plus restrictif
+              NSAllowsArbitraryLoads: false,
+              NSExceptionDomains: {
+                [config.domain]: {
+                  NSExceptionAllowsInsecureHTTPLoads: false,
+                  NSRequiresCertificateTransparency: true,
+                  NSIncludesSubdomains: true,
+                },
+              },
+            }
+          : {
+              // En développement ou HTTP, plus permissif
+              NSAllowsArbitraryLoads: true,
+              NSExceptionDomains: {
+                localhost: {
+                  NSExceptionAllowsInsecureHTTPLoads: true,
+                  NSIncludesSubdomains: true,
+                },
+                "10.0.2.2": {
+                  NSExceptionAllowsInsecureHTTPLoads: true,
+                  NSIncludesSubdomains: true,
+                },
+                ...(config.domain && config.domain !== "localhost"
+                  ? {
+                      [config.domain]: {
+                        NSExceptionAllowsInsecureHTTPLoads: true,
+                        NSExceptionMinimumTLSVersion: "1.0",
+                        NSIncludesSubdomains: true,
+                      },
+                    }
+                  : {}),
+              },
             },
-          },
-        },
       },
     },
 
     // =============================================================================
-    // CONFIGURATION ANDROID : Autoriser HTTP
+    // CONFIGURATION ANDROID DYNAMIQUE
     // =============================================================================
     android: {
       adaptiveIcon: {
@@ -47,48 +99,61 @@ export default {
         backgroundColor: "#ffffff",
       },
       package: "com.mokengelibiloko.pos",
-      // Autoriser les connexions HTTP non sécurisées
       config: {
-        // Permet le trafic HTTP en texte clair
-        usesCleartextTraffic: true,
+        // En développement ou HTTP, permettre cleartext
+        usesCleartextTraffic: !config.useSecure,
       },
-      // Permissions réseau (ajoutées automatiquement mais explicites)
       permissions: ["INTERNET", "ACCESS_NETWORK_STATE", "ACCESS_WIFI_STATE"],
     },
 
     web: {
       favicon: "./assets/favicon.png",
     },
+
+    // =============================================================================
+    // VARIABLES D'ENVIRONNEMENT EXPOSÉES
+    // =============================================================================
     extra: {
-      apiUrl: process.env.API_URL,
+      apiUrl: config.apiUrl,
       apiTimeout: process.env.API_TIMEOUT || "20000",
-      environment: process.env.NODE_ENV,
+      environment: config.environment,
+      useSecureConnection: config.useSecure,
+      apiDomain: config.domain,
       eas: {
         projectId: "fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
       },
     },
+
     updates: {
       url: "https://u.expo.dev/fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
     },
     runtimeVersion: {
       policy: "appVersion",
     },
+
     plugins: [
       "expo-updates",
-      // Plugin pour gérer les permissions réseau avancées
       [
         "expo-build-properties",
         {
           android: {
-            usesCleartextTraffic: true,
-            // Configuration réseau pour Android
+            usesCleartextTraffic: !config.useSecure,
+            // Un seul fichier de configuration réseau pour tous les environnements
             networkSecurityConfig: "./network_security_config.xml",
           },
           ios: {
-            // Configuration pour iOS si nécessaire
+            // Configurations iOS supplémentaires si nécessaire
           },
         },
       ],
     ],
   },
 };
+
+// Log de la configuration pour debug
+console.log("[App Config] Loaded configuration:", {
+  apiUrl: config.apiUrl,
+  environment: config.environment,
+  useSecure: config.useSecure,
+  domain: config.domain,
+});

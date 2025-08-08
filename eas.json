@@ -9,9 +9,11 @@
       "channel": "development",
       "distribution": "internal",
       "env": {
-        "API_URL": "http://104.248.206.121:8080",
+        "API_URL": "http://192.168.1.100:8081",
+        "API_URL_COMMENT": "Remplacez par l'IP de votre machine locale sur le réseau",
         "API_TIMEOUT": "25000",
-        "NODE_ENV": "development"
+        "NODE_ENV": "development",
+        "USE_SECURE_CONNECTION": "false"
       },
       "android": {
         "buildType": "apk"
@@ -21,9 +23,10 @@
       "distribution": "internal", 
       "channel": "staging",
       "env": {
-        "API_URL": "http://104.248.206.121:8080",
+        "API_URL": "https://api.preprod.pos.mokengeli-biloko.com",
         "API_TIMEOUT": "25000",
-        "NODE_ENV": "staging"
+        "NODE_ENV": "staging",
+        "USE_SECURE_CONNECTION": "true"
       },
       "android": {
         "buildType": "apk"
@@ -33,9 +36,10 @@
       "distribution": "internal",
       "channel": "preview", 
       "env": {
-        "API_URL": "http://104.248.206.121:8080",
+        "API_URL": "https://api.preprod.pos.mokengeli-biloko.com",
         "API_TIMEOUT": "25000",
-        "NODE_ENV": "staging"
+        "NODE_ENV": "staging",
+        "USE_SECURE_CONNECTION": "true"
       },
       "android": {
         "buildType": "apk"
@@ -44,9 +48,10 @@
     "production": {
       "channel": "production",
       "env": {
-        "API_URL": "https://api.mokengeli-biloko.com",
+        "API_URL": "https://api.pos.mokengeli-biloko.com",
         "API_TIMEOUT": "30000",
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "USE_SECURE_CONNECTION": "true"
       }
     }
   },

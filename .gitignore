@@ -37,9 +37,6 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Prebuild
-android/
-ios/
 
 # EAS
 .easignore
