@@ -147,7 +147,6 @@ const MainNavigator: React.FC = () => {
 
       <MainStack.Screen name="PrinterConfig" component={PrinterConfigScreen} />
       <MainStack.Screen name="PrinterDiscovery" component={PrinterDiscoveryScreen} />
-      <MainStack.Screen name="PrinterEdit" component={PinterEd} />
     </MainStack.Navigator>
   );
 };
