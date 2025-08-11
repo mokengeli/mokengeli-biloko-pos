@@ -242,6 +242,33 @@ export class PrintManager {
     
     return this.print(document, options);
   }
+
+  /**
+   * Imprimer une facture (invoice)
+   * Utilise pour l'instant le même template que l'addition
+   */
+  async printInvoice(
+    data: BillData,
+    options?: PrintOptions
+  ): Promise<PrintResult> {
+    console.log('[PrintManager] Printing invoice for order', data.orderId);
+
+    const document: PrintDocument = {
+      id: this.generateDocumentId(),
+      type: DocumentType.INVOICE,
+      targetPrinterType: PrinterType.CASHIER,
+      priority: 'normal',
+      data,
+      metadata: {
+        orderId: data.orderId,
+        tableName: data.tableName,
+        serverName: data.serverName,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    return this.print(document, options);
+  }
   
   /**
    * Méthode générique d'impression
@@ -338,11 +365,15 @@ export class PrintManager {
       case DocumentType.KITCHEN_ORDER:
         const kitchenTemplate = new KitchenTemplate(printer);
         return kitchenTemplate.generate(document.data as KitchenOrderData);
-        
+
       case DocumentType.BILL:
         const billTemplate = new BillTemplate(printer);
         return billTemplate.generate(document.data as BillData);
-        
+
+      case DocumentType.INVOICE:
+        const invoiceTemplate = new BillTemplate(printer);
+        return invoiceTemplate.generate(document.data as BillData);
+
       default:
         throw new Error(`Type de document non supporté: ${document.type}`);
     }
