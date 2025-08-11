@@ -1,4 +1,5 @@
-// src/screens/server/PaymentScreen.tsx
+// src/screens/server/PaymentScreen.tsx - VERSION AVEC IMPRESSION RÉELLE
+
 import React, { useState, useEffect, useCallback } from "react";
 import { View, StyleSheet, ScrollView, Alert } from "react-native";
 import {
@@ -25,7 +26,8 @@ import { CommonActions } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrderItem } from "../../api/orderService";
 import orderService from "../../api/orderService";
-import { usePrinter } from "../../hooks/usePrinter";
+// CHANGEMENT : Remplacer usePrinter par usePrintManager
+import { usePrintManager } from "../../hooks/usePrintManager";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -36,9 +38,8 @@ import {
 import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";
-import { usePrintManager } from "../../hooks/usePrintManager";
 
-// Type définitions pour la navigation
+// Types pour la navigation (inchangés)
 type PaymentParamList = {
   PaymentScreen: {
     orderId: number;
@@ -86,7 +87,15 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   const { user } = useAuth();
   const theme = useTheme();
-  const { printDocument } = usePrinter();
+  
+  // CHANGEMENT : Utiliser usePrintManager au lieu de usePrinter
+  const { 
+    printReceipt, 
+    isInitialized: isPrintServiceReady,
+    isLoading: isPrinting,
+    error: printError 
+  } = usePrintManager();
+  
   const windowWidth = Dimensions.get("window").width;
   const isTablet = windowWidth >= 768;
 
@@ -110,21 +119,22 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
+  
+  // NOUVEAUX ÉTATS pour l'impression
+  const [printStatus, setPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
+  const [currentOrder, setCurrentOrder] = useState<any>(null); // Stocker la commande pour l'impression
+  const [currentPayment, setCurrentPayment] = useState<any>(null); // Stocker le paiement pour l'impression
 
-  // États pour les notifications WebSocket
-  const [currentNotification, setCurrentNotification] =
-    useState<OrderNotification | null>(null);
+  // États pour les notifications WebSocket (inchangés)
+  const [currentNotification, setCurrentNotification] = useState<OrderNotification | null>(null);
   const [notificationVisible, setNotificationVisible] = useState(false);
-  const [currentRemaining, setCurrentRemaining] =
-    useState<number>(remainingAmount);
+  const [currentRemaining, setCurrentRemaining] = useState<number>(remainingAmount);
   const [orderChanged, setOrderChanged] = useState<boolean>(false);
-  const [redirectAfterReceipt, setRedirectAfterReceipt] =
-    useState<RedirectionTarget>(null);
-
-  // NOUVEAUX ÉTATS pour ignorer les notifications pendant le traitement local
+  const [redirectAfterReceipt, setRedirectAfterReceipt] = useState<RedirectionTarget>(null);
   const [isLocalProcessing, setIsLocalProcessing] = useState(false);
-  const [lastProcessedPaymentTime, setLastProcessedPaymentTime] =
-    useState<number>(0);
+  const [lastProcessedPaymentTime, setLastProcessedPaymentTime] = useState<number>(0);
+
+  // ... (toutes les autres fonctions restent identiques jusqu'à finalizePendingPayment)
 
   // Rafraîchir les données de la commande
   const refreshOrderData = useCallback(async () => {
@@ -140,6 +150,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
             );
 
       setCurrentRemaining(updatedRemaining);
+      setCurrentOrder(updatedOrder); // NOUVEAU : Stocker la commande
 
       if (updatedRemaining !== remainingAmount) {
         setOrderChanged(true);
@@ -152,43 +163,35 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   }, [orderId, remainingAmount]);
 
-  // Gestionnaire de notifications WebSocket MODIFIÉ
+  // Gestionnaire de notifications WebSocket (inchangé)
   const handleOrderNotification = useCallback(
     (notification: OrderNotification) => {
       console.log("WebSocket notification received:", notification);
 
-      // IGNORER les notifications pendant le traitement local ou juste après
       const timeSinceLastPayment = Date.now() - lastProcessedPaymentTime;
       if (isLocalProcessing || timeSinceLastPayment < 3000) {
         console.log("Ignoring notification during local processing");
         return;
       }
 
-      // Ne traiter que les notifications pour cette commande
       if (notification.orderId === orderId) {
-        // NE PAS afficher de notification si le modal de reçu est visible
         if (receiptModalVisible) {
           console.log("Receipt modal is visible, ignoring notification UI");
           refreshOrderData();
           return;
         }
 
-        // Pour les autres cas, traiter normalement mais de manière simplifiée
         switch (notification.orderStatus) {
           case OrderNotificationStatus.PAYMENT_UPDATE:
-            // Seulement rafraîchir les données, pas de snackbar
             refreshOrderData().then((updatedRemaining) => {
-              // Redirection silencieuse si nécessaire
               if (
                 updatedRemaining <= 0 &&
                 !receiptModalVisible &&
                 !isLocalProcessing
               ) {
-                // Notification discrète uniquement si c'est un paiement externe
                 setCurrentNotification(notification);
                 setNotificationVisible(true);
 
-                // Redirection après un délai
                 setTimeout(() => {
                   setRedirectAfterReceipt("ServerHome");
                   navigation.dispatch(
@@ -203,7 +206,6 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
             break;
 
           case OrderNotificationStatus.DISH_UPDATE:
-            // Rafraîchir silencieusement
             refreshOrderData();
             break;
 
@@ -223,7 +225,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     ]
   );
 
-  // Configurer la connexion WebSocket
+  // Configuration WebSocket (inchangée)
   useEffect(() => {
     if (!user?.tenantCode) return;
 
@@ -350,12 +352,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     finalizePendingPayment(effectiveAmount);
   };
 
-  // Finaliser un paiement en attente MODIFIÉ
+  // MODIFIÉE : Finaliser un paiement en attente
   const finalizePendingPayment = async (effectiveAmount: number) => {
     setIsProcessing(true);
     setError(null);
-    setIsLocalProcessing(true); // MARQUER le début du traitement local
-    setLastProcessedPaymentTime(Date.now()); // ENREGISTRER le timestamp
+    setIsLocalProcessing(true);
+    setLastProcessedPaymentTime(Date.now());
 
     try {
       const paymentRequest = {
@@ -366,27 +368,36 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
           paymentMode === "items"
             ? "Paiement par sélection d'articles"
             : "Paiement par montant personnalisé",
+        discountAmount: 0, // À ajuster si nécessaire
       };
 
+      // Enregistrer le paiement
       await orderService.recordPayment(paymentRequest);
+      
+      // NOUVEAU : Stocker le paiement pour l'impression
+      setCurrentPayment(paymentRequest);
 
+      // Marquer les articles comme payés si nécessaire
       if (paymentMode === "items" && selectedItems) {
         await Promise.all(
           selectedItems.map((item) => orderService.markDishAsPaid(item.id))
         );
       }
 
+      // Récupérer la commande mise à jour
+      const updatedOrder = await orderService.getOrderById(orderId);
+      setCurrentOrder(updatedOrder);
+
       // Afficher la modale du reçu
       setReceiptModalVisible(true);
 
-      // Réinitialiser le flag après un délai
       setTimeout(() => {
         setIsLocalProcessing(false);
       }, 3000);
     } catch (err: any) {
       console.error("Error processing payment:", err);
       setError(err.message || "Erreur lors du traitement du paiement");
-      setIsLocalProcessing(false); // RÉINITIALISER en cas d'erreur
+      setIsLocalProcessing(false);
 
       Alert.alert(
         "Erreur",
@@ -399,61 +410,98 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   };
 
-  // Imprimer un reçu
+  // NOUVEAU : Imprimer un reçu avec le vrai service d'impression
   const printReceipt = async () => {
+    if (!currentOrder || !currentPayment) {
+      Alert.alert('Erreur', 'Données de paiement manquantes');
+      return;
+    }
+
+    setPrintStatus('printing');
+
     try {
-      const receipt = `
-        RESTAURANT XYZ
-        -----------------------------------
-        Table: ${tableName || "N/A"}
-        Commande #${orderId}
-        Date: ${new Date().toLocaleString()}
-        -----------------------------------
-        Montant total: ${totalAmount.toFixed(2)} ${currency}
-        Montant payé précédemment: ${paidAmount.toFixed(2)} ${currency}
-        Montant de ce paiement: ${calculateEffectivePayment().toFixed(
-          2
-        )} ${currency}
-        Montant reçu: ${parseFloat(amountTendered.replace(",", ".")).toFixed(
-          2
-        )} ${currency}
-        Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
-        Reste à payer: ${Math.max(
-          0,
-          currentRemaining - calculateEffectivePayment()
-        ).toFixed(2)} ${currency}
-        -----------------------------------
-        Mode de paiement: Espèces
-        
-        Merci de votre visite!
-      `;
-
-      await printDocument(receipt);
-
-      setReceiptModalVisible(false);
-
-      if (redirectAfterReceipt === "ServerHome") {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "ServerHome" }],
-          })
+      // Vérifier si le service d'impression est prêt
+      if (!isPrintServiceReady) {
+        Alert.alert(
+          'Service d\'impression non disponible',
+          'Voulez-vous continuer sans imprimer?',
+          [
+            { text: 'Configurer', onPress: () => navigation.navigate('PrinterSettings' as never) },
+            { text: 'Continuer', onPress: finishWithoutPrinting }
+          ]
         );
-      } else if (redirectAfterReceipt === "PrepareBill") {
-        navigation.navigate("PrepareBill", {
-          orderId: orderId,
-          tableId: route.params.tableId,
-          tableName: tableName,
-        });
+        return;
       }
+
+      // Préparer les données pour l'impression
+      const receiptData = {
+        orderId: currentOrder.id,
+        tableName: currentOrder.tableName || tableName || 'N/A',
+        items: currentOrder.items.map((item: any) => ({
+          quantity: item.count,
+          name: item.dishName,
+          unitPrice: item.unitPrice,
+          totalPrice: item.unitPrice * item.count,
+          notes: item.note
+        })),
+        subtotal: currentOrder.totalPrice,
+        tax: currentOrder.totalPrice * 0.1, // TVA 10%
+        total: currentOrder.totalPrice * 1.1,
+        paidAmount: parseFloat(amountTendered.replace(",", ".")),
+        change: calculateChange(),
+        paymentMethod: paymentMethod === 'cash' ? 'Espèces' : paymentMethod,
+        serverName: user?.firstName || 'Serveur',
+        restaurantInfo: {
+          name: 'MOKENGELI BILOKO',
+          address: '123 Rue de la Gastronomie',
+          phone: '01 23 45 67 89',
+          taxId: 'FR12345678901'
+        }
+      };
+
+      // Lancer l'impression
+      const result = await printReceipt(receiptData, {
+        waitForCompletion: true,
+        timeout: 10000
+      });
+
+      if (result.success) {
+        setPrintStatus('success');
+        
+        // Petit délai pour montrer le succès
+        setTimeout(() => {
+          setReceiptModalVisible(false);
+          
+          if (redirectAfterReceipt === "ServerHome") {
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: "ServerHome" }],
+              })
+            );
+          } else if (redirectAfterReceipt === "PrepareBill") {
+            navigation.navigate("PrepareBill", {
+              orderId: orderId,
+              tableId: route.params.tableId,
+              tableName: tableName,
+            });
+          }
+        }, 1000);
+      } else {
+        throw new Error(result.error || 'Échec de l\'impression');
+      }
+
     } catch (err: any) {
       console.error("Error printing receipt:", err);
-      setError(err.message || "Erreur lors de l'impression du reçu");
-
+      setPrintStatus('error');
+      
       Alert.alert(
         "Erreur d'impression",
-        err.message || "Une erreur s'est produite lors de l'impression du reçu",
-        [{ text: "OK" }]
+        `${err.message}\n\nVoulez-vous réessayer?`,
+        [
+          { text: 'Réessayer', onPress: () => printReceipt() },
+          { text: 'Continuer sans imprimer', onPress: finishWithoutPrinting }
+        ]
       );
     }
   };
@@ -461,6 +509,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // Terminer sans imprimer
   const finishWithoutPrinting = () => {
     setReceiptModalVisible(false);
+    setPrintStatus('idle');
 
     if (redirectAfterReceipt === "ServerHome") {
       navigation.dispatch(
@@ -475,6 +524,32 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         tableId: route.params.tableId,
         tableName: tableName,
       });
+    }
+  };
+
+  // Obtenir le texte du statut d'impression
+  const getPrintStatusText = () => {
+    switch (printStatus) {
+      case 'printing':
+        return 'Impression en cours...';
+      case 'success':
+        return 'Impression réussie!';
+      case 'error':
+        return 'Erreur d\'impression';
+      default:
+        return '';
+    }
+  };
+
+  // Obtenir la couleur du statut d'impression
+  const getPrintStatusColor = () => {
+    switch (printStatus) {
+      case 'success':
+        return theme.colors.success;
+      case 'error':
+        return theme.colors.error;
+      default:
+        return theme.colors.primary;
     }
   };
 
@@ -705,7 +780,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         </Button>
       </Surface>
 
-      {/* Modal pour le reçu */}
+      {/* Modal pour le reçu MODIFIÉE */}
       <Portal>
         <Modal
           visible={receiptModalVisible}
@@ -741,11 +816,30 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               </Text>
             </View>
 
+            {/* NOUVEAU : Statut d'impression */}
+            {printStatus !== 'idle' && (
+              <View style={[styles.printStatusContainer, { backgroundColor: getPrintStatusColor() + '20' }]}>
+                {printStatus === 'printing' ? (
+                  <ActivityIndicator size="small" color={getPrintStatusColor()} />
+                ) : (
+                  <Icon
+                    name={printStatus === 'success' ? 'check-circle' : 'alert-circle'}
+                    size={24}
+                    color={getPrintStatusColor()}
+                  />
+                )}
+                <Text style={[styles.printStatusText, { color: getPrintStatusColor() }]}>
+                  {getPrintStatusText()}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.receiptActions}>
               <Button
                 mode="outlined"
                 onPress={finishWithoutPrinting}
                 style={styles.receiptButton}
+                disabled={printStatus === 'printing'}
               >
                 Terminer sans imprimer
               </Button>
@@ -755,15 +849,32 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
                 onPress={printReceipt}
                 style={styles.printButton}
                 icon="printer"
+                loading={printStatus === 'printing'}
+                disabled={printStatus === 'printing'}
               >
-                Imprimer reçu
+                {printStatus === 'printing' ? 'Impression...' : 'Imprimer reçu'}
               </Button>
             </View>
+
+            {/* NOUVEAU : Lien vers configuration si pas d'imprimante */}
+            {!isPrintServiceReady && (
+              <Button
+                mode="text"
+                onPress={() => {
+                  setReceiptModalVisible(false);
+                  navigation.navigate('PrinterSettings' as never);
+                }}
+                style={styles.configureButton}
+                icon="cog"
+              >
+                Configurer une imprimante
+              </Button>
+            )}
           </View>
         </Modal>
       </Portal>
 
-      {/* Snackbar SIMPLIFIÉ - uniquement pour les notifications externes */}
+      {/* Snackbar pour les notifications externes */}
       {!isLocalProcessing && !receiptModalVisible && currentNotification && (
         <SnackbarContainer bottomOffset={80}>
           <NotificationSnackbar
@@ -777,6 +888,19 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
           />
         </SnackbarContainer>
       )}
+
+      {/* NOUVEAU : Snackbar pour les erreurs d'impression */}
+      <Snackbar
+        visible={!!printError}
+        onDismiss={() => {}}
+        duration={5000}
+        action={{
+          label: 'Configurer',
+          onPress: () => navigation.navigate('PrinterSettings' as never)
+        }}
+      >
+        {printError}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -893,13 +1017,13 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "white",
     padding: 16,
-    paddingBottom: 24, // Ajouter cet espace supplémentaire
+    paddingBottom: 24,
     flexDirection: "row",
     justifyContent: "space-between",
-    elevation: 8, // Ajouter une élévation pour l'ombre
-    borderTopLeftRadius: 16, // Optionnel : coins arrondis
-    borderTopRightRadius: 16, // Optionnel : coins arrondis
-    zIndex: 10, // S'assurer qu'il est au-dessus
+    elevation: 8,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    zIndex: 10,
   },
   cancelButton: {
     flex: 1,
@@ -944,6 +1068,23 @@ const styles = StyleSheet.create({
   },
   printButton: {
     flex: 1,
+  },
+  // NOUVEAUX STYLES
+  printStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  printStatusText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  configureButton: {
+    marginTop: 8,
   },
 });
 

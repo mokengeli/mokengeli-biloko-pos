@@ -1,7 +1,7 @@
 // src/components/server/OrderCart.tsx
 
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native'; // Ajout TouchableOpacity
 import { 
   Surface, 
   Text, 
@@ -11,7 +11,8 @@ import {
   Divider,
   Badge,
   ActivityIndicator,
-  Snackbar
+  Snackbar,
+  Chip // Ajout Chip
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useCart, CartMode } from '../../contexts/CartContext';
@@ -88,118 +89,193 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
   };
   
   // Finaliser la commande
-  const handleFinishOrder = async () => {
-    if (items.length === 0) {
-      Alert.alert('Panier vide', 'Ajoutez des articles avant de finaliser la commande.');
-      return;
+  // src/components/server/OrderCart.tsx - FONCTION handleFinishOrder COMPLÈTE
+
+// Finaliser la commande (lignes 130-256 environ)
+const handleFinishOrder = async () => {
+  // VÉRIFICATION 1: Validation du panier (pas de régression)
+  if (items.length === 0) {
+    Alert.alert('Panier vide', 'Ajoutez des articles avant de finaliser la commande.');
+    return;
+  }
+  
+  // VÉRIFICATION 2: Validation de la table (pas de régression)
+  if (!tableId) {
+    Alert.alert('Table non sélectionnée', 'Veuillez sélectionner une table.');
+    return;
+  }
+  
+  setIsProcessing(true);
+  
+  try {
+    let createdOrder;
+    let newItems = [];
+    
+    // MODE CREATE: Création d'une nouvelle commande (pas de régression)
+    if (mode === CartMode.CREATE) {
+      const orderData = {
+        tableId,
+        tableName: tableName || '',
+        currencyId: 1, // À adapter selon votre système
+        orderItems: items.map(item => ({
+          dishId: item.dish.id,
+          note: item.notes || '',
+          count: item.quantity
+        }))
+      };
+      
+      createdOrder = await orderService.createOrder(orderData);
+      newItems = createdOrder.items; // Tous les items sont nouveaux
+      
+      setSnackbarMessage(`Commande #${createdOrder.id} créée avec succès`);
+      
+    } 
+    // MODE ADD: Ajout à une commande existante (pas de régression)
+    else if (mode === CartMode.ADD && currentOrderId) {
+      const updateData = {
+        orderId: currentOrderId,
+        orderItems: items.map(item => ({
+          dishId: item.dish.id,
+          note: item.notes || '',
+          count: item.quantity,
+          unitPrice: item.dish.price
+        }))
+      };
+      
+      createdOrder = await orderService.addItemsToOrder(updateData);
+      
+      // Identifier les nouveaux items ajoutés (les derniers dans la liste)
+      const previousItemCount = existingOrder?.items.length || 0;
+      newItems = createdOrder.items.slice(previousItemCount);
+      
+      setSnackbarMessage(`Articles ajoutés à la commande #${currentOrderId}`);
     }
     
-    if (!tableId) {
-      Alert.alert('Table non sélectionnée', 'Veuillez sélectionner une table.');
-      return;
-    }
-    
-    setIsProcessing(true);
-    
-    try {
-      let createdOrder;
-      let newItems = [];
-      
-      if (mode === CartMode.CREATE) {
-        // Création d'une nouvelle commande
-        const orderData = {
-          tableId,
-          tableName: tableName || '',
-          currencyId: 1, // À adapter selon votre système
-          orderItems: items.map(item => ({
-            dishId: item.dish.id,
-            note: item.notes || '',
-            count: item.quantity
-          }))
-        };
+    // ===================================================================
+    // SECTION IMPRESSION AUTOMATIQUE EN CUISINE (déjà présente)
+    // ===================================================================
+    if (isPrintServiceReady && createdOrder && newItems.length > 0) {
+      try {
+        // Vérifier s'il y a des imprimantes cuisine/bar configurées
+        const kitchenPrinters = printers.filter(p => 
+          p.isEnabled && (p.type === 'KITCHEN' || p.type === 'BAR')
+        );
         
-        createdOrder = await orderService.createOrder(orderData);
-        newItems = createdOrder.items; // Tous les items sont nouveaux
-        
-        setSnackbarMessage(`Commande #${createdOrder.id} créée avec succès`);
-        
-      } else if (mode === CartMode.ADD && currentOrderId) {
-        // Ajout à une commande existante
-        const updateData = {
-          orderId: currentOrderId,
-          orderItems: items.map(item => ({
-            dishId: item.dish.id,
-            note: item.notes || '',
-            count: item.quantity,
-            unitPrice: item.dish.price
-          }))
-        };
-        
-        createdOrder = await orderService.addItemsToOrder(updateData);
-        
-        // Identifier les nouveaux items ajoutés (les derniers dans la liste)
-        const previousItemCount = existingOrder?.items.length || 0;
-        newItems = createdOrder.items.slice(previousItemCount);
-        
-        setSnackbarMessage(`Articles ajoutés à la commande #${currentOrderId}`);
-      }
-      
-      // Impression automatique en cuisine si configurée
-      if (isPrintServiceReady && createdOrder && newItems.length > 0) {
-        try {
-          // Vérifier s'il y a des imprimantes cuisine/bar configurées
-          const kitchenPrinters = printers.filter(p => 
-            p.isEnabled && (p.type === 'KITCHEN' || p.type === 'BAR')
+        if (kitchenPrinters.length > 0) {
+          console.log('[OrderCart] Sending order to kitchen printers...');
+          
+          // Préparer les données pour l'impression cuisine
+          const kitchenOrderData = {
+            orderId: createdOrder.id,
+            tableId: createdOrder.tableId,
+            tableName: createdOrder.tableName,
+            items: newItems.map(item => ({
+              quantity: item.count,
+              name: item.dishName,
+              notes: item.note,
+              category: item.categories?.[0], // Première catégorie pour le routage
+              preparationTime: 15 // Temps estimé par défaut (pourrait être dynamique)
+            })),
+            serverName: user?.firstName || 'Serveur',
+            orderTime: createdOrder.orderDate,
+            priority: 'normal' as 'normal' | 'rush', // Pourrait être dynamique selon l'heure
+            specialInstructions: undefined // Pourrait venir d'un champ spécial
+          };
+          
+          // Imprimer la commande en cuisine (routage automatique par catégorie)
+          const printResults = await printKitchenOrder(
+            createdOrder, 
+            newItems
           );
           
-          if (kitchenPrinters.length > 0) {
-            console.log('[OrderCart] Sending order to kitchen printers...');
-            
-            // Imprimer la commande en cuisine (routage automatique par catégorie)
-            const printResults = await printKitchenOrder(createdOrder, newItems);
-            
-            const successCount = printResults.filter(r => r.success).length;
-            const failCount = printResults.length - successCount;
-            
-            if (failCount > 0) {
-              setSnackbarMessage(
-                `Commande créée. ${successCount} impression(s) réussie(s), ${failCount} échec(s).`
-              );
-            } else if (successCount > 0) {
-              console.log(`[OrderCart] ${successCount} kitchen tickets printed successfully`);
-            }
-          } else {
-            console.log('[OrderCart] No kitchen printers configured, skipping automatic printing');
+          // Analyser les résultats d'impression
+          const successCount = printResults.filter(r => r.success).length;
+          const failCount = printResults.length - successCount;
+          
+          // Notification selon le résultat
+          if (failCount > 0 && successCount > 0) {
+            // Impression partielle
+            setSnackbarMessage(
+              `Commande créée. ${successCount} impression(s) réussie(s), ${failCount} échec(s).`
+            );
+          } else if (failCount > 0 && successCount === 0) {
+            // Toutes les impressions ont échoué
+            setSnackbarMessage(
+              'Commande créée. Erreur d\'impression cuisine - Les tickets sont en file d\'attente.'
+            );
+          } else if (successCount > 0) {
+            // Toutes les impressions ont réussi (pas de notification supplémentaire pour ne pas surcharger)
+            console.log(`[OrderCart] ${successCount} kitchen ticket(s) printed successfully`);
           }
-        } catch (printError) {
-          console.error('[OrderCart] Kitchen printing error:', printError);
-          // Ne pas bloquer la commande si l'impression échoue
-          setSnackbarMessage('Commande créée. Erreur d\'impression cuisine (en file d\'attente).');
+        } else {
+          // Pas d'imprimante configurée - comportement silencieux
+          console.log('[OrderCart] No kitchen printers configured, skipping automatic printing');
+        }
+      } catch (printError) {
+        // Erreur d'impression - ne pas bloquer la commande
+        console.error('[OrderCart] Kitchen printing error:', printError);
+        
+        // Message d'erreur discret
+        setSnackbarMessage('Commande créée. Erreur d\'impression cuisine (mise en file d\'attente).');
+        
+        // Optionnel: Logger l'erreur pour monitoring
+        if (__DEV__) {
+          console.error('Print error details:', printError);
         }
       }
-      
-      // Réinitialiser le panier
-      resetCart();
-      
-      // Afficher le snackbar
-      setSnackbarVisible(true);
-      
-      // Appeler le callback de fin
-      setTimeout(() => {
-        onFinishOrder();
-      }, 500);
-      
-    } catch (error: any) {
-      console.error('Error creating/updating order:', error);
-      Alert.alert(
-        'Erreur',
-        error.message || 'Une erreur est survenue lors de la création de la commande.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsProcessing(false);
+    } else {
+      // Logging pour debug
+      if (!isPrintServiceReady) {
+        console.log('[OrderCart] Print service not ready');
+      }
+      if (!createdOrder) {
+        console.log('[OrderCart] No order created');
+      }
+      if (!newItems.length) {
+        console.log('[OrderCart] No new items to print');
+      }
     }
-  };
+    // ===================================================================
+    // FIN SECTION IMPRESSION
+    // ===================================================================
+    
+    // Réinitialiser le panier (pas de régression)
+    resetCart();
+    
+    // Afficher le snackbar (pas de régression)
+    setSnackbarVisible(true);
+    
+    // Callback de fin avec délai pour laisser le temps au snackbar d'apparaître (pas de régression)
+    setTimeout(() => {
+      onFinishOrder();
+    }, 500);
+    
+  } catch (error: any) {
+    // Gestion d'erreur complète (pas de régression)
+    console.error('Error creating/updating order:', error);
+    
+    // Message d'erreur approprié selon le contexte
+    let errorMessage = 'Une erreur est survenue lors de la création de la commande.';
+    
+    if (error.response?.status === 404) {
+      errorMessage = 'La commande n\'existe plus. Elle a peut-être été supprimée.';
+    } else if (error.response?.status === 400) {
+      errorMessage = 'Données invalides. Vérifiez les articles sélectionnés.';
+    } else if (error.response?.status === 401 || error.response?.status === 403) {
+      errorMessage = 'Vous n\'êtes pas autorisé à effectuer cette action.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    Alert.alert(
+      'Erreur',
+      errorMessage,
+      [{ text: 'OK' }]
+    );
+  } finally {
+    setIsProcessing(false);
+  }
+};
   
   // Obtenir le texte du bouton selon le mode
   const getActionButtonText = () => {

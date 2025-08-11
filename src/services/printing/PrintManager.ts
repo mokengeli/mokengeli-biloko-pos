@@ -1,6 +1,6 @@
 // src/services/printing/PrintManager.ts
 
-import { EventEmitter } from 'react-native';
+import { EventEmitter } from 'events';
 import { 
   PrinterConfig, 
   PrinterType, 
@@ -17,10 +17,10 @@ import {
 } from './types';
 import { PrinterStorage } from './PrinterStorage';
 import { ConnectionManager } from './ConnectionManager';
-import { PrintQueue } from './PrintQueue';
 import { ReceiptTemplate } from './templates/ReceiptTemplate';
 import { KitchenTemplate } from './templates/KitchenTemplate';
 import { BillTemplate } from './templates/BillTemplate';
+import { PrintQueue } from './PrintQueue';
 
 /**
  * Service principal d'impression

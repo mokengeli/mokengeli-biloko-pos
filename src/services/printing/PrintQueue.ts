@@ -1,7 +1,7 @@
 // src/services/printing/PrintQueue.ts
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { EventEmitter } from 'react-native';
+import { EventEmitter } from 'events';
 import { 
   PrintJob, 
   PrintDocument, 

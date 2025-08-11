@@ -1,6 +1,6 @@
 // src/screens/server/ServerHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet} from "react-native";
+import { View, StyleSheet, Alert } from "react-native";
 import {
   Appbar,
   Text,
@@ -23,7 +23,7 @@ import { QuickActions } from "../../components/server/QuickActions";
 import { UrgentTasks, UrgentTask } from "../../components/server/UrgentTasks";
 import { TableDetailDialog } from "../../components/server/TableDetailDialog";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
-import { usePrinter } from "../../hooks/usePrinter";
+import { usePrintManager } from "../../hooks/usePrintManager";
 import tableService from "../../api/tableService";
 import orderService, { DomainOrder } from "../../api/orderService";
 import {
@@ -81,7 +81,11 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 }) => {
   const { user } = useAuth();
   const theme = useTheme();
-  const { printDocument } = usePrinter();
+  const {
+    printBill,
+    isInitialized: isPrintServiceReady,
+    printers,
+  } = usePrintManager();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -407,38 +411,104 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
   // Gérer l'action "Imprimer le ticket"
   const handlePrintTicket = useCallback(
-    async (order: DomainOrder) => {
-      setTableDialogVisible(false);
+  async (order: DomainOrder) => {
+    setTableDialogVisible(false);
 
-      // Formater les données pour l'impression
-      const ticketContent = `
-    COMMANDE #${order.id}
-    Table: ${order.tableName}
-    Date: ${new Date(order.orderDate).toLocaleString()}
-    
-    ARTICLES:
-    ${order.items
-      .map(
-        (item) =>
-          `${item.count}x ${item.dishName} - ${item.unitPrice.toFixed(2)}${
-            order.currency.code
-          }`
-      )
-      .join("\n")}
-    
-    TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
-    `;
-
-      try {
-        await printDocument(ticketContent);
-        // Afficher une confirmation ou notification d'impression réussie
-      } catch (error) {
-        // Gérer l'erreur d'impression
-        console.error("Erreur d'impression:", error);
+    try {
+      // Vérifier si le service d'impression est prêt
+      if (!isPrintServiceReady) {
+        Alert.alert(
+          'Service d\'impression non configuré',
+          'Voulez-vous configurer une imprimante maintenant?',
+          [
+            { text: 'Plus tard', style: 'cancel' },
+            { 
+              text: 'Configurer', 
+              onPress: () => navigation.navigate('PrinterSettings' as never)
+            }
+          ]
+        );
+        return;
       }
-    },
-    [printDocument]
-  );
+
+      // Vérifier s'il y a des imprimantes caisse configurées
+      const cashierPrinters = printers.filter(p => 
+        p.isEnabled && (p.type === 'CASHIER' || p.type === 'GENERAL')
+      );
+
+      if (cashierPrinters.length === 0) {
+        Alert.alert(
+          'Aucune imprimante caisse',
+          'Aucune imprimante caisse n\'est configurée. Utilisez l\'écran de configuration pour en ajouter une.',
+          [
+            { text: 'OK', style: 'cancel' },
+            { 
+              text: 'Configurer', 
+              onPress: () => navigation.navigate('PrinterSettings' as never)
+            }
+          ]
+        );
+        return;
+      }
+
+      // Préparer les données pour l'impression d'addition
+      const billData = {
+        orderId: order.id,
+        tableName: order.tableName,
+        items: order.items.map(item => ({
+          quantity: item.count,
+          name: item.dishName,
+          unitPrice: item.unitPrice,
+          totalPrice: item.unitPrice * item.count
+        })),
+        subtotal: order.totalPrice,
+        tax: order.totalPrice * 0.1, // TVA 10%
+        serviceCharge: 0, // À ajuster selon vos besoins
+        total: order.totalPrice * 1.1,
+        currency: order.currency.code,
+        serverName: user?.firstName || 'Serveur',
+        covers: 2, // À déterminer dynamiquement si possible
+        restaurantInfo: {
+          name: 'MOKENGELI BILOKO',
+          address: '123 Rue de la Gastronomie',
+          phone: '01 23 45 67 89',
+          taxId: 'FR12345678901'
+        }
+      };
+
+      // Lancer l'impression
+      const result = await printBill(billData, {
+        waitForCompletion: false // Ne pas attendre, continuer l'UX
+      });
+
+      if (result.success) {
+        // Afficher une notification de succès
+        Alert.alert(
+          'Impression lancée',
+          'Le ticket a été envoyé à l\'imprimante.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(result.error || 'Échec de l\'impression');
+      }
+
+    } catch (error: any) {
+      console.error("Erreur d'impression:", error);
+      Alert.alert(
+        'Erreur d\'impression',
+        `${error.message}\n\nVérifiez que l'imprimante est allumée et connectée.`,
+        [
+          { text: 'OK', style: 'cancel' },
+          { 
+            text: 'Configurer', 
+            onPress: () => navigation.navigate('PrinterSettings' as never)
+          }
+        ]
+      );
+    }
+  },
+  [printBill, isPrintServiceReady, printers, user, navigation]
+);
 
   // Naviguer vers la page des plats prêts
   const handleReadyDishes = useCallback(() => {

@@ -1,6 +1,6 @@
 // src/services/printing/PrinterDiscovery.ts
 
-import { EventEmitter } from 'react-native';
+import { EventEmitter } from 'events';
 import NetInfo from '@react-native-community/netinfo';
 import { 
   DiscoveredPrinter, 
