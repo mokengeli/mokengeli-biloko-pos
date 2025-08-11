@@ -23,9 +23,12 @@ import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { CommonActions } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import { DomainOrderItem } from "../../api/orderService";
-import orderService from "../../api/orderService";
-import { usePrinter } from "../../hooks/usePrinter";
+import orderService, {
+  DomainOrderItem,
+  DomainOrder,
+  PaymentRequest,
+} from "../../api/orderService";
+import { usePrintManager } from "../../hooks/usePrintManager";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -35,8 +38,6 @@ import {
 } from "../../services/WebSocketService";
 import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
-import { getNotificationMessage } from "../../utils/notificationHelpers";
-import { usePrintManager } from "../../hooks/usePrintManager";
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -86,7 +87,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   const { user } = useAuth();
   const theme = useTheme();
-  const { printDocument } = usePrinter();
+  const { printReceipt: printReceiptDoc } = usePrintManager();
   const windowWidth = Dimensions.get("window").width;
   const isTablet = windowWidth >= 768;
 
@@ -399,36 +400,22 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   };
 
-  // Imprimer un reçu
-  const printReceipt = async () => {
+  // Imprimer un reçu via le PrintManager
+  const handlePrintReceipt = async () => {
     try {
-      const receipt = `
-        RESTAURANT XYZ
-        -----------------------------------
-        Table: ${tableName || "N/A"}
-        Commande #${orderId}
-        Date: ${new Date().toLocaleString()}
-        -----------------------------------
-        Montant total: ${totalAmount.toFixed(2)} ${currency}
-        Montant payé précédemment: ${paidAmount.toFixed(2)} ${currency}
-        Montant de ce paiement: ${calculateEffectivePayment().toFixed(
-          2
-        )} ${currency}
-        Montant reçu: ${parseFloat(amountTendered.replace(",", ".")).toFixed(
-          2
-        )} ${currency}
-        Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
-        Reste à payer: ${Math.max(
-          0,
-          currentRemaining - calculateEffectivePayment()
-        ).toFixed(2)} ${currency}
-        -----------------------------------
-        Mode de paiement: Espèces
-        
-        Merci de votre visite!
-      `;
+      // Récupérer les informations complètes de la commande
+      const order: DomainOrder = await orderService.getOrderById(orderId);
+      const payment: PaymentRequest = {
+        orderId,
+        amount: calculateEffectivePayment(),
+        paymentMethod,
+        notes:
+          paymentMode === "items"
+            ? "Paiement par sélection d'articles"
+            : "Paiement par montant personnalisé",
+      };
 
-      await printDocument(receipt);
+      await printReceiptDoc(order, payment);
 
       setReceiptModalVisible(false);
 
@@ -752,7 +739,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
               <Button
                 mode="contained"
-                onPress={printReceipt}
+                onPress={handlePrintReceipt}
                 style={styles.printButton}
                 icon="printer"
               >

@@ -1,7 +1,7 @@
 // src/screens/server/CreateOrderScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Dimensions, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, Divider, useTheme, Button } from 'react-native-paper';
+import { Appbar, Text, Card, Chip, ActivityIndicator, Surface, useTheme, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -30,6 +30,7 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   const theme = useTheme();
   const windowWidth = Dimensions.get('window').width;
   const isTablet = windowWidth >= 768;
+  const { isInitialized: isPrintServiceReady } = usePrintManager();
   
   // États
   const [categories, setCategories] = useState<DomainCategory[]>([]);
@@ -44,6 +45,13 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   useEffect(() => {
     setTableInfo(tableId, tableName);
   }, [tableId, tableName, setTableInfo]);
+
+  // Initialiser le service d'impression
+  useEffect(() => {
+    if (!isPrintServiceReady) {
+      console.log('[CreateOrderScreen] Print service initializing...');
+    }
+  }, [isPrintServiceReady]);
   
   // Fonction pour basculer l'affichage des catégories
   const toggleCategoriesExpanded = () => {
