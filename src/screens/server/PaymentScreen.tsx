@@ -26,6 +26,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrderItem } from "../../api/orderService";
 import orderService from "../../api/orderService";
 import { usePrinter } from "../../hooks/usePrinter";
+import { buildReceipt } from "../../utils/buildReceipt";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -85,7 +86,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   const { user } = useAuth();
   const theme = useTheme();
-  const { printDocument } = usePrinter();
+  const { print, isConnected } = usePrinter();
   const windowWidth = Dimensions.get("window").width;
   const isTablet = windowWidth >= 768;
 
@@ -400,34 +401,26 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   // Imprimer un reçu
   const printReceipt = async () => {
+    if (!isConnected) {
+      Alert.alert(
+        "Imprimante",
+        "Aucune imprimante n'est connectée"
+      );
+      return;
+    }
     try {
-      const receipt = `
-        RESTAURANT XYZ
-        -----------------------------------
-        Table: ${tableName || "N/A"}
-        Commande #${orderId}
-        Date: ${new Date().toLocaleString()}
-        -----------------------------------
-        Montant total: ${totalAmount.toFixed(2)} ${currency}
-        Montant payé précédemment: ${paidAmount.toFixed(2)} ${currency}
-        Montant de ce paiement: ${calculateEffectivePayment().toFixed(
-          2
-        )} ${currency}
-        Montant reçu: ${parseFloat(amountTendered.replace(",", ".")).toFixed(
-          2
-        )} ${currency}
-        Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
-        Reste à payer: ${Math.max(
-          0,
-          currentRemaining - calculateEffectivePayment()
-        ).toFixed(2)} ${currency}
-        -----------------------------------
-        Mode de paiement: Espèces
-        
-        Merci de votre visite!
-      `;
+      const receipt = buildReceipt({
+        orderId,
+        tableName,
+        totalAmount,
+        paidAmount,
+        paymentAmount: calculateEffectivePayment(),
+        receivedAmount: parseFloat(amountTendered.replace(",", ".")),
+        change: calculateChange(),
+        currency,
+      });
 
-      await printDocument(receipt);
+      await print(receipt);
 
       setReceiptModalVisible(false);
 
@@ -754,6 +747,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
                 onPress={printReceipt}
                 style={styles.printButton}
                 icon="printer"
+                disabled={!isConnected}
               >
                 Imprimer reçu
               </Button>

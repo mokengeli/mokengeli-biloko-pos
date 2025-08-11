@@ -24,6 +24,7 @@ import { UrgentTasks, UrgentTask } from "../../components/server/UrgentTasks";
 import { TableDetailDialog } from "../../components/server/TableDetailDialog";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import { usePrinter } from "../../hooks/usePrinter";
+import { buildOrderTicket } from "../../utils/buildOrderTicket";
 import tableService from "../../api/tableService";
 import orderService, { DomainOrder } from "../../api/orderService";
 import {
@@ -81,7 +82,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 }) => {
   const { user } = useAuth();
   const theme = useTheme();
-  const { printDocument } = usePrinter();
+  const { print, isConnected } = usePrinter();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -408,36 +409,19 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   // Gérer l'action "Imprimer le ticket"
   const handlePrintTicket = useCallback(
     async (order: DomainOrder) => {
+      if (!isConnected) {
+        console.warn("No printer connected");
+        return;
+      }
       setTableDialogVisible(false);
-
-      // Formater les données pour l'impression
-      const ticketContent = `
-    COMMANDE #${order.id}
-    Table: ${order.tableName}
-    Date: ${new Date(order.orderDate).toLocaleString()}
-    
-    ARTICLES:
-    ${order.items
-      .map(
-        (item) =>
-          `${item.count}x ${item.dishName} - ${item.unitPrice.toFixed(2)}${
-            order.currency.code
-          }`
-      )
-      .join("\n")}
-    
-    TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
-    `;
-
+      const ticketContent = buildOrderTicket(order);
       try {
-        await printDocument(ticketContent);
-        // Afficher une confirmation ou notification d'impression réussie
+        await print(ticketContent);
       } catch (error) {
-        // Gérer l'erreur d'impression
         console.error("Erreur d'impression:", error);
       }
     },
-    [printDocument]
+    [isConnected, print]
   );
 
   // Naviguer vers la page des plats prêts
@@ -483,11 +467,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     {
       title: "Configuration d'impression",
       icon: "printer",
-      onPress: () =>
-        setNotAvailableDialog({
-          visible: true,
-          featureName: "Configuration d'impression",
-        }),
+      onPress: () => navigation.navigate("PrinterConfig" as never),
       dividerAfter: true,
     },
   ];

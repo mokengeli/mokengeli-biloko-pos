@@ -18,6 +18,7 @@ import { DomainOrderItem } from "../api/orderService";
 import { ManagerHomeScreen } from "../screens/manager/ManagerHomeScreen";
 import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
+import { PrinterConfigScreen } from "../screens/server/PrinterConfigScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 
@@ -77,6 +78,7 @@ export type MainStackParamList = {
     numberOfPeople: number;
     currency: string;
   };
+  PrinterConfig: undefined;
 };
 
 // Créer les navigateurs
@@ -138,6 +140,7 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
       <MainStack.Screen name="CloseWithDebt" component={CloseWithDebtScreen} />
       <MainStack.Screen name="PendingValidations" component={PendingValidationsScreen} />
+      <MainStack.Screen name="PrinterConfig" component={PrinterConfigScreen} />
     </MainStack.Navigator>
   );
 };

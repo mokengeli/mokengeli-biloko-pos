@@ -8,6 +8,7 @@ import { CartProvider } from './src/contexts/CartContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { theme } from './src/theme/theme';
 import { testConnection } from './src/api/apiConfig';
+import { PrintersProvider } from './src/contexts/PrintersContext';
 
 export default function App() {
   useEffect(() => {
@@ -21,7 +22,9 @@ export default function App() {
         <StatusBar style="auto" />
         <AuthProvider>
           <CartProvider>
-            <AppNavigator />
+            <PrintersProvider>
+              <AppNavigator />
+            </PrintersProvider>
           </CartProvider>
         </AuthProvider>
       </PaperProvider>
