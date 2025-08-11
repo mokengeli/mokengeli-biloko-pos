@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
-import { 
-  PrintManager, 
-  PrinterConfig, 
-  PrinterType, 
+import { PrintManager } from '../services/printing/PrintManager';
+import {
+  PrinterConfig,
+  PrinterType,
   PrintResult,
   PrintEvent,
   ConnectionStatus,
