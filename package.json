@@ -45,6 +45,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-community/netinfo": "^11.4.1",
     "@react-native-picker/picker": "2.11.0",
     "@react-navigation/native": "^7.1.6",
     "@react-navigation/stack": "^7.2.10",
@@ -72,6 +73,7 @@
     "react-native-paper": "^5.13.5",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
+    "react-native-tcp-socket": "^6.3.0",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "^0.20.0",
     "react-redux": "^9.2.0",
@@ -82,7 +84,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "@types/node": "^22.15.23"
+    "@types/node": "^22.17.1"
   },
   "expo": {
     "install": {
