@@ -1,4 +1,4 @@
-// src/screens/server/PaymentScreen.tsx - VERSION AVEC IMPRESSION RÉELLE
+// src/screens/server/PaymentScreen.tsx - VERSION CORRIGÉE COMPLÈTE
 
 import React, { useState, useEffect, useCallback } from "react";
 import { View, StyleSheet, ScrollView, Alert } from "react-native";
@@ -26,7 +26,7 @@ import { CommonActions } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrderItem } from "../../api/orderService";
 import orderService from "../../api/orderService";
-// CHANGEMENT : Remplacer usePrinter par usePrintManager
+// CHANGEMENT : Utiliser usePrintManager au lieu de usePrinter
 import { usePrintManager } from "../../hooks/usePrintManager";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
@@ -39,7 +39,7 @@ import { NotificationSnackbar } from "../../components/common/NotificationSnackb
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";
 
-// Types pour la navigation (inchangés)
+// Types pour la navigation
 type PaymentParamList = {
   PaymentScreen: {
     orderId: number;
@@ -88,9 +88,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const { user } = useAuth();
   const theme = useTheme();
   
-  // CHANGEMENT : Utiliser usePrintManager au lieu de usePrinter
+  // CORRECTION : Renommer la fonction du hook pour éviter le conflit
   const { 
-    printReceipt, 
+    printReceipt: printReceiptService, // Renommé pour éviter le conflit
     isInitialized: isPrintServiceReady,
     isLoading: isPrinting,
     error: printError 
@@ -120,12 +120,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
   
-  // NOUVEAUX ÉTATS pour l'impression
+  // États pour l'impression
   const [printStatus, setPrintStatus] = useState<'idle' | 'printing' | 'success' | 'error'>('idle');
-  const [currentOrder, setCurrentOrder] = useState<any>(null); // Stocker la commande pour l'impression
-  const [currentPayment, setCurrentPayment] = useState<any>(null); // Stocker le paiement pour l'impression
+  const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [currentPayment, setCurrentPayment] = useState<any>(null);
 
-  // États pour les notifications WebSocket (inchangés)
+  // États pour les notifications WebSocket
   const [currentNotification, setCurrentNotification] = useState<OrderNotification | null>(null);
   const [notificationVisible, setNotificationVisible] = useState(false);
   const [currentRemaining, setCurrentRemaining] = useState<number>(remainingAmount);
@@ -133,8 +133,6 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [redirectAfterReceipt, setRedirectAfterReceipt] = useState<RedirectionTarget>(null);
   const [isLocalProcessing, setIsLocalProcessing] = useState(false);
   const [lastProcessedPaymentTime, setLastProcessedPaymentTime] = useState<number>(0);
-
-  // ... (toutes les autres fonctions restent identiques jusqu'à finalizePendingPayment)
 
   // Rafraîchir les données de la commande
   const refreshOrderData = useCallback(async () => {
@@ -150,7 +148,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
             );
 
       setCurrentRemaining(updatedRemaining);
-      setCurrentOrder(updatedOrder); // NOUVEAU : Stocker la commande
+      setCurrentOrder(updatedOrder); // Stocker la commande pour l'impression
 
       if (updatedRemaining !== remainingAmount) {
         setOrderChanged(true);
@@ -163,7 +161,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   }, [orderId, remainingAmount]);
 
-  // Gestionnaire de notifications WebSocket (inchangé)
+  // Gestionnaire de notifications WebSocket
   const handleOrderNotification = useCallback(
     (notification: OrderNotification) => {
       console.log("WebSocket notification received:", notification);
@@ -225,7 +223,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     ]
   );
 
-  // Configuration WebSocket (inchangée)
+  // Configuration WebSocket
   useEffect(() => {
     if (!user?.tenantCode) return;
 
@@ -298,7 +296,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         Alert.alert(
           "Commande déjà payée",
           "Cette commande a été entièrement payée.",
-          [{ text: "OK", onPress: () => navigation.navigate("ServerHome") }]
+          [{ text: "OK", onPress: () => navigation.navigate("ServerHome" as never) }]
         );
         return;
       }
@@ -352,7 +350,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     finalizePendingPayment(effectiveAmount);
   };
 
-  // MODIFIÉE : Finaliser un paiement en attente
+  // Finaliser un paiement en attente
   const finalizePendingPayment = async (effectiveAmount: number) => {
     setIsProcessing(true);
     setError(null);
@@ -368,13 +366,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
           paymentMode === "items"
             ? "Paiement par sélection d'articles"
             : "Paiement par montant personnalisé",
-        discountAmount: 0, // À ajuster si nécessaire
+        discountAmount: 0,
       };
 
       // Enregistrer le paiement
       await orderService.recordPayment(paymentRequest);
       
-      // NOUVEAU : Stocker le paiement pour l'impression
+      // Stocker le paiement pour l'impression
       setCurrentPayment(paymentRequest);
 
       // Marquer les articles comme payés si nécessaire
@@ -410,8 +408,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   };
 
-  // NOUVEAU : Imprimer un reçu avec le vrai service d'impression
-  const printReceipt = async () => {
+  // CORRECTION : Fonction locale printReceipt qui utilise le service
+  const handlePrintReceipt = async () => {
     if (!currentOrder || !currentPayment) {
       Alert.alert('Erreur', 'Données de paiement manquantes');
       return;
@@ -459,8 +457,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         }
       };
 
-      // Lancer l'impression
-      const result = await printReceipt(receiptData, {
+      // Utiliser le service d'impression (fonction renommée)
+      const result = await printReceiptService(receiptData, {
         waitForCompletion: true,
         timeout: 10000
       });
@@ -480,7 +478,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               })
             );
           } else if (redirectAfterReceipt === "PrepareBill") {
-            navigation.navigate("PrepareBill", {
+            navigation.navigate("PrepareBill" as never, {
               orderId: orderId,
               tableId: route.params.tableId,
               tableName: tableName,
@@ -499,7 +497,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         "Erreur d'impression",
         `${err.message}\n\nVoulez-vous réessayer?`,
         [
-          { text: 'Réessayer', onPress: () => printReceipt() },
+          { text: 'Réessayer', onPress: () => handlePrintReceipt() }, // Récursion corrigée
           { text: 'Continuer sans imprimer', onPress: finishWithoutPrinting }
         ]
       );
@@ -519,7 +517,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         })
       );
     } else if (redirectAfterReceipt === "PrepareBill") {
-      navigation.navigate("PrepareBill", {
+      navigation.navigate("PrepareBill" as never, {
         orderId: orderId,
         tableId: route.params.tableId,
         tableName: tableName,
@@ -545,11 +543,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const getPrintStatusColor = () => {
     switch (printStatus) {
       case 'success':
-        return theme.colors.success;
+        return theme.colors.success || '#4CAF50';
       case 'error':
-        return theme.colors.error;
+        return theme.colors.error || '#F44336';
       default:
-        return theme.colors.primary;
+        return theme.colors.primary || '#2196F3';
     }
   };
 
@@ -582,7 +580,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
                 styles.amountValue,
                 {
                   color:
-                    paidAmount > 0 ? theme.colors.success : theme.colors.text,
+                    paidAmount > 0 ? theme.colors.success || '#4CAF50' : theme.colors.text,
                 },
               ]}
             >
@@ -597,7 +595,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
             <Text
               style={[
                 styles.amountValue,
-                { fontWeight: "bold", color: theme.colors.primary },
+                { fontWeight: "bold", color: theme.colors.primary || '#2196F3' },
               ]}
             >
               {currentRemaining.toFixed(2)} {currency}
@@ -609,10 +607,10 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               <Icon
                 name="alert-circle-outline"
                 size={16}
-                color={theme.colors.warning}
+                color={theme.colors.warning || '#FF9800'}
               />
               <Text
-                style={[styles.warningText, { color: theme.colors.warning }]}
+                style={[styles.warningText, { color: theme.colors.warning || '#FF9800' }]}
               >
                 Des modifications ont été apportées à cette commande par un
                 autre terminal.
@@ -648,7 +646,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
                 <Icon
                   name="information-outline"
                   size={16}
-                  color={theme.colors.primary}
+                  color={theme.colors.primary || '#2196F3'}
                 />
                 <Text style={styles.warningText}>
                   Le montant saisi dépasse le reste à payer. Seul{" "}
@@ -710,7 +708,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               <Text
                 style={[
                   styles.paymentInfoValue,
-                  { color: theme.colors.success },
+                  { color: theme.colors.success || '#4CAF50' },
                 ]}
               >
                 {calculateEffectivePayment().toFixed(2)} {currency}
@@ -722,7 +720,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               <Text
                 style={[
                   styles.paymentInfoValue,
-                  { color: theme.colors.accent },
+                  { color: theme.colors.accent || '#FF5722' },
                 ]}
               >
                 {calculateChange().toFixed(2)} {currency}
@@ -780,7 +778,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         </Button>
       </Surface>
 
-      {/* Modal pour le reçu MODIFIÉE */}
+      {/* Modal pour le reçu */}
       <Portal>
         <Modal
           visible={receiptModalVisible}
@@ -816,7 +814,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               </Text>
             </View>
 
-            {/* NOUVEAU : Statut d'impression */}
+            {/* Statut d'impression */}
             {printStatus !== 'idle' && (
               <View style={[styles.printStatusContainer, { backgroundColor: getPrintStatusColor() + '20' }]}>
                 {printStatus === 'printing' ? (
@@ -846,7 +844,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
               <Button
                 mode="contained"
-                onPress={printReceipt}
+                onPress={handlePrintReceipt} // CORRECTION : Utiliser la fonction locale
                 style={styles.printButton}
                 icon="printer"
                 loading={printStatus === 'printing'}
@@ -856,7 +854,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               </Button>
             </View>
 
-            {/* NOUVEAU : Lien vers configuration si pas d'imprimante */}
+            {/* Lien vers configuration si pas d'imprimante */}
             {!isPrintServiceReady && (
               <Button
                 mode="text"
@@ -889,7 +887,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         </SnackbarContainer>
       )}
 
-      {/* NOUVEAU : Snackbar pour les erreurs d'impression */}
+      {/* Snackbar pour les erreurs d'impression */}
       <Snackbar
         visible={!!printError}
         onDismiss={() => {}}
@@ -1069,7 +1067,6 @@ const styles = StyleSheet.create({
   printButton: {
     flex: 1,
   },
-  // NOUVEAUX STYLES
   printStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
