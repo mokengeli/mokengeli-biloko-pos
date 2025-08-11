@@ -7,6 +7,7 @@ import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
+import { usePrintManager } from '../../hooks/usePrintManager';
 import categoryService, { DomainCategory } from '../../api/categoryService';
 import dishService, { DomainDish } from '../../api/dishService';
 import { OrderCart } from '../../components/server/OrderCart';

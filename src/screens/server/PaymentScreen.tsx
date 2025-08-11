@@ -36,6 +36,7 @@ import {
 import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";
+import { usePrintManager } from "../../hooks/usePrintManager";
 
 // Type définitions pour la navigation
 type PaymentParamList = {
