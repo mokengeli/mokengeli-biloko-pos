@@ -22,6 +22,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 import { PrinterConfigScreen } from "../screens/settings/PrinterConfigScreen";
 import { PrinterDiscoveryScreen } from "../screens/settings/PrinterDiscoveryScreen";
+import { PrinterEditScreen } from "../screens/settings/PrinterEditScreen";
 
 
 // Types des paramètres pour les routes d'authentification
@@ -147,6 +148,8 @@ const MainNavigator: React.FC = () => {
 
       <MainStack.Screen name="PrinterConfig" component={PrinterConfigScreen} />
       <MainStack.Screen name="PrinterDiscovery" component={PrinterDiscoveryScreen} />
+      <MainStack.Screen name="PrinterEdit" component={PrinterEditScreen} />
+
     </MainStack.Navigator>
   );
 };
