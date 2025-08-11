@@ -483,11 +483,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     {
       title: "Configuration d'impression",
       icon: "printer",
-      onPress: () =>
-        setNotAvailableDialog({
-          visible: true,
-          featureName: "Configuration d'impression",
-        }),
+      onPress: () => navigation.navigate('PrinterConfig' as any),
       dividerAfter: true,
     },
   ];

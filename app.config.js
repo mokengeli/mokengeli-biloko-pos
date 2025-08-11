@@ -127,9 +127,7 @@ export default {
     updates: {
       url: "https://u.expo.dev/fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
     },
-    runtimeVersion: {
-      policy: "appVersion",
-    },
+    runtimeVersion: "1.0.0",
 
     plugins: [
       "expo-updates",

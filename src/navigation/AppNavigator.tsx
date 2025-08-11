@@ -20,6 +20,8 @@ import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
+import { PrinterConfigScreen } from "../screens/settings/PrinterConfigScreen";
+import { PrinterDiscoveryScreen } from "../screens/settings/PrinterDiscoveryScreen";
 
 
 // Types des paramètres pour les routes d'authentification
@@ -27,7 +29,6 @@ export type AuthStackParamList = {
   Login: undefined;
 };
 
-// Types des paramètres pour les routes principales
 // Types des paramètres pour les routes principales
 export type MainStackParamList = {
   ServerHome: undefined;
@@ -68,6 +69,11 @@ export type MainStackParamList = {
     currency: string;
   };
   PendingValidations: undefined;
+  PrinterConfig: undefined;
+  PrinterEdit: {
+    printerId: string;
+  };
+  PrinterDiscovery: undefined;
   SplitBill: {
     orderId: number;
     tableName?: string;
@@ -138,6 +144,10 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
       <MainStack.Screen name="CloseWithDebt" component={CloseWithDebtScreen} />
       <MainStack.Screen name="PendingValidations" component={PendingValidationsScreen} />
+
+      <MainStack.Screen name="PrinterConfig" component={PrinterConfigScreen} />
+      <MainStack.Screen name="PrinterDiscovery" component={PrinterDiscoveryScreen} />
+      <MainStack.Screen name="PrinterEdit" component={PinterEd} />
     </MainStack.Navigator>
   );
 };
