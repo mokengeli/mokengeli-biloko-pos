@@ -1,11 +1,11 @@
 // src/services/printer/PrinterConnection.ts
 
 import TcpSocket from 'react-native-tcp-socket';
-import { 
-  IPrinterConnection, 
-  PrinterStatus, 
+import {
+  IPrinterConnection,
+  PrinterStatus,
   PrinterConnectionType,
-  PrinterConfig 
+  PrinterConfig
 } from '../../types/printer.types';
 import { Buffer } from 'buffer';
 
@@ -46,10 +46,7 @@ export class PrinterConnection implements IPrinterConnection {
     return new Promise((resolve, reject) => {
       try {
         console.log(`[PrinterConnection] Connecting to ${connectionParams.ip}:${connectionParams.port}`);
-        console.log('[PrinterConnection] Importing TcpSocket...');
-    const TcpSocket = require('react-native-tcp-socket');
-    console.log('[PrinterConnection] TcpSocket imported:', !!TcpSocket);
-    console.log('[PrinterConnection] Creating socket...');
+        console.log('[PrinterConnection] Creating socket...');
 
         // Créer la connexion TCP
         this.socket = TcpSocket.createConnection(

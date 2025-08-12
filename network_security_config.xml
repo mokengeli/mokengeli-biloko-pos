@@ -1,22 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!-- =================================================================== -->
-    <!-- DÉVELOPPEMENT LOCAL : Autoriser HTTP pour les IPs locales          -->
-    <!-- =================================================================== -->
-    <domain-config cleartextTrafficPermitted="true">
-        <!-- Localhost et émulateurs -->
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">10.0.2.2</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-        
-        <!-- Réseaux locaux pour développement -->
-        <!-- Si votre machine est sur 192.168.x.x -->
-        <domain includeSubdomains="true">192.168.1.1</domain>
-        <domain includeSubdomains="true">192.168.1.100</domain>
-        <!-- Ajoutez votre IP locale ici si différente -->
-    </domain-config>
-    
-    <!-- =================================================================== -->
     <!-- STAGING/PREPROD : HTTPS uniquement                                 -->
     <!-- =================================================================== -->
     <domain-config cleartextTrafficPermitted="false">
@@ -41,9 +25,9 @@
     </domain-config>
     
     <!-- =================================================================== -->
-    <!-- CONFIGURATION PAR DÉFAUT : Sécurisé                                -->
+    <!-- CONFIGURATION PAR DÉFAUT : trafic clair autorisé (développement)   -->
     <!-- =================================================================== -->
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system"/>
             <!-- En debug seulement, accepter les certificats utilisateur -->
