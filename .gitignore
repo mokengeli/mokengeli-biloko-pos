@@ -43,3 +43,6 @@ yarn-error.*
 
 #idea
 .idea
+
+# android
+android

@@ -33,6 +33,9 @@ export class PrinterConnection implements IPrinterConnection {
    * Établit une connexion TCP avec l'imprimante
    */
   async connect(params: any): Promise<boolean> {
+    console.log('[PrinterConnection] Starting connection...');
+    console.log('[PrinterConnection] Params:', JSON.stringify(params));
+  
     // Si on a une config passée en paramètre, l'utiliser
     const connectionParams = params || this.config?.connectionParams;
     
@@ -43,7 +46,11 @@ export class PrinterConnection implements IPrinterConnection {
     return new Promise((resolve, reject) => {
       try {
         console.log(`[PrinterConnection] Connecting to ${connectionParams.ip}:${connectionParams.port}`);
-        
+        console.log('[PrinterConnection] Importing TcpSocket...');
+    const TcpSocket = require('react-native-tcp-socket');
+    console.log('[PrinterConnection] TcpSocket imported:', !!TcpSocket);
+    console.log('[PrinterConnection] Creating socket...');
+
         // Créer la connexion TCP
         this.socket = TcpSocket.createConnection(
           {
@@ -60,6 +67,7 @@ export class PrinterConnection implements IPrinterConnection {
             resolve(true);
           }
         );
+    console.log('[PrinterConnection] Socket created:', !!this.socket);
 
         // Gestion des erreurs
         this.socket.on('error', (error: any) => {
