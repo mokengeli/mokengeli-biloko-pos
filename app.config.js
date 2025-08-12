@@ -32,6 +32,7 @@ export default {
   expo: {
     name: "Mokengeli Biloko POS",
     slug: "mokengeli-biloko-pos",
+    scheme: "mokengeli-biloko-pos",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
@@ -92,34 +93,32 @@ export default {
       },
       package: "com.mokengelibiloko.pos",
 
+      // Autoriser HTTP (imprimantes / préprod)
+      usesCleartextTraffic: true,
+
       // Permissions Android complètes
       permissions: [
-        // Permissions réseau (de votre AndroidManifest)
+        // Réseau
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
-
-        // Permissions de stockage (de votre AndroidManifest)
+        // Stockage
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-
-        // Permissions système (de votre AndroidManifest)
+        // Système
         "SYSTEM_ALERT_WINDOW",
         "VIBRATE",
-
-        // Permissions additionnelles pour l'impression
+        // Impression / réseau local
         "CHANGE_WIFI_STATE",
         "CHANGE_WIFI_MULTICAST_STATE",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-
-        // Permissions Bluetooth pour imprimantes Bluetooth
+        // Bluetooth (imprimantes)
         "BLUETOOTH",
         "BLUETOOTH_ADMIN",
         "BLUETOOTH_CONNECT",
         "BLUETOOTH_SCAN",
-
-        // Permissions supplémentaires
+        // Divers
         "WAKE_LOCK",
         "POST_NOTIFICATIONS",
       ],
@@ -153,24 +152,25 @@ export default {
     // PLUGINS
     // =============================================================================
     plugins: [
-      // Plugin pour les mises à jour OTA
+      // OTA
       "expo-updates",
 
-      // Plugin pour la configuration réseau
+      // Config réseau (si tu gardes ce plugin custom)
       "./plugins/withNetworkSecurity",
 
-      // Plugin pour les permissions d'impression
+      // Permissions d'impression (plugin custom)
       "./plugins/withPrinterPermissions",
 
-      // Plugin pour les propriétés de build
+      // Propriétés de build
       [
         "expo-build-properties",
         {
           android: {
-            usesCleartextTraffic: true,
-            compileSdkVersion: 33,
-            targetSdkVersion: 33,
-            buildToolsVersion: "33.0.0",
+            // Monter le SDK pour satisfaire Room/DataStore/AppCompat et AGP 8.8.2
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
+            minSdkVersion: 24,
+            // Ne pas définir buildToolsVersion : AGP choisira 35.0.0
           },
           ios: {
             deploymentTarget: "15.1",
