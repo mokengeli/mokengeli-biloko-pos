@@ -15,13 +15,13 @@ module.exports = function withNetworkSecurity(config) {
 
       // Chemin destination dans Android
       const destDir = path.join(
-        projectRoot,
-        "android",
-        "app",
-        "src",
-        "main",
-        "res",
-        "xml"
+          projectRoot,
+          "android",
+          "app",
+          "src",
+          "main",
+          "res",
+          "xml"
       );
 
       const destPath = path.join(destDir, "network_security_config.xml");
@@ -40,7 +40,7 @@ module.exports = function withNetworkSecurity(config) {
         console.log(`   To: ${destPath}`);
       } else {
         console.warn(
-          "⚠️ network_security_config.xml not found at project root"
+            "⚠️ network_security_config.xml not found at project root"
         );
         console.warn(`   Expected at: ${sourcePath}`);
 

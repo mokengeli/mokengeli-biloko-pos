@@ -37,7 +37,7 @@ module.exports = function withPrinterPermissions(config) {
 
     features.forEach((feature) => {
       const exists = manifest.manifest["uses-feature"].find(
-        (f) => f.$ && f.$["android:name"] === feature.name
+          (f) => f.$ && f.$["android:name"] === feature.name
       );
 
       if (!exists) {
@@ -62,7 +62,7 @@ module.exports = function withPrinterPermissions(config) {
       application.$["android:usesCleartextTraffic"] = "true";
       application.$["android:largeHeap"] = "true";
       application.$["android:networkSecurityConfig"] =
-        "@xml/network_security_config";
+          "@xml/network_security_config";
 
       console.log("  ✅ Application attributes configured");
     }

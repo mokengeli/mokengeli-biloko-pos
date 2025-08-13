@@ -14,7 +14,7 @@ const extractDomain = (url) => {
 // Déterminer l'environnement et l'URL de l'API
 const getApiConfig = () => {
   const apiUrl =
-    process.env.API_URL || "https://api.preprod.pos.mokengeli-biloko.com";
+      process.env.API_URL || "https://api.preprod.pos.mokengeli-biloko.com";
   const environment = process.env.NODE_ENV || "production";
   const useSecure = process.env.USE_SECURE_CONNECTION === "true";
 
@@ -75,11 +75,11 @@ export default {
         },
         // Permissions iOS pour l'impression
         NSLocalNetworkUsageDescription:
-          "Cette application a besoin d'accéder au réseau local pour communiquer avec les imprimantes.",
+            "Cette application a besoin d'accéder au réseau local pour communiquer avec les imprimantes.",
         NSBluetoothAlwaysUsageDescription:
-          "Cette application utilise le Bluetooth pour se connecter aux imprimantes.",
+            "Cette application utilise le Bluetooth pour se connecter aux imprimantes.",
         NSLocationWhenInUseUsageDescription:
-          "Cette application utilise votre localisation pour scanner les réseaux WiFi locaux.",
+            "Cette application utilise votre localisation pour scanner les réseaux WiFi locaux.",
       },
     },
 
