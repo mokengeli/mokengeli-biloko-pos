@@ -22,35 +22,35 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.preprod.pos.mokengeli-biloko.com</domain>
         <domain includeSubdomains="true">preprod.pos.mokengeli-biloko.com</domain>
-        <pin-set expiration="2025-12-31">
-            <!-- Optionnel : Certificate pinning pour plus de sécurité -->
-            <!-- <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin> -->
-        </pin-set>
+        <!-- <pin-set expiration="2025-12-31"> -->
+        <!-- Optionnel : Certificate pinning pour plus de sécurité -->
+        <!-- <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin> -->
+        <!-- </pin-set> -->
     </domain-config>
-    
+
     <!-- =================================================================== -->
     <!-- PRODUCTION : HTTPS uniquement avec sécurité renforcée              -->
     <!-- =================================================================== -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.pos.mokengeli-biloko.com</domain>
         <domain includeSubdomains="true">pos.mokengeli-biloko.com</domain>
-        <pin-set expiration="2025-12-31">
-            <!-- Optionnel : Certificate pinning pour production -->
-            <!-- <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin> -->
-        </pin-set>
+        <!--  <pin-set expiration="2025-12-31"> -->
+        <!-- Optionnel : Certificate pinning pour production -->
+        <!-- <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin> -->
+        <!--  </pin-set> -->
     </domain-config>
-    
+
     <!-- =================================================================== -->
-    <!-- CONFIGURATION PAR DÉFAUT : Sécurisé                                -->
+    <!-- CONFIGURATION PAR DÉFAUT : trafic clair autorisé (développement)   -->
     <!-- =================================================================== -->
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system"/>
             <!-- En debug seulement, accepter les certificats utilisateur -->
             <certificates src="user" overridePins="true" />
         </trust-anchors>
     </base-config>
-    
+
     <!-- =================================================================== -->
     <!-- DEBUG OVERRIDES : Pour développement uniquement                    -->
     <!-- =================================================================== -->
