@@ -14,6 +14,7 @@ import {
   Surface,
   Text,
   Button,
+  TextInput,
   Card,
   List,
   ProgressBar,
@@ -56,6 +57,9 @@ export const PrinterDiscoveryScreen: React.FC<PrinterDiscoveryScreenProps> = ({ 
   const [networkInfo, setNetworkInfo] = useState<any>(null);
   const [selectedPrinter, setSelectedPrinter] = useState<DiscoveredPrinter | null>(null);
   const [configDialogVisible, setConfigDialogVisible] = useState(false);
+  const [manualIp, setManualIp] = useState('');
+  const [manualPort, setManualPort] = useState('9100');
+  const [isTestingManual, setIsTestingManual] = useState(false);
   
   // Snackbar
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -144,6 +148,30 @@ export const PrinterDiscoveryScreen: React.FC<PrinterDiscoveryScreenProps> = ({ 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
+  };
+
+  const handleManualTest = async () => {
+    if (!manualIp) {
+      showSnackbar('Veuillez entrer une adresse IP');
+      return;
+    }
+
+    setIsTestingManual(true);
+    const success = await scanner.quickTest(manualIp, parseInt(manualPort, 10));
+    setIsTestingManual(false);
+
+    if (success) {
+      const printer: DiscoveredPrinter = {
+        ip: manualIp,
+        port: parseInt(manualPort, 10),
+        name: `Imprimante sur ${manualIp}`,
+        manufacturer: 'Non identifiée',
+        protocol: 'ESC_POS'
+      };
+      selectPrinter(printer);
+    } else {
+      showSnackbar('Aucune imprimante détectée à cette adresse');
+    }
   };
 
   // Sélectionner une imprimante pour configuration
@@ -312,10 +340,10 @@ export const PrinterDiscoveryScreen: React.FC<PrinterDiscoveryScreenProps> = ({ 
                 </View>
               )}
               
-              {networkInfo.subnet && (
+              {networkInfo.subnet && networkInfo.prefixLength && (
                 <View style={styles.networkRow}>
                   <Text style={styles.networkLabel}>Sous-réseau:</Text>
-                  <Text style={styles.networkValue}>{networkInfo.subnet}.0/24</Text>
+                  <Text style={styles.networkValue}>{`${networkInfo.subnet}/${networkInfo.prefixLength}`}</Text>
                 </View>
               )}
               
@@ -367,6 +395,35 @@ export const PrinterDiscoveryScreen: React.FC<PrinterDiscoveryScreenProps> = ({ 
                 Arrêter le scan
               </Button>
             )}
+          </View>
+
+          <View style={styles.manualContainer}>
+            <Text style={styles.manualTitle}>Recherche manuelle</Text>
+            <View style={styles.manualInputs}>
+              <TextInput
+                label="Adresse IP"
+                value={manualIp}
+                onChangeText={setManualIp}
+                style={[styles.manualInput, { flex: 2 }]}
+                keyboardType="numeric"
+              />
+              <TextInput
+                label="Port"
+                value={manualPort}
+                onChangeText={setManualPort}
+                style={[styles.manualInput, { flex: 1 }]}
+                keyboardType="numeric"
+              />
+            </View>
+            <Button
+              mode="outlined"
+              onPress={handleManualTest}
+              loading={isTestingManual}
+              disabled={isTestingManual}
+              icon="lan-connect"
+            >
+              Tester
+            </Button>
           </View>
         </Surface>
 
@@ -520,6 +577,22 @@ const styles = StyleSheet.create({
   },
   scanActions: {
     alignItems: 'center',
+  },
+  manualContainer: {
+    marginTop: 24,
+    gap: 12,
+  },
+  manualInputs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  manualInput: {
+    flex: 1,
+  },
+  manualTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   resultsContainer: {
     padding: 16,
