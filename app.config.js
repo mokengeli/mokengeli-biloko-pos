@@ -7,7 +7,6 @@ const extractDomain = (url) => {
     const urlObj = new URL(url);
     return urlObj.hostname;
   } catch {
-    // Si ce n'est pas une URL valide, retourner tel quel
     return url;
   }
 };
@@ -33,77 +32,96 @@ export default {
   expo: {
     name: "Mokengeli Biloko POS",
     slug: "mokengeli-biloko-pos",
+    scheme: "mokengeli-biloko-pos",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/img/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
-      image: "./assets/splash-icon.png",
+      image: "./assets/img/splash-icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
     assetBundlePatterns: ["**/*"],
 
     // =============================================================================
-    // CONFIGURATION IOS DYNAMIQUE
+    // CONFIGURATION IOS
     // =============================================================================
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.mokengelibiloko.pos",
       infoPlist: {
-        NSAppTransportSecurity: config.useSecure
-          ? {
-              // En HTTPS, on peut être plus restrictif
-              NSAllowsArbitraryLoads: false,
-              NSExceptionDomains: {
-                [config.domain]: {
-                  NSExceptionAllowsInsecureHTTPLoads: false,
-                  NSRequiresCertificateTransparency: true,
-                  NSIncludesSubdomains: true,
-                },
-              },
-            }
-          : {
-              // En développement ou HTTP, plus permissif
-              NSAllowsArbitraryLoads: true,
-              NSExceptionDomains: {
-                localhost: {
-                  NSExceptionAllowsInsecureHTTPLoads: true,
-                  NSIncludesSubdomains: true,
-                },
-                "10.0.2.2": {
-                  NSExceptionAllowsInsecureHTTPLoads: true,
-                  NSIncludesSubdomains: true,
-                },
-                ...(config.domain && config.domain !== "localhost"
-                  ? {
-                      [config.domain]: {
-                        NSExceptionAllowsInsecureHTTPLoads: true,
-                        NSExceptionMinimumTLSVersion: "1.0",
-                        NSIncludesSubdomains: true,
-                      },
-                    }
-                  : {}),
-              },
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: true,
+          NSExceptionDomains: {
+            localhost: {
+              NSExceptionAllowsInsecureHTTPLoads: true,
+              NSIncludesSubdomains: true,
             },
+            "192.168.0.0": {
+              NSExceptionAllowsInsecureHTTPLoads: true,
+              NSIncludesSubdomains: true,
+            },
+            "192.168.1.0": {
+              NSExceptionAllowsInsecureHTTPLoads: true,
+              NSIncludesSubdomains: true,
+            },
+            "10.0.0.0": {
+              NSExceptionAllowsInsecureHTTPLoads: true,
+              NSIncludesSubdomains: true,
+            },
+          },
+        },
+        // Permissions iOS pour l'impression
+        NSLocalNetworkUsageDescription:
+          "Cette application a besoin d'accéder au réseau local pour communiquer avec les imprimantes.",
+        NSBluetoothAlwaysUsageDescription:
+          "Cette application utilise le Bluetooth pour se connecter aux imprimantes.",
+        NSLocationWhenInUseUsageDescription:
+          "Cette application utilise votre localisation pour scanner les réseaux WiFi locaux.",
       },
     },
 
     // =============================================================================
-    // CONFIGURATION ANDROID DYNAMIQUE
+    // CONFIGURATION ANDROID
     // =============================================================================
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: "./assets/img/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
       package: "com.mokengelibiloko.pos",
-      config: {
-        // En développement ou HTTP, permettre cleartext
-        usesCleartextTraffic: !config.useSecure,
-      },
-      permissions: ["INTERNET", "ACCESS_NETWORK_STATE", "ACCESS_WIFI_STATE"],
+
+      // Autoriser HTTP (imprimantes / préprod)
+      usesCleartextTraffic: true,
+
+      // Permissions Android complètes
+      permissions: [
+        // Réseau
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        // Stockage
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        // Système
+        "SYSTEM_ALERT_WINDOW",
+        "VIBRATE",
+        // Impression / réseau local
+        "CHANGE_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        // Bluetooth (imprimantes)
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        // Divers
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS",
+      ],
     },
 
     web: {
@@ -111,7 +129,7 @@ export default {
     },
 
     // =============================================================================
-    // VARIABLES D'ENVIRONNEMENT EXPOSÉES
+    // VARIABLES D'ENVIRONNEMENT
     // =============================================================================
     extra: {
       apiUrl: config.apiUrl,
@@ -124,25 +142,38 @@ export default {
       },
     },
 
+    // Configuration des mises à jour OTA
     updates: {
       url: "https://u.expo.dev/fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
     },
-    runtimeVersion: {
-      policy: "appVersion",
-    },
+    runtimeVersion: "1.0.0",
 
+    // =============================================================================
+    // PLUGINS
+    // =============================================================================
     plugins: [
+      // OTA
       "expo-updates",
+
+      // Config réseau (si tu gardes ce plugin custom)
+      "./plugins/withNetworkSecurity",
+
+      // Permissions d'impression (plugin custom)
+      "./plugins/withPrinterPermissions",
+
+      // Propriétés de build
       [
         "expo-build-properties",
         {
           android: {
-            usesCleartextTraffic: !config.useSecure,
-            // Un seul fichier de configuration réseau pour tous les environnements
-            networkSecurityConfig: "./network_security_config.xml",
+            // Monter le SDK pour satisfaire Room/DataStore/AppCompat et AGP 8.8.2
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
+            minSdkVersion: 24,
+            // Ne pas définir buildToolsVersion : AGP choisira 35.0.0
           },
           ios: {
-            // Configurations iOS supplémentaires si nécessaire
+            deploymentTarget: "15.1",
           },
         },
       ],
@@ -156,4 +187,5 @@ console.log("[App Config] Loaded configuration:", {
   environment: config.environment,
   useSecure: config.useSecure,
   domain: config.domain,
+  cleartext: true,
 });
