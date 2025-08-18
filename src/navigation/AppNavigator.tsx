@@ -20,7 +20,7 @@ import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
-
+import { WebSocketDebugScreen } from "../screens/debug/WebSocketDebugScreen";
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -77,6 +77,7 @@ export type MainStackParamList = {
     numberOfPeople: number;
     currency: string;
   };
+  WebSocketDebug: undefined;
 };
 
 // Créer les navigateurs
@@ -137,7 +138,18 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
       <MainStack.Screen name="CloseWithDebt" component={CloseWithDebtScreen} />
-      <MainStack.Screen name="PendingValidations" component={PendingValidationsScreen} />
+      <MainStack.Screen
+        name="PendingValidations"
+        component={PendingValidationsScreen}
+      />
+      {/* Écrans de debug */}
+      <MainStack.Screen
+        name="WebSocketDebug"
+        component={WebSocketDebugScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
     </MainStack.Navigator>
   );
 };

@@ -11,12 +11,14 @@ import {
   Modal,
   List,
   Divider,
+  Badge,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
+import envConfig from "../../config/environment";
 
 type ViewMode = "overview" | "server" | "kitchen";
 
@@ -118,6 +120,24 @@ export const ManagerHomeScreen: React.FC = () => {
                 right={(props) => <List.Icon {...props} icon="open-in-new" />}
                 disabled
               />
+              {envConfig.environment !== "production" && (
+                <>
+                  <Divider style={styles.divider} />
+                  <List.Item
+                    title="🔧 Debug WebSocket"
+                    description="Outils de diagnostic (Dev only)"
+                    left={(props) => (
+                      <List.Icon {...props} icon="bug" color="#FF5722" />
+                    )}
+                    right={(props) => (
+                      <Badge style={{ backgroundColor: "#FF5722" }}>DEV</Badge>
+                    )}
+                    onPress={() =>
+                      navigation.navigate("WebSocketDebug" as never)
+                    }
+                  />
+                </>
+              )}
             </Surface>
 
             <Surface style={styles.infoCard}>

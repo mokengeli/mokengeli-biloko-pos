@@ -35,11 +35,11 @@ export default {
     scheme: "mokengeli-biloko-pos",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/img/icon.png",
+    icon: "./assets/logos/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
-      image: "./assets/img/splash-icon.png",
+      image: "./assets/logos/splash-icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
@@ -88,7 +88,7 @@ export default {
     // =============================================================================
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/img/adaptive-icon.png",
+        foregroundImage: "./assets/logos/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
       package: "com.mokengelibiloko.pos",
