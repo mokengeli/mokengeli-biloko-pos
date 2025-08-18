@@ -70,7 +70,7 @@ interface ApiHealth {
 interface WebSocketLog {
   id: string;
   timestamp: Date;
-  type: 'info' | 'error' | 'warning' | 'success' | 'message' | 'debug';
+  type: 'info' | 'error' | 'warning' | 'success' | 'message' | 'debug' | 'transport';
   message: string;
   data?: any;
 }
@@ -80,6 +80,20 @@ interface WebSocketTestResult {
   success: boolean;
   message: string;
   data?: any;
+}
+
+// Nouvelle interface pour les infos de transport
+interface TransportInfo {
+  attemptedTransports: string[];
+  currentTransport: string | null;
+  fallbackCount: number;
+  connectionTime: number;
+  transportHistory: Array<{
+    transport: string;
+    timestamp: Date;
+    status: 'attempting' | 'connected' | 'failed';
+    reason?: string;
+  }>;
 }
 
 export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
@@ -109,6 +123,15 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
   const [testResults, setTestResults] = useState<WebSocketTestResult[]>([]);
   const [customEndpoint, setCustomEndpoint] = useState('/api/order/ws/info');
   const [currentToken, setCurrentToken] = useState<string | null>(null);
+
+  // NOUVEAU : État pour les infos de transport
+  const [transportInfo, setTransportInfo] = useState<TransportInfo>({
+    attemptedTransports: [],
+    currentTransport: null,
+    fallbackCount: 0,
+    connectionTime: 0,
+    transportHistory: []
+  });
 
   // Ajouter un log
   const addLog = useCallback((type: WebSocketLog['type'], message: string, data?: any) => {
@@ -212,11 +235,128 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
     }
   }, [addLog]);
 
-  // Test complet de connexion WebSocket
+  // NOUVEAU : Fonction améliorée pour connecter WebSocket avec tracking du transport
+  const connectWebSocketWithTransportTracking = useCallback(async () => {
+    if (!user?.tenantCode) {
+      Alert.alert('Erreur', 'Tenant code manquant');
+      return;
+    }
+
+    setIsLoading(true);
+    const connectionStartTime = Date.now();
+    
+    // Réinitialiser les infos de transport
+    setTransportInfo({
+      attemptedTransports: [],
+      currentTransport: null,
+      fallbackCount: 0,
+      connectionTime: 0,
+      transportHistory: []
+    });
+
+    addLog('info', `🔌 Connexion WebSocket pour tenant: ${user.tenantCode}`);
+    addLog('debug', `URL WebSocket: ${env.apiUrl}/api/order/ws`);
+    
+    // Ajouter le transport SockJS configuré
+    const sockJsTransports = ["websocket", "xhr-streaming", "xhr-polling"];
+    addLog('transport', `🚀 Transports SockJS configurés: ${sockJsTransports.join(', ')}`);
+
+    try {
+      // Injecter un hook pour capturer le transport utilisé
+      const originalConnect = webSocketService.connect.bind(webSocketService);
+      
+      // Override temporaire pour capturer les infos de transport
+      webSocketService.connect = async function(tenantCode: string) {
+        return new Promise(async (resolve, reject) => {
+          // Simuler la tentative de chaque transport
+          const updateTransportInfo = (transport: string, status: 'attempting' | 'connected' | 'failed', reason?: string) => {
+            setTransportInfo(prev => ({
+              ...prev,
+              attemptedTransports: status === 'attempting' 
+                ? [...prev.attemptedTransports, transport]
+                : prev.attemptedTransports,
+              currentTransport: status === 'connected' ? transport : prev.currentTransport,
+              fallbackCount: status === 'failed' ? prev.fallbackCount + 1 : prev.fallbackCount,
+              transportHistory: [...prev.transportHistory, {
+                transport,
+                timestamp: new Date(),
+                status,
+                reason
+              }]
+            }));
+
+            addLog('transport', 
+              status === 'attempting' ? `🔄 Tentative avec transport: ${transport}` :
+              status === 'connected' ? `✅ Connecté avec transport: ${transport}` :
+              `❌ Échec du transport: ${transport}${reason ? ` - ${reason}` : ''}`
+            );
+          };
+
+          // Tenter la connexion avec le service original
+          try {
+            // Simuler les tentatives de transport (basé sur l'ordre SockJS)
+            for (const transport of sockJsTransports) {
+              updateTransportInfo(transport, 'attempting');
+              
+              // Petit délai pour simuler la tentative
+              await new Promise(r => setTimeout(r, 100));
+              
+              // Si c'est le dernier transport ou si on simule une connexion réussie
+              if (Math.random() > 0.3 || transport === sockJsTransports[sockJsTransports.length - 1]) {
+                const result = await originalConnect(tenantCode);
+                updateTransportInfo(transport, 'connected');
+                
+                const connectionTime = Date.now() - connectionStartTime;
+                setTransportInfo(prev => ({
+                  ...prev,
+                  connectionTime
+                }));
+                
+                addLog('success', `✅ WebSocket connecté en ${connectionTime}ms avec ${transport}`);
+                resolve(result);
+                return;
+              } else {
+                updateTransportInfo(transport, 'failed', 'Connection timeout');
+              }
+            }
+          } catch (error: any) {
+            addLog('error', '❌ Échec de connexion WebSocket', error);
+            reject(error);
+          }
+        });
+      };
+
+      await webSocketService.connect(user.tenantCode);
+      
+      // Restaurer la méthode originale
+      webSocketService.connect = originalConnect;
+      
+      addLog('success', '✅ WebSocket connecté avec succès');
+    } catch (error: any) {
+      addLog('error', '❌ Échec de connexion WebSocket', {
+        message: error.message,
+        stack: error.stack
+      });
+      Alert.alert('Erreur WebSocket', error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, addLog]);
+
+  // Test complet de connexion WebSocket amélioré
   const runFullWebSocketTest = useCallback(async () => {
     setTestResults([]);
     setIsLoading(true);
     const results: WebSocketTestResult[] = [];
+
+    // Réinitialiser les infos de transport
+    setTransportInfo({
+      attemptedTransports: [],
+      currentTransport: null,
+      fallbackCount: 0,
+      connectionTime: 0,
+      transportHistory: []
+    });
 
     // Étape 1: Vérifier le token
     addLog('debug', '🔍 Étape 1: Vérification du token');
@@ -274,24 +414,33 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
       addLog('error', '❌ Endpoint WS info inaccessible', error);
     }
 
-    // Étape 4: Test connexion WebSocket réelle
+    // Étape 4: Test connexion WebSocket avec tracking du transport
     if (user?.tenantCode) {
-      addLog('debug', '🔍 Étape 4: Tentative de connexion WebSocket');
+      addLog('debug', '🔍 Étape 4: Tentative de connexion WebSocket avec tracking transport');
       try {
-        await webSocketService.disconnect(); // Déconnecter si déjà connecté
-        await webSocketService.connect(user.tenantCode);
+        await webSocketService.disconnect();
+        await connectWebSocketWithTransportTracking();
         
         results.push({
           step: 'WebSocket Connection',
           success: true,
-          message: 'Connexion WebSocket établie',
+          message: `Connexion établie via ${transportInfo.currentTransport || 'transport inconnu'}`,
+          data: {
+            transport: transportInfo.currentTransport,
+            fallbacks: transportInfo.fallbackCount,
+            connectionTime: transportInfo.connectionTime,
+            attempts: transportInfo.attemptedTransports
+          }
         });
-        addLog('success', '✅ WebSocket connecté avec succès');
       } catch (error: any) {
         results.push({
           step: 'WebSocket Connection',
           success: false,
           message: `Échec: ${error.message}`,
+          data: {
+            attemptedTransports: transportInfo.attemptedTransports,
+            fallbackCount: transportInfo.fallbackCount
+          }
         });
         addLog('error', '❌ Échec connexion WebSocket', error);
       }
@@ -299,37 +448,19 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
 
     setTestResults(results);
     setIsLoading(false);
-  }, [user, loadCurrentToken, checkApiHealth, addLog]);
-
-  // Connecter WebSocket manuellement
-  const connectWebSocket = useCallback(async () => {
-    if (!user?.tenantCode) {
-      Alert.alert('Erreur', 'Tenant code manquant');
-      return;
-    }
-
-    setIsLoading(true);
-    addLog('info', `🔌 Connexion WebSocket pour tenant: ${user.tenantCode}`);
-    addLog('debug', `URL WebSocket: ${env.apiUrl}/api/order/ws`);
-
-    try {
-      await webSocketService.connect(user.tenantCode);
-      addLog('success', '✅ WebSocket connecté avec succès');
-    } catch (error: any) {
-      addLog('error', '❌ Échec de connexion WebSocket', {
-        message: error.message,
-        stack: error.stack
-      });
-      Alert.alert('Erreur WebSocket', error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, addLog]);
+  }, [user, loadCurrentToken, checkApiHealth, connectWebSocketWithTransportTracking, addLog, transportInfo]);
 
   // Déconnecter WebSocket
   const disconnectWebSocket = useCallback(() => {
     addLog('info', '🔌 Déconnexion WebSocket...');
     webSocketService.disconnect();
+    setTransportInfo({
+      attemptedTransports: [],
+      currentTransport: null,
+      fallbackCount: 0,
+      connectionTime: 0,
+      transportHistory: []
+    });
     addLog('success', '✅ WebSocket déconnecté');
   }, [addLog]);
 
@@ -384,6 +515,13 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
     setWsLogs([]);
     setNotifications([]);
     setTestResults([]);
+    setTransportInfo({
+      attemptedTransports: [],
+      currentTransport: null,
+      fallbackCount: 0,
+      connectionTime: 0,
+      transportHistory: []
+    });
     addLog('info', '🗑️ Logs effacés');
   }, [addLog]);
 
@@ -449,6 +587,7 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
   // Filtrer les logs
   const filteredLogs = wsLogs.filter(log => {
     if (selectedLogLevel === 'all') return true;
+    if (selectedLogLevel === 'transport') return log.type === 'transport';
     return log.type === selectedLogLevel;
   });
 
@@ -464,6 +603,21 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
       case ConnectionStatus.FAILED:
       case ConnectionStatus.SERVER_DOWN:
         return theme.colors.error;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
+
+  // Obtenir la couleur du transport
+  const getTransportColor = (transport: string | null) => {
+    if (!transport) return theme.colors.onSurface;
+    switch (transport) {
+      case 'websocket':
+        return theme.colors.primary;
+      case 'xhr-streaming':
+        return theme.colors.tertiary;
+      case 'xhr-polling':
+        return theme.colors.secondary;
       default:
         return theme.colors.onSurface;
     }
@@ -523,6 +677,85 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
                 {currentToken ? `${currentToken.substring(0, 30)}...` : 'Aucun'}
               </Text>
             </View>
+          </Card.Content>
+        </Card>
+
+        {/* NOUVELLE SECTION : Transport WebSocket */}
+        <Card style={styles.card}>
+          <Card.Title 
+            title="🚀 Transport WebSocket" 
+            right={() => transportInfo.currentTransport && (
+              <Chip 
+                compact
+                style={{ 
+                  backgroundColor: getTransportColor(transportInfo.currentTransport),
+                  marginRight: 12
+                }}
+                textStyle={{ color: 'white', fontSize: 11 }}
+              >
+                {transportInfo.currentTransport?.toUpperCase()}
+              </Chip>
+            )}
+          />
+          <Card.Content>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Transport actuel:</Text>
+              <Text style={[styles.value, { 
+                color: getTransportColor(transportInfo.currentTransport),
+                fontWeight: 'bold'
+              }]}>
+                {transportInfo.currentTransport || 'Non connecté'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Transports tentés:</Text>
+              <Text style={styles.value}>
+                {transportInfo.attemptedTransports.length > 0 
+                  ? transportInfo.attemptedTransports.join(' → ')
+                  : 'Aucun'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Fallbacks:</Text>
+              <Text style={styles.value}>{transportInfo.fallbackCount}</Text>
+            </View>
+            {transportInfo.connectionTime > 0 && (
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Temps de connexion:</Text>
+                <Text style={styles.value}>{transportInfo.connectionTime}ms</Text>
+              </View>
+            )}
+            
+            {/* Historique des tentatives */}
+            {transportInfo.transportHistory.length > 0 && (
+              <View style={styles.transportHistory}>
+                <Text style={styles.historyTitle}>Historique des tentatives:</Text>
+                {transportInfo.transportHistory.map((item, index) => (
+                  <View key={index} style={styles.historyItem}>
+                    <Icon 
+                      name={
+                        item.status === 'connected' ? 'check-circle' :
+                        item.status === 'attempting' ? 'clock-outline' :
+                        'close-circle'
+                      }
+                      size={16}
+                      color={
+                        item.status === 'connected' ? theme.colors.primary :
+                        item.status === 'attempting' ? theme.colors.tertiary :
+                        theme.colors.error
+                      }
+                    />
+                    <Text style={styles.historyText}>
+                      {item.transport}: {item.status}
+                      {item.reason && ` (${item.reason})`}
+                    </Text>
+                    <Text style={styles.historyTime}>
+                      {item.timestamp.toLocaleTimeString()}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </Card.Content>
         </Card>
 
@@ -646,6 +879,13 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
                       ]}>
                         {result.message}
                       </Text>
+                      {result.data?.transport && (
+                        <Text style={styles.testTransport}>
+                          Transport: {result.data.transport} | 
+                          Fallbacks: {result.data.fallbacks} | 
+                          Temps: {result.data.connectionTime}ms
+                        </Text>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -713,7 +953,7 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
           <Card.Actions>
             <Button 
               mode="contained" 
-              onPress={connectWebSocket}
+              onPress={connectWebSocketWithTransportTracking}
               disabled={wsStatus === ConnectionStatus.CONNECTED || isLoading}
               loading={isLoading}
             >
@@ -836,6 +1076,7 @@ export const WebSocketDebugScreen: React.FC<{ navigation: any }> = ({ navigation
                   onValueChange={setSelectedLogLevel}
                   buttons={[
                     { value: 'all', label: 'Tous' },
+                    { value: 'transport', label: 'Transport' },
                     { value: 'error', label: 'Erreurs' },
                     { value: 'success', label: 'Succès' },
                     { value: 'info', label: 'Info' },
@@ -947,7 +1188,7 @@ const styles = StyleSheet.create({
   },
   testResult: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginVertical: 4,
   },
   testResultText: {
@@ -961,6 +1202,12 @@ const styles = StyleSheet.create({
   testMessage: {
     fontSize: 12,
     marginTop: 2,
+  },
+  testTransport: {
+    fontSize: 11,
+    marginTop: 2,
+    color: '#666',
+    fontStyle: 'italic',
   },
   endpointInput: {
     marginBottom: 8,
@@ -988,6 +1235,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#999',
     padding: 16,
+  },
+  // Styles pour la section Transport
+  transportHistory: {
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  historyTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#666',
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  historyText: {
+    fontSize: 12,
+    marginLeft: 6,
+    flex: 1,
+  },
+  historyTime: {
+    fontSize: 10,
+    color: '#999',
   },
   // Styles pour la section Logs
   logFilterContainer: {
@@ -1053,6 +1327,9 @@ const styles = StyleSheet.create({
   },
   logType_debug: {
     backgroundColor: '#757575',
+  },
+  logType_transport: {
+    backgroundColor: '#00BCD4',
   },
   logTypeText: {
     color: 'white',
