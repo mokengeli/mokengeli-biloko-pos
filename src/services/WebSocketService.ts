@@ -293,6 +293,8 @@ class WebSocketService {
         this.infoLog(`🔌 WebSocket URL: ${wsUrl}`);
 
         // Créer le client STOMP
+        let connectionTimeout: NodeJS.Timeout;
+        let timedOut = false;
         this.client = new Client({
           webSocketFactory: () => {
             // IMPORTANT: Ajouter le token dans l'URL pour SockJS
@@ -355,6 +357,7 @@ class WebSocketService {
 
           // Callbacks
           onConnect: (frame) => {
+            clearTimeout(connectionTimeout);
             this.infoLog(`✅ Connected successfully after ${this.reconnectAttempts} attempts`);
             this.debugLog("Connection frame:", frame);
 
@@ -376,6 +379,7 @@ class WebSocketService {
           },
 
           onStompError: (frame) => {
+            clearTimeout(connectionTimeout);
             this.errorLog("❌ STOMP error:", frame.headers?.message || "Unknown error");
             this.debugLog("STOMP error frame:", frame);
             
@@ -401,6 +405,7 @@ class WebSocketService {
           },
 
           onWebSocketError: (error) => {
+            clearTimeout(connectionTimeout);
             this.errorLog("❌ WebSocket error:", error);
             this.isConnected = false;
             this.setStatus(ConnectionStatus.DISCONNECTED);
@@ -409,6 +414,12 @@ class WebSocketService {
           },
 
           onWebSocketClose: (closeEvent) => {
+            clearTimeout(connectionTimeout);
+
+            if (timedOut) {
+              return;
+            }
+
             this.infoLog(
               `🔌 Connection closed - Code: ${closeEvent?.code}, Reason: ${
                 closeEvent?.reason || "Unknown"
@@ -439,6 +450,19 @@ class WebSocketService {
             }
           },
         });
+
+        // Démarrer un timer de connexion
+        connectionTimeout = setTimeout(() => {
+          timedOut = true;
+          this.errorLog("❌ WebSocket connection timed out");
+          if (this.client) {
+            this.client.deactivate();
+          }
+          this.isConnected = false;
+          this.setStatus(ConnectionStatus.DISCONNECTED);
+          this.scheduleReconnection(tenantCode);
+          reject(new Error("WebSocket connection timed out"));
+        }, 15000);
 
         // Activer la connexion
         this.client.activate();
