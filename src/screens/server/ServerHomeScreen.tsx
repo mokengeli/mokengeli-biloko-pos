@@ -8,6 +8,7 @@ import {
   Surface,
   useTheme,
   FAB,
+  Snackbar,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,11 +27,13 @@ import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import { usePrinter } from "../../hooks/usePrinter";
 import tableService from "../../api/tableService";
 import orderService, { DomainOrder } from "../../api/orderService";
-import {
-  webSocketService,
-  OrderNotification,
-  OrderNotificationStatus,
-} from "../../services/WebSocketService";
+// CHANGEMENT: Import Socket.io au lieu de WebSocketService
+import { 
+  useSocketConnection, 
+  useOrderNotifications,
+  useSocketEvent 
+} from "../../hooks/useSocketConnection";
+import { OrderNotificationStatus } from "../../services/SocketIOService";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
 
 // Types pour la navigation
@@ -107,6 +110,168 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   const [recentlyChangedTables, setRecentlyChangedTables] = useState<number[]>(
     []
   );
+
+  // État pour les notifications Snackbar
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: "",
+    type: "info" as "info" | "error" | "success",
+  });
+
+  // ============================================================================
+  // CHANGEMENT: Utilisation de Socket.io au lieu de WebSocketService
+  // ============================================================================
+  
+  // Connexion Socket.io
+  const { 
+    isConnected, 
+    status: connectionStatus,
+    stats: connectionStats 
+  } = useSocketConnection({
+    autoConnect: true,
+    showStatusNotifications: false,
+    reconnectOnFocus: true
+  });
+
+  // Écouter les notifications de commande
+  const { 
+    notifications, 
+    lastNotification 
+  } = useOrderNotifications({
+    onNotification: (notification) => {
+      console.log("Server received notification:", notification);
+      
+      // Traiter selon le type de notification
+      switch (notification.orderStatus) {
+        case OrderNotificationStatus.TABLE_STATUS_UPDATE:
+          // Mise à jour du statut de table
+          if (notification.tableId) {
+            handleTableStatusUpdate(notification);
+          }
+          break;
+          
+        case OrderNotificationStatus.NEW_ORDER:
+          // Nouvelle commande
+          if (notification.tableId) {
+            updateTableForNewOrder(notification);
+            showNotification(`Nouvelle commande table ${notification.tableId}`, "success");
+          }
+          break;
+          
+        case OrderNotificationStatus.DISH_UPDATE:
+          // Mise à jour de plat
+          if (notification.newState === "READY" || notification.newState === "COOKED") {
+            loadReadyDishes();
+            showNotification(`Plats prêts pour la table ${notification.tableId}`, "info");
+          } else if (notification.newState === "SERVED") {
+            loadReadyDishes();
+          }
+          break;
+          
+        case OrderNotificationStatus.PAYMENT_UPDATE:
+          // Mise à jour de paiement
+          if (notification.newState === "PAID" || notification.newState === "FULLY_PAID") {
+            handlePaymentUpdate(notification);
+          }
+          break;
+          
+        default:
+          // Recharger les données pour les autres types
+          loadData();
+          break;
+      }
+    }
+  });
+
+  // Écouter les événements spécifiques de table
+  useSocketEvent('table:update', (data: any) => {
+    console.log("Table update event:", data);
+    if (data.tableId) {
+      markTableAsRecentlyChanged(data.tableId);
+      // Mettre à jour le statut de la table
+      setTables(prev => prev.map(table => 
+        table.tableData.id === data.tableId
+          ? { ...table, status: data.status as TableStatus }
+          : table
+      ));
+    }
+  });
+
+  // Écouter les plats prêts
+  useSocketEvent('dish:ready', (data: any) => {
+    console.log("Dish ready event:", data);
+    loadReadyDishes();
+    if (data.tableName) {
+      showNotification(`Plats prêts pour ${data.tableName}`, "success");
+    }
+  });
+
+  // Fonction pour afficher une notification
+  const showNotification = (message: string, type: "info" | "error" | "success" = "info") => {
+    setSnackbar({
+      visible: true,
+      message,
+      type
+    });
+  };
+
+  // Gérer la mise à jour du statut de table
+  const handleTableStatusUpdate = useCallback((notification: any) => {
+    const { tableId, tableState } = notification;
+    
+    console.log(`Table #${tableId} status update: ${tableState}`);
+    
+    setTables(prev => prev.map(table => {
+      if (table.tableData.id === tableId) {
+        markTableAsRecentlyChanged(tableId);
+        
+        return {
+          ...table,
+          status: tableState.toLowerCase() as TableStatus,
+          ...(tableState === "FREE" ? {
+            occupationTime: undefined,
+            orderCount: 0
+          } : {})
+        };
+      }
+      return table;
+    }));
+  }, []);
+
+  // Gérer une nouvelle commande
+  const updateTableForNewOrder = useCallback((notification: any) => {
+    const { tableId, tableState } = notification;
+    
+    markTableAsRecentlyChanged(tableId);
+    
+    setTables(prev => prev.map(table => {
+      if (table.tableData.id === tableId) {
+        return {
+          ...table,
+          status: (tableState?.toLowerCase() || "occupied") as TableStatus,
+          occupationTime: table.status === "free" ? 1 : table.occupationTime || 1,
+          orderCount: (table.orderCount || 0) + 1
+        };
+      }
+      return table;
+    }));
+  }, []);
+
+  // Gérer une mise à jour de paiement
+  const handlePaymentUpdate = useCallback((notification: any) => {
+    const { tableId, newState } = notification;
+    
+    if (newState === "FULLY_PAID" && tableId) {
+      // Table peut être libérée après paiement complet
+      setTimeout(() => {
+        loadData(); // Recharger pour vérifier le statut réel
+      }, 2000);
+    }
+  }, []);
+
+  // ============================================================================
+  // FIN DES CHANGEMENTS Socket.io
+  // ============================================================================
 
   // Générer un ID unique pour les tâches
   const generateTaskId = useCallback(() => {
@@ -219,7 +384,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           });
 
           // Trier les tâches par timestamp pour avoir les plus récentes en premier
-          // Cela peut être adapté selon vos besoins spécifiques
           const sortedReadyDishTasks = updatedReadyDishTasks.sort(
             (a, b) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -241,6 +405,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       return 0;
     }
   }, [user?.tenantCode, generateTaskId]);
+
   // Charger les données initiales
   const loadData = useCallback(async () => {
     if (!user?.tenantCode) {
@@ -258,7 +423,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       // Charger les commandes actives pour déterminer le statut des tables
       const tablesWithStatus: TableWithStatus[] = [];
-      const tableOrdersMap = new Map<number, DomainOrder[]>(); // Map pour stocker les commandes actives par table
+      const tableOrdersMap = new Map<number, DomainOrder[]>();
 
       // Pour chaque table, vérifier s'il existe des commandes actives
       for (const table of tablesResponse.content) {
@@ -266,17 +431,17 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           const activeOrders = await orderService.getActiveOrdersByTable(
             table.id
           );
-          tableOrdersMap.set(table.id, activeOrders); // Stocker les commandes, pas juste un boolean
+          tableOrdersMap.set(table.id, activeOrders);
         } catch (err) {
           console.error(
             `Error fetching active orders for table ${table.id}:`,
             err
           );
-          tableOrdersMap.set(table.id, []); // Tableau vide en cas d'erreur
+          tableOrdersMap.set(table.id, []);
         }
       }
 
-      // AJOUTER cette fonction helper
+      // Fonction pour calculer le temps d'occupation
       const calculateOccupationTime = (orders: DomainOrder[]): number => {
         if (orders.length === 0) return 0;
 
@@ -284,7 +449,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         const oldestOrder = orders.reduce((oldest, current) => {
           const oldestTime = new Date(oldest.orderDate).getTime();
           const currentTime = new Date(current.orderDate).getTime();
-          console.log({ oldestTime, currentTime });
           return currentTime < oldestTime ? current : oldest;
         });
 
@@ -303,18 +467,17 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           tableData: table,
           status: isOccupied ? "occupied" : "free",
           occupationTime: isOccupied
-            ? calculateOccupationTime(activeOrders) // Temps réel calculé
+            ? calculateOccupationTime(activeOrders)
             : undefined,
-          orderCount: activeOrders.length, // Nombre réel de commandes
+          orderCount: activeOrders.length,
         });
       }
 
       setTables(tablesWithStatus);
 
       // Charger les plats prêts à servir
-      const readyItemsCount = await loadReadyDishes();
+      await loadReadyDishes();
 
-      // Les tâches urgentes seront mises à jour par la fonction loadReadyDishes
     } catch (err: any) {
       console.error("Error loading data:", err);
       setError(err.message || "Erreur lors du chargement des données");
@@ -362,6 +525,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     },
     [navigation]
   );
+
   // Gérer l'action "Nouvelle commande"
   const handleNewOrder = useCallback(() => {
     if (selectedTable) {
@@ -377,8 +541,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   const handleAddToOrder = useCallback(
     (order: DomainOrder) => {
       if (selectedTable) {
-        // Navigation vers l'écran de création de commande
-        // Le mode d'ajout est déjà configuré dans TableDetailDialog via setEditMode
         navigation.navigate("CreateOrder", {
           tableId: selectedTable.tableData.id,
           tableName: selectedTable.tableData.name,
@@ -392,10 +554,8 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   // Gérer l'action "Demander l'addition"
   const handleRequestBill = useCallback(
     (order: DomainOrder) => {
-      // Fermer le dialogue de la table
       setTableDialogVisible(false);
 
-      // Naviguer vers l'écran de préparation d'addition
       navigation.navigate("PrepareBill", {
         orderId: order.id,
         tableId: order.tableId,
@@ -410,7 +570,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     async (order: DomainOrder) => {
       setTableDialogVisible(false);
 
-      // Formater les données pour l'impression
       const ticketContent = `
     COMMANDE #${order.id}
     Table: ${order.tableName}
@@ -431,10 +590,10 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
       try {
         await printDocument(ticketContent);
-        // Afficher une confirmation ou notification d'impression réussie
+        showNotification("Ticket imprimé avec succès", "success");
       } catch (error) {
-        // Gérer l'erreur d'impression
         console.error("Erreur d'impression:", error);
+        showNotification("Erreur lors de l'impression", "error");
       }
     },
     [printDocument]
@@ -442,40 +601,16 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
   // Naviguer vers la page des plats prêts
   const handleReadyDishes = useCallback(() => {
-    // Naviguer vers l'écran des plats prêts à servir
     navigation.navigate("ReadyDishes", {});
   }, [navigation]);
-
-  // Configuration du WebSocket
-  useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    // Se connecter au WebSocket
-    webSocketService.connect(user.tenantCode).catch((error) => {
-      console.error("WebSocket connection error:", error);
-      setError("Erreur de connexion au service de notification en temps réel");
-    });
-
-    // S'abonner aux notifications
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-
-    // Nettoyage à la destruction du composant
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode]);
 
   // Fonction pour marquer une table comme récemment modifiée (pour l'animation)
   const markTableAsRecentlyChanged = useCallback((tableId: number) => {
     setRecentlyChangedTables((prev) => [...prev, tableId]);
 
-    // Retirer la marque après un délai (pour terminer l'animation)
     setTimeout(() => {
       setRecentlyChangedTables((prev) => prev.filter((id) => id !== tableId));
-    }, 3000); // Animation de 3 secondes
+    }, 3000);
   }, []);
 
   // Définir les items de menu additionnels pour les serveurs
@@ -492,113 +627,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     },
   ];
 
-  // Gestionnaire de notifications WebSocket
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("Notification reçue:", notification);
-
-      // Gestion des mises à jour de statut de table
-      if (
-        notification.orderStatus ===
-          OrderNotificationStatus.TABLE_STATUS_UPDATE &&
-        notification.tableId
-      ) {
-        console.log(
-          `Table #${notification.tableId} nouvelle statut: ${notification.tableState}`
-        );
-
-        // Mise à jour du statut de la table selon la notification
-        setTables((prevTables) =>
-          prevTables.map((table) => {
-            if (table.tableData.id === notification.tableId) {
-              // Marquer la table comme récemment modifiée
-              markTableAsRecentlyChanged(notification.tableId);
-
-              return {
-                ...table,
-                status: notification.tableState.toLowerCase() as TableStatus,
-                // Réinitialiser les propriétés quand la table devient libre
-                ...(notification.tableState === "FREE"
-                  ? {
-                      occupationTime: undefined,
-                      orderCount: 0,
-                    }
-                  : {}),
-              };
-            }
-            return table;
-          })
-        );
-      }
-      // Gestion des nouvelles commandes
-      else if (
-        notification.orderStatus === OrderNotificationStatus.NEW_ORDER &&
-        notification.tableId
-      ) {
-        // Marquer la table comme récemment modifiée
-        markTableAsRecentlyChanged(notification.tableId);
-
-        // Mettre à jour la table avec le statut provenant du payload
-        setTables((prevTables) =>
-          prevTables.map((table) => {
-            if (table.tableData.id === notification.tableId) {
-              return {
-                ...table,
-                status: notification.tableState.toLowerCase() as TableStatus,
-                occupationTime:
-                  table.status === "free" ? 1 : table.occupationTime || 1,
-                orderCount: (table.orderCount || 0) + 1,
-              };
-            }
-            return table;
-          })
-        );
-      }
-      // Autres types de notifications (mises à jour de plats, etc.)
-      else {
-        // Mettre à jour la table avec le statut actuel si disponible
-        if (notification.tableId && notification.tableState) {
-          setTables((prevTables) =>
-            prevTables.map((table) => {
-              if (table.tableData.id === notification.tableId) {
-                // Marquer la table comme récemment modifiée pour les changements significatifs
-                if (table.status !== notification.tableState.toLowerCase()) {
-                  markTableAsRecentlyChanged(notification.tableId);
-                }
-
-                return {
-                  ...table,
-                  status: notification.tableState.toLowerCase() as TableStatus,
-                  // Réinitialiser les propriétés quand la table devient libre
-                  ...(notification.tableState === "FREE"
-                    ? {
-                        occupationTime: undefined,
-                        orderCount: 0,
-                      }
-                    : {}),
-                };
-              }
-              return table;
-            })
-          );
-        }
-
-        // Traiter les autres événements (plats prêts, etc.)
-        if (
-          notification.newState === "READY" ||
-          notification.newState === "COOKED"
-        ) {
-          loadReadyDishes();
-        } else if (
-          notification.newState === "SERVED" ||
-          notification.newState === "PAID"
-        ) {
-          loadReadyDishes();
-        }
-      }
-    },
-    [loadReadyDishes, markTableAsRecentlyChanged]
-  );
   // Charger les données au démarrage et à chaque fois que l'écran est affiché
   useEffect(() => {
     loadData();
@@ -609,6 +637,15 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       loadData();
     }, [loadData])
   );
+
+  // Afficher l'état de connexion Socket.io
+  useEffect(() => {
+    if (!isConnected && !isLoading) {
+      showNotification("Connexion au serveur perdue. Reconnexion...", "error");
+    } else if (isConnected && connectionStats?.reconnectAttempts > 0) {
+      showNotification("Reconnexion établie", "success");
+    }
+  }, [isConnected, connectionStats?.reconnectAttempts]);
 
   if (isLoading && !refreshing) {
     return (
@@ -663,7 +700,6 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
             <UrgentTasks
               tasks={urgentTasks}
               onTaskPress={(task) => {
-                // Si c'est une tâche de plats prêts, naviguer vers l'écran des plats prêts
                 if (task.type === "dish_ready") {
                   navigation.navigate("ReadyDishes", {
                     tableId: task.tableId,
@@ -682,7 +718,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         )}
       </View>
 
-      {/* Bouton d'action flottant pour ajouter rapidement une commande */}
+      {/* Bouton d'action flottant */}
       <FAB.Group
         open={fabOpen}
         icon={fabOpen ? "close" : "menu"}
@@ -691,14 +727,13 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
             icon: "account",
             label: "Mon compte",
             onPress: () => {
-              navigation.navigate("ProfilHome");
+              navigation.navigate("ProfilHome" as never);
             },
           },
         ]}
         onStateChange={({ open }) => setFabOpen(open)}
         onPress={() => {
           if (fabOpen) {
-            // Fermer le menu
             setFabOpen(false);
           }
         }}
@@ -717,7 +752,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         onAddToOrder={handleAddToOrder}
         onRequestBill={handleRequestBill}
         onPrintTicket={handlePrintTicket}
-        onServeReadyDishes={handleServeReadyDishes} // Ajout de la nouvelle prop
+        onServeReadyDishes={handleServeReadyDishes}
       />
 
       {/* Dialogue pour les fonctionnalités non disponibles */}
@@ -728,6 +763,20 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         }
         featureName={notAvailableDialog.featureName}
       />
+
+      {/* Snackbar pour les notifications */}
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+        duration={3000}
+        style={[
+          styles.snackbar,
+          snackbar.type === "error" && styles.snackbarError,
+          snackbar.type === "success" && styles.snackbarSuccess,
+        ]}
+      >
+        {snackbar.message}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -784,5 +833,14 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
+  },
+  snackbar: {
+    bottom: 0,
+  },
+  snackbarError: {
+    backgroundColor: "#D32F2F",
+  },
+  snackbarSuccess: {
+    backgroundColor: "#4CAF50",
   },
 });
