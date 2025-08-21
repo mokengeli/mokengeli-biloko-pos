@@ -11,6 +11,8 @@ import {
   Dialog,
   Button,
   Snackbar,
+  Chip,
+  Icon,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -22,11 +24,12 @@ import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import orderService, { DomainOrder } from "../../api/orderService";
 // CHANGEMENT: Import Socket.io au lieu de WebSocketService
 import { 
-  useSocketConnection, 
-  useOrderNotifications 
+  useSocketConnection
+   
 } from "../../hooks/useSocketConnection";
-import { OrderNotificationStatus } from "../../services/SocketIOService";
+import { ConnectionStatus, OrderNotificationStatus } from "../../services/SocketIOService";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 
 export const KitchenHomeScreen = () => {
   const { user } = useAuth();
@@ -125,20 +128,34 @@ export const KitchenHomeScreen = () => {
     }
   });
 
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case ConnectionStatus.AUTHENTICATED:
+        return theme.colors.primary;
+      case ConnectionStatus.CONNECTED:
+        return "#4CAF50";
+      case ConnectionStatus.CONNECTING:
+      case ConnectionStatus.RECONNECTING:
+        return theme.colors.tertiary;
+      case ConnectionStatus.DISCONNECTED:
+      case ConnectionStatus.FAILED:
+        return theme.colors.error;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
+
   // Gérer une notification de plat prêt
   const handleDishReadyNotification = useCallback((notification: any) => {
-    // Mise à jour optimiste : déplacer le plat des pending vers ready
     if (notification.itemId) {
       setPendingOrders(prev => {
         const updated = [...prev];
-        // Trouver et retirer l'item des commandes pending
         for (let order of updated) {
           const itemIndex = order.items.findIndex(item => item.id === notification.itemId);
           if (itemIndex !== -1) {
             const readyItem = order.items[itemIndex];
             order.items.splice(itemIndex, 1);
             
-            // Ajouter aux commandes prêtes
             setReadyOrders(prevReady => {
               const existingOrder = prevReady.find(o => o.id === order.id);
               if (existingOrder) {
@@ -158,14 +175,12 @@ export const KitchenHomeScreen = () => {
         return updated.filter(order => order.items.length > 0);
       });
     } else {
-      // Si pas d'itemId, recharger tout
       loadOrders();
     }
   }, []);
 
   // Gérer une notification de plat servi
   const handleDishServedNotification = useCallback((notification: any) => {
-    // Retirer le plat des commandes prêtes
     if (notification.itemId) {
       setReadyOrders(prev => {
         const updated = [...prev];
@@ -187,11 +202,11 @@ export const KitchenHomeScreen = () => {
   const handleTableFreedNotification = useCallback((notification: any) => {
     const tableId = notification.tableId;
     if (tableId) {
-      // Retirer toutes les commandes de cette table
       setPendingOrders(prev => prev.filter(order => order.tableId !== tableId));
       setReadyOrders(prev => prev.filter(order => order.tableId !== tableId));
     }
   }, []);
+
 
   // ============================================================================
   // FIN DES CHANGEMENTS Socket.io
@@ -504,7 +519,6 @@ export const KitchenHomeScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
-        {/* Bouton de retour pour les managers */}
         {isManager && (
           <Appbar.BackAction
             onPress={() => navigation.navigate("ManagerHome" as never)}
@@ -516,6 +530,25 @@ export const KitchenHomeScreen = () => {
             user?.firstName || ""
           } ${user?.lastName || ""}`}
         />
+        
+        {/* AMÉLIORATION: Indicateur de connexion Socket.io */}
+        <Chip
+          compact
+          mode="flat"
+          style={{ 
+            backgroundColor: getConnectionColor(),
+            marginRight: 8,
+            height: 24
+          }}
+          textStyle={{ color: 'white', fontSize: 10 }}
+        >
+          <Icon
+            name={isConnected ? "wifi" : "wifi-off"} 
+            size={12} 
+            color="white" 
+          />
+        </Chip>
+        
         <Appbar.Action
           icon="refresh"
           onPress={onRefresh}

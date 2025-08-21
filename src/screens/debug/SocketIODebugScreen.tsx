@@ -28,12 +28,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSocketConnection, useOrderNotifications } from '../../hooks/useSocketConnection';
+import { useSocketConnection } from '../../hooks/useSocketConnection';
 import { socketIOService, ConnectionStatus, OrderNotification } from '../../services/SocketIOService';
 import env from '../../config/environment';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
+import { useOrderNotifications } from '../../hooks/useOrderNotifications';
 
 interface DebugLog {
   id: string;
