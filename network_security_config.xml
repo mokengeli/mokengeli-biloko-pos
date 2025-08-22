@@ -34,7 +34,6 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.preprod.pos.mokengeli-biloko.com</domain>
         <domain includeSubdomains="true">preprod.pos.mokengeli-biloko.com</domain>
-        <domain includeSubdomains="true">pos.mokengeli-biloko.com</domain>
         
         <!-- Configuration TLS pour WebSocket -->
         <trust-anchors>
