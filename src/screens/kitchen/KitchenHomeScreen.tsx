@@ -27,7 +27,8 @@ import {
   useSocketConnection
    
 } from "../../hooks/useSocketConnection";
-import { ConnectionStatus, OrderNotificationStatus } from "../../services/SocketIOService";
+import { ConnectionStatus, OrderNotificationStatus } from '../../services/types/WebSocketTypes';
+
 import { HeaderMenu } from "../../components/common/HeaderMenu";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 

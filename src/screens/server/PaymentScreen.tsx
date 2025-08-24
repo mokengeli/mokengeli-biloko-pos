@@ -30,9 +30,9 @@ import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   webSocketService,
-  OrderNotification,
-  OrderNotificationStatus,
 } from "../../services/WebSocketService";
+import { OrderNotification, OrderNotificationStatus } from '../../services/types/WebSocketTypes';
+
 import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";

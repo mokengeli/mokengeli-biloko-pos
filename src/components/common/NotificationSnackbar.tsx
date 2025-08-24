@@ -3,7 +3,8 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Snackbar, Text, useTheme, IconButton } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { OrderNotification, OrderNotificationStatus } from '../../services/WebSocketService';
+import { OrderNotification, OrderNotificationStatus } from '../../services/types/WebSocketTypes';
+
 import { getNotificationMessage, getNotificationColor } from '../../utils/notificationHelpers';
 
 interface NotificationSnackbarProps {

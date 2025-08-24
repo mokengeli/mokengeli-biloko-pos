@@ -25,7 +25,7 @@ import envConfig from "../../config/environment";
 import { 
   useSocketConnection, 
 } from "../../hooks/useSocketConnection";
-import { ConnectionStatus } from "../../services/SocketIOService";
+import { ConnectionStatus } from '../../services/types/WebSocketTypes';
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 
 type ViewMode = "overview" | "server" | "kitchen";

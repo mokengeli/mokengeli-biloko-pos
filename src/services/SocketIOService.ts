@@ -5,54 +5,22 @@ import * as SecureStore from 'expo-secure-store';
 import env from '../config/environment';
 import { ConnectionManager } from './ConnectionManager';
 import { NotificationHandler } from './NotificationHandler';
+import {
+  ConnectionStatus,
+  OrderNotificationStatus,
+  OrderNotification,
+  SocketStats,
+  EventCallback,
+  StatusCallback
+} from './types/WebSocketTypes';
 
-// Types
-export enum ConnectionStatus {
-  CONNECTING = "CONNECTING",
-  CONNECTED = "CONNECTED",
-  DISCONNECTED = "DISCONNECTED",
-  RECONNECTING = "RECONNECTING",
-  FAILED = "FAILED",
-  AUTHENTICATED = "AUTHENTICATED",
-  ERROR = "ERROR"
-}
-
-export enum OrderNotificationStatus {
-  NEW_ORDER = "NEW_ORDER",
-  DISH_UPDATE = "DISH_UPDATE",
-  PAYMENT_UPDATE = "PAYMENT_UPDATE",
-  TABLE_STATUS_UPDATE = "TABLE_STATUS_UPDATE",
-  DEBT_VALIDATION_REQUEST = "DEBT_VALIDATION_REQUEST"
-}
-
-export interface OrderNotification {
-  orderId: number;
-  tableId: number;
-  tenantCode: string;
-  newState: string;
-  previousState: string;
-  tableState: "FREE" | "OCCUPIED" | "RESERVED";
-  orderStatus: OrderNotificationStatus;
-  timestamp: string;
-  itemId?: number;
-  metadata?: Record<string, any>;
-}
-
-export interface SocketStats {
-  isConnected: boolean;
-  connectionStatus: ConnectionStatus;
-  reconnectAttempts: number;
-  lastConnectionTime: number;
-  lastDisconnectionTime: number;
-  messagesSent: number;
-  messagesReceived: number;
-  errors: number;
-  latency: number;
-  transport: string | null;
-}
-
-type EventCallback = (data: any) => void;
-type StatusCallback = (status: ConnectionStatus) => void;
+// Export réexportés pour compatibilité
+export {
+  ConnectionStatus,
+  OrderNotificationStatus,
+  OrderNotification,
+  SocketStats
+} from './types/WebSocketTypes';
 
 /**
  * Service Socket.io optimisé pour React Native
@@ -100,6 +68,7 @@ class SocketIOService {
   // Health check
   private healthCheckTimer: NodeJS.Timeout | null = null;
   private lastHealthCheck: number = Date.now();
+
   
   constructor() {
     this.connectionManager = new ConnectionManager();

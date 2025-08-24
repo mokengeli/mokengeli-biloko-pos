@@ -9,37 +9,22 @@ import env from "../config/environment";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import api from "../api/apiConfig";
+import {
+  ConnectionStatus,
+  OrderNotificationStatus,
+  OrderNotification,
+  SubscriptionCallback,
+  ConnectionStatusCallback
+} from './types/WebSocketTypes';
 
-export type SubscriptionCallback = (notification: OrderNotification) => void;
-export type ConnectionStatusCallback = (status: ConnectionStatus) => void;
+// Export réexportés pour compatibilité
+export {
+  ConnectionStatus,
+  OrderNotificationStatus,
+  OrderNotification
+} from './types/WebSocketTypes';
 
-export enum ConnectionStatus {
-  CONNECTING = "CONNECTING",
-  CONNECTED = "CONNECTED",
-  DISCONNECTED = "DISCONNECTED",
-  RECONNECTING = "RECONNECTING",
-  FAILED = "FAILED",
-  SERVER_DOWN = "SERVER_DOWN",
-}
-
-export enum OrderNotificationStatus {
-  NEW_ORDER = "NEW_ORDER",
-  DISH_UPDATE = "DISH_UPDATE",
-  PAYMENT_UPDATE = "PAYMENT_UPDATE",
-  TABLE_STATUS_UPDATE = "TABLE_STATUS_UPDATE",
-  DEBT_VALIDATION_REQUEST = "DEBT_VALIDATION_REQUEST",
-}
-
-export interface OrderNotification {
-  orderId: number;
-  tableId: number;
-  tenantCode: string;
-  newState: string;
-  previousState: string;
-  tableState: "FREE" | "OCCUPIED" | "RESERVED";
-  orderStatus: OrderNotificationStatus;
-  timestamp: string;
-}
+export type { SubscriptionCallback, ConnectionStatusCallback } from './types/WebSocketTypes';
 
 class WebSocketService {
   private client: Client | null = null;

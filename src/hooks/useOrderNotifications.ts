@@ -3,7 +3,8 @@
 // ============================================================================
 
 import { useEffect, useState, useCallback } from 'react';
-import { socketIOService, OrderNotification, OrderNotificationStatus } from '../services/SocketIOService';
+import { socketIOService } from '../services/SocketIOService';
+import { OrderNotification, OrderNotificationStatus } from '../services/types/WebSocketTypes';
 
 export interface UseOrderNotificationsOptions {
   tableId?: number;

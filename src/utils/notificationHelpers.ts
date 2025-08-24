@@ -1,5 +1,5 @@
 // src/utils/notificationHelpers.ts
-import { OrderNotification, OrderNotificationStatus } from '../services/WebSocketService';
+import { OrderNotification, OrderNotificationStatus } from '../services/types/WebSocketTypes';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 

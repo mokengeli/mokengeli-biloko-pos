@@ -35,10 +35,10 @@ import api, {
   debugApiCall 
 } from '../../api/apiConfig';
 import { 
-  webSocketService, 
-  ConnectionStatus,
-  OrderNotification 
+  webSocketService
 } from '../../services/WebSocketService';
+import { ConnectionStatus, OrderNotification } from '../../services/types/WebSocketTypes';
+
 import env from '../../config/environment';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';

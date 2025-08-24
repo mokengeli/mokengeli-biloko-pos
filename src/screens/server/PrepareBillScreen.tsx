@@ -29,9 +29,9 @@ import orderService, {
 } from "../../api/orderService";
 import {
   webSocketService,
-  OrderNotification,
-  OrderNotificationStatus,
 } from "../../services/WebSocketService";
+import { OrderNotification, OrderNotificationStatus } from '../../services/types/WebSocketTypes';
+
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {

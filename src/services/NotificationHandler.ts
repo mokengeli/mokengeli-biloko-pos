@@ -1,5 +1,10 @@
 // src/services/NotificationHandler.ts
-import { OrderNotification, OrderNotificationStatus } from './SocketIOService';
+import { 
+  OrderNotification, 
+  OrderNotificationStatus,
+  NotificationCallback,
+  ErrorCallback 
+} from './types/WebSocketTypes';
 
 export interface NotificationQueue {
   pending: OrderNotification[];
@@ -14,9 +19,6 @@ export interface NotificationStats {
   byType: Record<string, number>;
   lastProcessedAt: number;
 }
-
-type NotificationCallback = (notification: OrderNotification) => void;
-type ErrorCallback = (error: Error, notification: OrderNotification) => void;
 
 /**
  * Gestionnaire centralisé pour le traitement des notifications
