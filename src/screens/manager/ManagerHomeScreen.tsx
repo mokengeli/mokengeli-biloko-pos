@@ -1,4 +1,4 @@
-// src/screens/manager/ManagerHomeScreen.tsx
+// src/screens/manager/ManagerHomeScreen.tsx - VERSION CORRIGÉE
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import {
@@ -21,7 +21,6 @@ import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
 import envConfig from "../../config/environment";
-// CHANGEMENT: Import Socket.io au lieu de WebSocket
 import { 
   useSocketConnection, 
 } from "../../hooks/useSocketConnection";
@@ -45,7 +44,7 @@ export const ManagerHomeScreen: React.FC = () => {
   });
 
   // ============================================================================
-  // NOUVEAU: Connexion Socket.io
+  // Connexion Socket.io
   // ============================================================================
   const { 
     isConnected, 
@@ -64,26 +63,29 @@ export const ManagerHomeScreen: React.FC = () => {
     count: notificationCount 
   } = useOrderNotifications({
     onNotification: (notification) => {
-      console.log("Manager received notification:", notification);
-      
-      // Notifications importantes pour le manager
-      switch (notification.orderStatus) {
-        case "DEBT_VALIDATION_REQUEST":
-          setSnackbar({
-            visible: true,
-            message: `Nouvelle demande de validation d'impayé - Table ${notification.tableId}`,
-            type: "info"
-          });
-          break;
-        case "PAYMENT_UPDATE":
-          if (notification.newState === "PAID_WITH_REJECTED_ITEM") {
+      // CORRECTION: S'assurer que notification est bien défini et utiliser JSON.stringify pour les objets
+      if (notification) {
+        console.log("Manager received notification:", JSON.stringify(notification));
+        
+        // Notifications importantes pour le manager
+        switch (notification.orderStatus) {
+          case "DEBT_VALIDATION_REQUEST":
             setSnackbar({
               visible: true,
-              message: `Paiement avec plats rejetés - Commande #${notification.orderId}`,
+              message: `Nouvelle demande de validation d'impayé - Table ${notification.tableId}`,
               type: "info"
             });
-          }
-          break;
+            break;
+          case "PAYMENT_UPDATE":
+            if (notification.newState === "PAID_WITH_REJECTED_ITEM") {
+              setSnackbar({
+                visible: true,
+                message: `Paiement avec plats rejetés - Commande #${notification.orderId}`,
+                type: "info"
+              });
+            }
+            break;
+        }
       }
     }
   });
@@ -138,15 +140,18 @@ export const ManagerHomeScreen: React.FC = () => {
       case ConnectionStatus.FAILED:
         return "Échec";
       default:
-        return connectionStatus;
+        return String(connectionStatus); // CORRECTION: Convertir en string
     }
   };
 
   // Afficher l'état de connexion dans la console en dev
   useEffect(() => {
     if (envConfig.environment !== "production") {
+      // CORRECTION: Utiliser JSON.stringify pour les objets
       console.log("[Manager] Socket connection status:", connectionStatus);
-      console.log("[Manager] Connection stats:", connectionStats);
+      if (connectionStats) {
+        console.log("[Manager] Connection stats:", JSON.stringify(connectionStats));
+      }
     }
   }, [connectionStatus, connectionStats]);
 
@@ -157,7 +162,7 @@ export const ManagerHomeScreen: React.FC = () => {
           title="Mokengeli Biloko POS - Manager"
           subtitle={`${user?.firstName || ""} ${user?.lastName || ""}`}
         />
-        {/* NOUVEAU: Indicateur de connexion Socket.io */}
+        {/* Indicateur de connexion Socket.io */}
         <View style={styles.connectionIndicator}>
           <Chip 
             compact
@@ -261,7 +266,6 @@ export const ManagerHomeScreen: React.FC = () => {
               {envConfig.environment !== "production" && (
                 <>
                   <Divider style={styles.divider} />
-                  {/* CHANGEMENT: Navigation vers SocketIODebugScreen */}
                   <List.Item
                     title="🔧 Debug Socket.io"
                     description="Outils de diagnostic (Dev only)"
@@ -292,7 +296,7 @@ export const ManagerHomeScreen: React.FC = () => {
               )}
             </Surface>
 
-            {/* NOUVEAU: Affichage des statistiques de connexion en mode dev */}
+            {/* Affichage des statistiques de connexion en mode dev */}
             {envConfig.environment !== "production" && connectionStats && (
               <Surface style={styles.statsCard}>
                 <Text style={styles.statsTitle}>📊 Socket.io Stats</Text>
@@ -304,11 +308,15 @@ export const ManagerHomeScreen: React.FC = () => {
                 </View>
                 <View style={styles.statsRow}>
                   <Text style={styles.statsLabel}>Latence:</Text>
-                  <Text style={styles.statsValue}>{connectionStats.latency || 0}ms</Text>
+                  <Text style={styles.statsValue}>
+                    {connectionStats.latency || 0}ms
+                  </Text>
                 </View>
                 <View style={styles.statsRow}>
                   <Text style={styles.statsLabel}>Transport:</Text>
-                  <Text style={styles.statsValue}>{connectionStats.transport || 'N/A'}</Text>
+                  <Text style={styles.statsValue}>
+                    {String(connectionStats.transport || 'N/A')}
+                  </Text>
                 </View>
               </Surface>
             )}
