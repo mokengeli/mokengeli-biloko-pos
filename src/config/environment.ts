@@ -12,6 +12,7 @@ export interface EnvConfig {
   wsUrl: string;
   useSecureConnection: boolean;
   apiDomain: string;
+  socketioUrl: string;
 }
 
 // URLs par défaut pour chaque environnement
@@ -42,9 +43,10 @@ function loadConfig(): EnvConfig {
   // Déterminer l'environnement
   const environment = extra.environment || (__DEV__ ? "development" : "production");
   
+  
   // Déterminer l'URL de l'API
   let apiUrl = extra.apiUrl;
-  
+  console.log("extra api = ", {extra})
   if (!apiUrl) {
     // Si pas d'URL définie, utiliser les valeurs par défaut
     if (__DEV__ && environment === "development") {
@@ -64,6 +66,9 @@ function loadConfig(): EnvConfig {
   } catch (e) {
     console.error("[Environment] Invalid API URL:", apiUrl);
   }
+
+   // Déterminer l'URL du socket
+  let socketioUrl = extra.socketioUrl;
   
   // Déterminer si on utilise HTTPS
   const useSecureConnection = apiUrl.startsWith("https://") || 
@@ -88,7 +93,8 @@ function loadConfig(): EnvConfig {
     enableDebugTools,
     wsUrl,
     useSecureConnection,
-    apiDomain
+    apiDomain,
+    socketioUrl,
   };
   
   // Log de la configuration chargée

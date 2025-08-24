@@ -624,13 +624,9 @@ class SocketIOService {
    * Construction de l'URL Socket.io
    */
   private buildSocketUrl(): string {
-    // Utiliser l'URL de l'API et adapter pour WebSocket
-    const baseUrl = env.apiUrl;
-    
-    // Socket.io utilise HTTP(S) pour l'handshake, pas WS(S)
-    // L'upgrade se fait automatiquement
-    return baseUrl;
-  }
+    // Utiliser le sous-domaine dédié
+    return env.socketioUrl;
+}
   
   /**
    * Attendre la connexion
