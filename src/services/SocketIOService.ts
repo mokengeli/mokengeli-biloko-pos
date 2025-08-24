@@ -55,26 +55,31 @@ class SocketIOService {
     transport: null
   };
   
-  // Configuration
+  // Configuration OPTIMISÉE pour éviter les timeouts intempestifs
   private readonly config = {
     maxReconnectAttempts: 10,
-    reconnectInterval: 1000,
+    reconnectInterval: 2000, // Augmenté de 1000 à 2000ms
     reconnectMultiplier: 1.5,
     maxReconnectInterval: 60000,
-    heartbeatInterval: 30000,
+    // CHANGEMENT: Augmentation significative du heartbeat pour éviter les faux positifs
+    heartbeatInterval: 60000, // Augmenté de 30s à 60s
+    heartbeatTimeout: 90000, // Nouveau: timeout pour considérer la connexion comme morte (1.5x heartbeatInterval)
+    pingInterval: 25000, // Intervalle de ping Socket.io
+    pingTimeout: 60000, // Timeout pour le pong
     debug: env.environment !== 'production'
   };
   
   // Health check
   private healthCheckTimer: NodeJS.Timeout | null = null;
   private lastHealthCheck: number = Date.now();
-
+  private lastPingTime: number = Date.now();
+  private lastPongTime: number = Date.now();
   
   constructor() {
     this.connectionManager = new ConnectionManager();
     this.notificationHandler = new NotificationHandler();
     this.setupAppStateListener();
-    this.log('SocketIO Service initialized');
+    this.log('SocketIO Service initialized with optimized timeouts');
   }
   
   /**
@@ -108,11 +113,11 @@ class SocketIOService {
       
       this.log(`Connecting to ${wsUrl} for tenant ${tenantCode}`);
       
-      // Options Socket.io optimisées pour React Native
+      // Options Socket.io optimisées pour React Native avec timeouts ajustés
       const socketOptions = {
         // Transport
-        transports: ['websocket', 'polling'], // WebSocket first, polling fallback
-        upgrade: true, // Tenter l'upgrade vers WebSocket
+        transports: ['websocket', 'polling'],
+        upgrade: true,
         
         // Authentification
         auth: {
@@ -135,13 +140,17 @@ class SocketIOService {
         reconnectionDelayMax: this.config.maxReconnectInterval,
         randomizationFactor: 0.5,
         
-        // Timeouts
-        timeout: 20000,
-        ackTimeout: 10000,
+        // CHANGEMENT: Timeouts augmentés pour éviter les déconnexions intempestives
+        timeout: 30000, // Augmenté de 20s à 30s
+        ackTimeout: 15000, // Augmenté de 10s à 15s
+        
+        // CHANGEMENT: Configuration des ping/pong pour une meilleure stabilité
+        pingInterval: this.config.pingInterval,
+        pingTimeout: this.config.pingTimeout,
         
         // React Native Android specific
         ...(Platform.OS === 'android' && {
-          forceBase64: true, // Important pour Android
+          forceBase64: true,
           jsonp: false,
           forceNew: true
         }),
@@ -182,6 +191,11 @@ class SocketIOService {
       this.stats.lastConnectionTime = Date.now();
       this.stats.reconnectAttempts = 0;
       this.stats.transport = this.socket?.io.engine.transport.name || null;
+      
+      // Réinitialiser les compteurs de santé
+      this.lastHealthCheck = Date.now();
+      this.lastPingTime = Date.now();
+      this.lastPongTime = Date.now();
       
       this.setStatus(ConnectionStatus.CONNECTED);
       this.authenticate();
@@ -239,6 +253,7 @@ class SocketIOService {
     this.socket.on('reconnect', (attemptNumber: number) => {
       this.log(`Reconnected after ${attemptNumber} attempts`);
       this.stats.reconnectAttempts = 0;
+      this.lastHealthCheck = Date.now(); // Réinitialiser le health check
       this.authenticate();
     });
     
@@ -259,9 +274,17 @@ class SocketIOService {
       }
     });
     
-    // Ping/Pong pour la latence
-    this.socket.on('pong', (latency: number) => {
-      this.stats.latency = latency;
+    // CHANGEMENT: Gestion améliorée du ping/pong
+    this.socket.on('ping', () => {
+      this.debugLog('Ping sent');
+      this.lastPingTime = Date.now();
+    });
+    
+    this.socket.on('pong', (latency?: number) => {
+      this.debugLog(`Pong received, latency: ${latency || Date.now() - this.lastPingTime}ms`);
+      this.lastPongTime = Date.now();
+      this.stats.latency = latency || (Date.now() - this.lastPingTime);
+      this.lastHealthCheck = Date.now(); // Réinitialiser le compteur de santé
     });
     
     // Notifications métier
@@ -278,6 +301,7 @@ class SocketIOService {
     this.socket.on('order:notification', (notification: OrderNotification) => {
       this.log('Order notification received', notification);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now(); // Réinitialiser à chaque message reçu
       
       // Traiter via le handler
       this.notificationHandler.processNotification(notification);
@@ -290,6 +314,7 @@ class SocketIOService {
     this.socket.on('table:update', (data: any) => {
       this.log('Table update received', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('table:update', data);
     });
     
@@ -297,6 +322,7 @@ class SocketIOService {
     this.socket.on('dish:ready', (data: any) => {
       this.log('Dish ready notification', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('dish:ready', data);
     });
     
@@ -304,6 +330,7 @@ class SocketIOService {
     this.socket.on('validation:required', (data: any) => {
       this.log('Validation required', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('validation:required', data);
     });
     
@@ -311,6 +338,7 @@ class SocketIOService {
     this.socket.on('tenant:broadcast', (data: any) => {
       this.log('Tenant broadcast received', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('tenant:broadcast', data);
     });
   }
@@ -360,7 +388,7 @@ class SocketIOService {
   }
   
   /**
-   * Health check périodique
+   * Health check périodique OPTIMISÉ
    */
   private startHealthCheck(): void {
     this.stopHealthCheck();
@@ -369,17 +397,38 @@ class SocketIOService {
       if (this.socket?.connected) {
         const now = Date.now();
         
-        // Ping pour mesurer la latence
-        this.socket.emit('ping');
+        // Calculer le temps depuis le dernier signe de vie
+        const timeSinceLastActivity = Math.min(
+          now - this.lastHealthCheck,
+          now - this.lastPongTime,
+          now - (this.stats.lastConnectionTime || 0)
+        );
         
-        // Vérifier la dernière activité
-        const timeSinceLastCheck = now - this.lastHealthCheck;
-        if (timeSinceLastCheck > this.config.heartbeatInterval * 2) {
-          this.logError('Health check timeout - connection may be stale');
-          this.reconnect();
+        // CHANGEMENT: Utiliser le nouveau timeout plus tolérant
+        if (timeSinceLastActivity > this.config.heartbeatTimeout) {
+          this.logError(`Health check timeout - no activity for ${Math.round(timeSinceLastActivity / 1000)}s`);
+          
+          // Vérifier si c'est vraiment un problème ou juste une période d'inactivité
+          if (this.socket?.connected) {
+            // Envoyer un ping manuel pour vérifier
+            this.socket.emit('ping');
+            
+            // Attendre un peu pour la réponse
+            setTimeout(() => {
+              const checkTime = Date.now();
+              if (checkTime - this.lastPongTime > this.config.heartbeatTimeout) {
+                this.logError('No pong response - connection is stale, reconnecting...');
+                this.reconnect();
+              } else {
+                this.debugLog('Connection is still alive after manual ping');
+              }
+            }, 5000);
+          } else {
+            this.reconnect();
+          }
+        } else {
+          this.debugLog(`Health check OK - last activity ${Math.round(timeSinceLastActivity / 1000)}s ago`);
         }
-        
-        this.lastHealthCheck = now;
       }
     }, this.config.heartbeatInterval);
   }
@@ -409,6 +458,14 @@ class SocketIOService {
       if (!this.socket?.connected && this.currentTenantCode) {
         this.log('App became active, reconnecting...');
         this.reconnect();
+      } else if (this.socket?.connected) {
+        // Réinitialiser les compteurs de santé
+        this.lastHealthCheck = Date.now();
+        this.lastPingTime = Date.now();
+        this.lastPongTime = Date.now();
+        
+        // Redémarrer le health check
+        this.startHealthCheck();
       }
     } else if (nextAppState === 'background') {
       // App en arrière-plan - garder la connexion mais arrêter le health check
@@ -469,6 +526,7 @@ class SocketIOService {
     
     this.log(`Emitting ${event}`, data);
     this.stats.messagesSent++;
+    this.lastHealthCheck = Date.now(); // Réinitialiser à chaque envoi
     
     if (callback) {
       this.socket.emit(event, data, callback);
@@ -593,9 +651,9 @@ class SocketIOService {
    * Construction de l'URL Socket.io
    */
   private buildSocketUrl(): string {
-    // Utiliser le sous-domaine dédié
-    return env.socketioUrl;
-}
+    // Utiliser le sous-domaine dédié si disponible
+    return env.socketioUrl || env.apiUrl;
+  }
   
   /**
    * Attendre la connexion
@@ -623,11 +681,17 @@ class SocketIOService {
   }
   
   /**
-   * Logging
+   * Logging avec niveaux
    */
   private log(...args: any[]): void {
     if (this.config.debug) {
       console.log('[SocketIO]', ...args);
+    }
+  }
+  
+  private debugLog(...args: any[]): void {
+    if (this.config.debug && env.environment === 'development') {
+      console.log('[SocketIO Debug]', ...args);
     }
   }
   
