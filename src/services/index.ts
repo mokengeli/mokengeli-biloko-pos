@@ -19,11 +19,7 @@ export {
   ErrorCallback
 } from './types/WebSocketTypes';
 
-// Services WebSocket (legacy)
-export { webSocketService } from './WebSocketService';
-export type { SubscriptionCallback as WSSubscriptionCallback } from './WebSocketService';
-
-// Services Socket.io (nouveau)
+// Services Socket.io (principal)
 export { socketIOService } from './SocketIOService';
 
 // Gestionnaires
@@ -32,3 +28,5 @@ export type { ConnectionConfig, ConnectionState } from './ConnectionManager';
 
 export { NotificationHandler } from './NotificationHandler';
 export type { NotificationQueue, NotificationStats } from './NotificationHandler';
+
+// ⚠️ WebSocketService est déprécié - utilisez SocketIOService

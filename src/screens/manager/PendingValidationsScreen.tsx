@@ -25,7 +25,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
-import { webSocketService } from "../../services/WebSocketService";
+// CHANGEMENT: Migration vers Socket.io
+import { useSocketConnection } from "../../hooks/useSocketConnection";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
+import { OrderNotificationStatus } from "../../services/types/WebSocketTypes";
 import orderService, { DebtValidationRequest } from "../../api/orderService";
 import PinInput from "../../components/common/PinInput";
 import { formatDistanceToNow } from "date-fns";
@@ -58,6 +61,29 @@ export const PendingValidationsScreen: React.FC<
   const [rejectReason, setRejectReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // ============================================================================
+  // MIGRATION: Utilisation de Socket.io au lieu de WebSocketService
+  // ============================================================================
+  
+  // Connexion Socket.io
+  const { 
+    isConnected,
+    status: connectionStatus 
+  } = useSocketConnection({
+    autoConnect: true,
+    showStatusNotifications: false
+  });
+
+  // Écouter les notifications de validation de dette
+  useOrderNotifications({
+    onNotification: (notification) => {
+      if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REQUEST) {
+        // Rafraîchir la liste quand une nouvelle demande arrive
+        loadPendingValidations();
+      }
+    }
+  });
+
   // Charger les validations en attente
   const loadPendingValidations = useCallback(async () => {
     if (!user?.tenantCode) return;
@@ -79,25 +105,6 @@ export const PendingValidationsScreen: React.FC<
       setRefreshing(false);
     }
   }, [user?.tenantCode]);
-
-  // WebSocket pour les mises à jour en temps réel
-  useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      (notification) => {
-        if (notification.orderStatus === "DEBT_VALIDATION_REQUEST") {
-          // Rafraîchir la liste
-          loadPendingValidations();
-        }
-      }
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode, loadPendingValidations]);
 
   // Charger au montage
   useEffect(() => {
@@ -204,7 +211,7 @@ export const PendingValidationsScreen: React.FC<
     }
   };
 
-  // Rendu d'une validation
+  // Rendu d'une validation (reste identique)
   const renderValidation = ({ item }: { item: DebtValidationRequest }) => {
     const timeAgo = formatDistanceToNow(new Date(item.createdAt), {
       addSuffix: true,
@@ -235,6 +242,15 @@ export const PendingValidationsScreen: React.FC<
               <Icon name="clock-outline" size={16} color="#666" />
               <Text style={styles.detailText}>{timeAgo}</Text>
             </View>
+            {/* Indicateur de connexion Socket.io */}
+            {!isConnected && (
+              <View style={styles.detailRow}>
+                <Icon name="wifi-off" size={16} color={theme.colors.error} />
+                <Text style={[styles.detailText, { color: theme.colors.error }]}>
+                  Hors ligne - Mises à jour désactivées
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.reasonContainer}>

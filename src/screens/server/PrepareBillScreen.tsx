@@ -27,11 +27,13 @@ import orderService, {
   DomainOrder,
   DomainOrderItem,
 } from "../../api/orderService";
-import {
-  webSocketService,
-} from "../../services/WebSocketService";
-import { OrderNotification, OrderNotificationStatus } from '../../services/types/WebSocketTypes';
-
+// CHANGEMENT: Migration vers Socket.io
+import { useSocketConnection } from "../../hooks/useSocketConnection";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
+import { 
+  OrderNotification, 
+  OrderNotificationStatus 
+} from "../../services/types/WebSocketTypes";
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -102,8 +104,26 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
 
-  // NOUVEL ÉTAT pour indiquer qu'on navigue vers le paiement
+  // État pour indiquer qu'on navigue vers le paiement
   const [isNavigatingToPayment, setIsNavigatingToPayment] = useState(false);
+
+  // ============================================================================
+  // MIGRATION: Utilisation de Socket.io au lieu de WebSocketService
+  // ============================================================================
+  
+  // Connexion Socket.io
+  const { 
+    isConnected,
+    status: connectionStatus 
+  } = useSocketConnection({
+    autoConnect: true,
+    showStatusNotifications: false
+  });
+
+  // Écouter les notifications
+  const { lastNotification } = useOrderNotifications({
+    onNotification: handleOrderNotification
+  });
 
   // Chargement des données de la commande
   const loadOrderDetails = useCallback(async () => {
@@ -145,75 +165,61 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     }
   }, [orderId]);
 
-  // Gestionnaire de notifications WebSocket MODIFIÉ
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("WebSocket notification received:", notification);
+  // Gestionnaire de notifications
+  function handleOrderNotification(notification: OrderNotification) {
+    console.log("PrepareBill - notification received:", notification);
 
-      // IGNORER les notifications si on navigue vers l'écran de paiement
-      if (isNavigatingToPayment) {
-        console.log('Ignoring notification while navigating to payment');
-        return;
+    // Ignorer les notifications si on navigue vers l'écran de paiement
+    if (isNavigatingToPayment) {
+      console.log('Ignoring notification while navigating to payment');
+      return;
+    }
+
+    // Ne traiter que les notifications pour cette commande
+    if (notification.orderId === orderId) {
+      // Rafraîchir silencieusement les données
+      switch (notification.orderStatus) {
+        case OrderNotificationStatus.PAYMENT_UPDATE:
+          // Rafraîchir les données
+          loadOrderDetails().then((updatedOrder) => {
+            // Vérifier si la commande est totalement payée
+            if ((updatedOrder?.remainingAmount || 0) <= 0) {
+              // Redirection avec message simple
+              Alert.alert(
+                "Commande entièrement payée",
+                "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => navigation.navigate("ServerHome" as never),
+                  },
+                ]
+              );
+            }
+          });
+          break;
+
+        case OrderNotificationStatus.DISH_UPDATE:
+          // Rafraîchir silencieusement
+          loadOrderDetails();
+          break;
+
+        default:
+          // Rafraîchir silencieusement pour tout autre changement
+          loadOrderDetails();
+          break;
       }
+    }
+  }
 
-      // Ne traiter que les notifications pour cette commande
-      if (notification.orderId === orderId) {
-        // SIMPLIFIER : Pas de notifications visuelles, juste rafraîchir les données
-        switch (notification.orderStatus) {
-          case OrderNotificationStatus.PAYMENT_UPDATE:
-            // Rafraîchir silencieusement les données
-            loadOrderDetails().then((updatedOrder) => {
-              // Vérifier si la commande est totalement payée
-              if ((updatedOrder?.remainingAmount || 0) <= 0) {
-                // Redirection avec message simple
-                Alert.alert(
-                  "Commande entièrement payée",
-                  "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => navigation.navigate("ServerHome" as never),
-                    },
-                  ]
-                );
-              }
-              // Pas de snackbar pour les paiements partiels
-            });
-            break;
-
-          case OrderNotificationStatus.DISH_UPDATE:
-            // Rafraîchir silencieusement
-            loadOrderDetails();
-            break;
-
-          default:
-            // Rafraîchir silencieusement pour tout autre changement
-            loadOrderDetails();
-            break;
-        }
-      }
-    },
-    [orderId, loadOrderDetails, navigation, isNavigatingToPayment]
-  );
-
-  // Configurer la connexion WebSocket
+  // Afficher l'état de connexion si déconnecté
   useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    webSocketService.connect(user.tenantCode).catch((error) => {
-      console.error("WebSocket connection error:", error);
-      setError("Erreur de connexion au service de notification en temps réel");
-    });
-
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode, handleOrderNotification]);
+    if (!isConnected && !isLoading) {
+      setError("Connexion au service de notification perdue. Les mises à jour en temps réel peuvent ne pas fonctionner.");
+    } else if (isConnected && error?.includes("Connexion")) {
+      setError(null);
+    }
+  }, [isConnected, isLoading, error]);
 
   // Calculer le total des articles sélectionnés
   const calculateSelectedTotal = useCallback(() => {
