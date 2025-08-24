@@ -13,7 +13,8 @@
         "API_URL_COMMENT": "Remplacez par l'IP de votre machine locale sur le réseau",
         "API_TIMEOUT": "25000",
         "NODE_ENV": "development",
-        "USE_SECURE_CONNECTION": "false"
+        "USE_SECURE_CONNECTION": "false",
+        "SOCKETIO_URL": "http://localhost:9092"
       },
       "android": {
         "buildType": "apk"
@@ -26,7 +27,8 @@
         "API_URL": "https://api.preprod.pos.mokengeli-biloko.com",
         "API_TIMEOUT": "25000",
         "NODE_ENV": "staging",
-        "USE_SECURE_CONNECTION": "true"
+        "USE_SECURE_CONNECTION": "true",
+        "SOCKETIO_URL": "https://socket.preprod.pos.mokengeli-biloko.com"
       },
       "android": {
         "buildType": "apk"
@@ -39,7 +41,8 @@
         "API_URL": "https://api.preprod.pos.mokengeli-biloko.com",
         "API_TIMEOUT": "25000",
         "NODE_ENV": "staging",
-        "USE_SECURE_CONNECTION": "true"
+        "USE_SECURE_CONNECTION": "true",
+        "SOCKETIO_URL": "https://socket.preprod.pos.mokengeli-biloko.com"
       },
       "android": {
         "buildType": "apk"
@@ -51,7 +54,8 @@
         "API_URL": "https://api.pos.mokengeli-biloko.com",
         "API_TIMEOUT": "30000",
         "NODE_ENV": "production",
-        "USE_SECURE_CONNECTION": "true"
+        "USE_SECURE_CONNECTION": "true",
+        "SOCKETIO_URL": "https://socket.pos.mokengeli-biloko.com"
       }
     }
   },

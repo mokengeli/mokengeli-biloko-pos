@@ -10,22 +10,46 @@
         <domain includeSubdomains="true">127.0.0.1</domain>
         
         <!-- Réseaux locaux pour développement -->
-        <!-- Si votre machine est sur 192.168.x.x -->
         <domain includeSubdomains="true">192.168.1.1</domain>
         <domain includeSubdomains="true">192.168.1.100</domain>
-        <!-- Ajoutez votre IP locale ici si différente -->
+        <domain includeSubdomains="true">192.168.0.1</domain>
+        <domain includeSubdomains="true">192.168.0.100</domain>
+        
+        <!-- Réseau 10.x.x.x pour certains réseaux d'entreprise -->
+        <domain includeSubdomains="true">10.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.1.1</domain>
+        
+        <!-- ngrok pour développement (temporaire) -->
+        <domain includeSubdomains="true">*.ngrok.io</domain>
+        <domain includeSubdomains="true">*.ngrok-free.app</domain>
+        
+        <!-- Socket.io polling fallback nécessite ces domaines -->
+        <domain includeSubdomains="true">engineio.com</domain>
+        <domain includeSubdomains="true">socket.io</domain>
     </domain-config>
     
     <!-- =================================================================== -->
-    <!-- STAGING/PREPROD : HTTPS uniquement                                 -->
+    <!-- STAGING/PREPROD : HTTPS uniquement avec WebSocket                  -->
     <!-- =================================================================== -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.preprod.pos.mokengeli-biloko.com</domain>
         <domain includeSubdomains="true">preprod.pos.mokengeli-biloko.com</domain>
-        <!-- <pin-set expiration="2025-12-31"> -->
-        <!-- Optionnel : Certificate pinning pour plus de sécurité -->
-        <!-- <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin> -->
-        <!-- </pin-set> -->
+        
+        <!-- Configuration TLS pour WebSocket -->
+        <trust-anchors>
+            <certificates src="system"/>
+            <!-- Accepter les certificats Let's Encrypt -->
+            <certificates src="user" overridePins="false"/>
+        </trust-anchors>
+        
+        <!-- Certificate pinning optionnel pour staging -->
+        <!-- À activer une fois les certificats stables -->
+        <!--
+        <pin-set expiration="2025-12-31">
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <pin digest="SHA-256">BACKUP_PIN_HERE</pin>
+        </pin-set>
+        -->
     </domain-config>
 
     <!-- =================================================================== -->
@@ -34,20 +58,47 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.pos.mokengeli-biloko.com</domain>
         <domain includeSubdomains="true">pos.mokengeli-biloko.com</domain>
-        <!--  <pin-set expiration="2025-12-31"> -->
-        <!-- Optionnel : Certificate pinning pour production -->
-        <!-- <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin> -->
-        <!--  </pin-set> -->
+        
+        <!-- Configuration TLS stricte pour production -->
+        <trust-anchors>
+            <certificates src="system"/>
+            <!-- Ne PAS accepter les certificats utilisateur en production -->
+        </trust-anchors>
+        
+        <!-- Certificate pinning pour production (recommandé) -->
+        <!-- Remplacer par les vrais hashes SHA-256 de vos certificats -->
+        <!--
+        <pin-set expiration="2026-01-01">
+            <pin digest="SHA-256">YOUR_PRODUCTION_CERT_SHA256_HERE</pin>
+            <pin digest="SHA-256">BACKUP_CERT_SHA256_HERE</pin>
+        </pin-set>
+        -->
+    </domain-config>
+    
+    <!-- =================================================================== -->
+    <!-- IMPRIMANTES RÉSEAU LOCAL : Autoriser HTTP pour les imprimantes     -->
+    <!-- =================================================================== -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Plages IP typiques des imprimantes réseau -->
+        <domain includeSubdomains="true">192.168.1.0/24</domain>
+        <domain includeSubdomains="true">192.168.0.0/24</domain>
+        <domain includeSubdomains="true">10.0.0.0/24</domain>
+        <domain includeSubdomains="true">10.0.1.0/24</domain>
+        
+        <!-- Ports d'imprimantes courants -->
+        <!-- Note: Android ne permet pas de spécifier les ports directement -->
+        <!-- Ces domaines couvrent les imprimantes IPP/HTTP -->
+        <domain includeSubdomains="true">*.local</domain>
+        <domain includeSubdomains="true">printer.local</domain>
     </domain-config>
 
     <!-- =================================================================== -->
-    <!-- CONFIGURATION PAR DÉFAUT : trafic clair autorisé (développement)   -->
+    <!-- CONFIGURATION PAR DÉFAUT : Production sécurisée                    -->
     <!-- =================================================================== -->
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
+            <!-- Certificats système uniquement par défaut -->
             <certificates src="system"/>
-            <!-- En debug seulement, accepter les certificats utilisateur -->
-            <certificates src="user" overridePins="true" />
         </trust-anchors>
     </base-config>
 
@@ -55,9 +106,18 @@
     <!-- DEBUG OVERRIDES : Pour développement uniquement                    -->
     <!-- =================================================================== -->
     <debug-overrides>
+        <!-- En mode debug, accepter tous les certificats -->
         <trust-anchors>
             <certificates src="system"/>
             <certificates src="user"/>
         </trust-anchors>
+        
+        <!-- Autoriser le trafic clair en debug (dev local) -->
+        <base-config cleartextTrafficPermitted="true">
+            <trust-anchors>
+                <certificates src="system"/>
+                <certificates src="user"/>
+            </trust-anchors>
+        </base-config>
     </debug-overrides>
 </network-security-config>

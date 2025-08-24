@@ -11,6 +11,8 @@ import {
   Dialog,
   Button,
   Snackbar,
+  Chip,
+  Icon,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -20,11 +22,14 @@ import { KitchenFilter } from "../../components/kitchen/KitchenFilter";
 import { OrderCard } from "../../components/kitchen/OrderCard";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import orderService, { DomainOrder } from "../../api/orderService";
-import {
-  webSocketService,
-  OrderNotification,
-} from "../../services/WebSocketService";
+// CHANGEMENT: Import Socket.io au lieu de WebSocketService
+import { 
+  useSocketConnection
+   
+} from "../../hooks/useSocketConnection";
+import { ConnectionStatus, OrderNotificationStatus } from "../../services/SocketIOService";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 
 export const KitchenHomeScreen = () => {
   const { user } = useAuth();
@@ -59,6 +64,153 @@ export const KitchenHomeScreen = () => {
   });
 
   const isManager = RolesUtils.hasRole(user?.roles, Role.MANAGER);
+
+  // ============================================================================
+  // CHANGEMENT: Utilisation de Socket.io au lieu de WebSocketService
+  // ============================================================================
+  
+  // Connexion Socket.io avec auto-connexion
+  const { 
+    isConnected, 
+    status: connectionStatus,
+    stats: connectionStats 
+  } = useSocketConnection({
+    autoConnect: true,
+    showStatusNotifications: false, // On gère nos propres notifications
+    reconnectOnFocus: true
+  });
+
+  // Écouter les notifications de commande
+  const { 
+    notifications, 
+    lastNotification,
+    count: notificationCount 
+  } = useOrderNotifications({
+    onNotification: (notification) => {
+      console.log("Kitchen received notification:", notification);
+      
+      // Traiter selon le type de notification
+      switch (notification.orderStatus) {
+        case OrderNotificationStatus.NEW_ORDER:
+          // Nouvelle commande - recharger les commandes en attente
+          loadOrders();
+          showInfoSnackbar(`Nouvelle commande #${notification.orderId} reçue`);
+          break;
+          
+        case OrderNotificationStatus.DISH_UPDATE:
+          // Mise à jour d'un plat
+          if (notification.newState === "READY" || notification.newState === "COOKED") {
+            // Un plat est prêt - le déplacer vers les commandes prêtes
+            handleDishReadyNotification(notification);
+          } else if (notification.newState === "SERVED") {
+            // Un plat a été servi - le retirer des commandes prêtes
+            handleDishServedNotification(notification);
+          } else {
+            // Autre mise à jour - recharger
+            loadOrders();
+          }
+          showInfoSnackbar(`Plat mis à jour - Commande #${notification.orderId}`);
+          break;
+          
+        case OrderNotificationStatus.TABLE_STATUS_UPDATE:
+          // Changement de statut de table - peut affecter les commandes
+          if (notification.tableState === "FREE") {
+            // Table libérée - retirer les commandes associées
+            handleTableFreedNotification(notification);
+          }
+          break;
+          
+        default:
+          // Pour les autres types, recharger les données
+          loadOrders();
+          break;
+      }
+    }
+  });
+
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case ConnectionStatus.AUTHENTICATED:
+        return theme.colors.primary;
+      case ConnectionStatus.CONNECTED:
+        return "#4CAF50";
+      case ConnectionStatus.CONNECTING:
+      case ConnectionStatus.RECONNECTING:
+        return theme.colors.tertiary;
+      case ConnectionStatus.DISCONNECTED:
+      case ConnectionStatus.FAILED:
+        return theme.colors.error;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
+
+  // Gérer une notification de plat prêt
+  const handleDishReadyNotification = useCallback((notification: any) => {
+    if (notification.itemId) {
+      setPendingOrders(prev => {
+        const updated = [...prev];
+        for (let order of updated) {
+          const itemIndex = order.items.findIndex(item => item.id === notification.itemId);
+          if (itemIndex !== -1) {
+            const readyItem = order.items[itemIndex];
+            order.items.splice(itemIndex, 1);
+            
+            setReadyOrders(prevReady => {
+              const existingOrder = prevReady.find(o => o.id === order.id);
+              if (existingOrder) {
+                existingOrder.items.push({ ...readyItem, state: 'READY' });
+                return [...prevReady];
+              } else {
+                return [...prevReady, {
+                  ...order,
+                  items: [{ ...readyItem, state: 'READY' }]
+                }];
+              }
+            });
+            
+            break;
+          }
+        }
+        return updated.filter(order => order.items.length > 0);
+      });
+    } else {
+      loadOrders();
+    }
+  }, []);
+
+  // Gérer une notification de plat servi
+  const handleDishServedNotification = useCallback((notification: any) => {
+    if (notification.itemId) {
+      setReadyOrders(prev => {
+        const updated = [...prev];
+        for (let order of updated) {
+          const itemIndex = order.items.findIndex(item => item.id === notification.itemId);
+          if (itemIndex !== -1) {
+            order.items.splice(itemIndex, 1);
+            break;
+          }
+        }
+        return updated.filter(order => order.items.length > 0);
+      });
+    } else {
+      loadOrders();
+    }
+  }, []);
+
+  // Gérer une notification de table libérée
+  const handleTableFreedNotification = useCallback((notification: any) => {
+    const tableId = notification.tableId;
+    if (tableId) {
+      setPendingOrders(prev => prev.filter(order => order.tableId !== tableId));
+      setReadyOrders(prev => prev.filter(order => order.tableId !== tableId));
+    }
+  }, []);
+
+
+  // ============================================================================
+  // FIN DES CHANGEMENTS Socket.io
+  // ============================================================================
 
   // Fonction pour trier les commandes par date (plus anciennes en premier)
   const sortOrdersByDate = useCallback(
@@ -174,58 +326,13 @@ export const KitchenHomeScreen = () => {
       const { orderIndex } = result;
       const affectedOrder = { ...pendingOrders[orderIndex] };
 
-      // Mettre à jour les états locaux pour refléter le changement
-      // 1. Supprimer l'élément des commandes en attente
-      setPendingOrders((prev) => {
-        const updatedItems = affectedOrder.items.filter(
-          (item) => item.id !== itemId
-        );
-
-        // Si c'est le dernier élément de la commande, supprimer la commande
-        if (updatedItems.length === 0) {
-          return prev.filter((_, index) => index !== orderIndex);
-        }
-
-        // Sinon, mettre à jour les éléments de la commande
-        const newOrders = [...prev];
-        newOrders[orderIndex] = {
-          ...affectedOrder,
-          items: updatedItems,
-        };
-        return newOrders;
-      });
-
-      // 2. Ajouter l'élément aux commandes prêtes
-      // Récupérer les infos du plat avant qu'il ne soit filtré
-      const movedItem = {
-        ...affectedOrder.items.find((item) => item.id === itemId)!,
-      };
-
-      // Modifier son état pour l'afficher correctement
-      movedItem.state = "READY";
-
-      setReadyOrders((prev) => {
-        // Vérifier si la commande existe déjà dans les commandes prêtes
-        const existingOrderIndex = prev.findIndex(
-          (o) => o.id === affectedOrder.id
-        );
-
-        if (existingOrderIndex !== -1) {
-          // La commande existe, ajouter l'élément à ses items
-          const newOrders = [...prev];
-          newOrders[existingOrderIndex] = {
-            ...newOrders[existingOrderIndex],
-            items: [...newOrders[existingOrderIndex].items, movedItem],
-          };
-          return sortOrdersByDate(newOrders);
-        } else {
-          // Créer une nouvelle entrée pour cette commande
-          const newOrder = {
-            ...affectedOrder,
-            items: [movedItem],
-          };
-          return sortOrdersByDate([...prev, newOrder]);
-        }
+      // Mise à jour optimiste déjà gérée par la notification WebSocket
+      // Mais on peut faire une mise à jour immédiate pour la réactivité
+      handleDishReadyNotification({ 
+        itemId, 
+        orderId: affectedOrder.id,
+        orderStatus: OrderNotificationStatus.DISH_UPDATE,
+        newState: 'READY'
       });
 
       // Afficher la notification de succès
@@ -339,62 +446,6 @@ export const KitchenHomeScreen = () => {
     return Array.from(categories);
   };
 
-  // Gestion des WebSockets pour les mises à jour en temps réel
-  useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    // Se connecter au WebSocket au montage du composant
-    webSocketService.connect(user.tenantCode).catch((error) => {
-      console.error("WebSocket connection error:", error);
-      showErrorSnackbar(
-        "Erreur de connexion au service de mise à jour en temps réel"
-      );
-    });
-
-    // S'abonner aux notifications
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-
-    // Nettoyage à la destruction du composant
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode]);
-
-  // Gestionnaire de notifications WebSocket - Version optimisée
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("Processing notification:", notification);
-
-      // En fonction du type de notification, mettre à jour différemment
-      if (
-        notification.previousState === "PENDING" &&
-        notification.newState === "READY"
-      ) {
-        // Plat passé de PENDING à READY
-        // On pourrait faire une mise à jour optimisée ici, mais comme nous ne disposons pas
-        // de toutes les informations nécessaires dans la notification (item ID spécifique),
-        // nous allons recharger les données pour le moment
-        loadOrders();
-      } else if (notification.newState === "PENDING") {
-        // Nouvelle commande ou nouveau plat ajouté
-        // Ici aussi, nous ne disposons pas des détails complets de la commande
-        loadOrders();
-      } else {
-        // Pour les autres types de changements d'état, également recharger
-        loadOrders();
-      }
-
-      // Afficher une notification à l'utilisateur
-      showInfoSnackbar(
-        `Commande #${notification.orderId} mise à jour: ${notification.newState}`
-      );
-    },
-    [loadOrders]
-  );
-
   // Chargement initial et à chaque focus
   useEffect(() => {
     loadOrders();
@@ -405,6 +456,15 @@ export const KitchenHomeScreen = () => {
       loadOrders();
     }, [loadOrders])
   );
+
+  // Afficher l'indicateur de connexion Socket.io dans la barre
+  useEffect(() => {
+    if (!isConnected && !isLoading) {
+      showErrorSnackbar("Connexion au serveur perdue. Tentative de reconnexion...");
+    } else if (isConnected && connectionStats?.reconnectAttempts > 0) {
+      showInfoSnackbar("Reconnexion au serveur établie");
+    }
+  }, [isConnected, connectionStats?.reconnectAttempts]);
 
   // Filtrer les commandes selon les catégories sélectionnées
   const getFilteredOrders = (orders: DomainOrder[]) => {
@@ -459,7 +519,6 @@ export const KitchenHomeScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header style={styles.appbar}>
-        {/* Bouton de retour pour les managers */}
         {isManager && (
           <Appbar.BackAction
             onPress={() => navigation.navigate("ManagerHome" as never)}
@@ -471,12 +530,31 @@ export const KitchenHomeScreen = () => {
             user?.firstName || ""
           } ${user?.lastName || ""}`}
         />
+        
+        {/* AMÉLIORATION: Indicateur de connexion Socket.io */}
+        <Chip
+          compact
+          mode="flat"
+          style={{ 
+            backgroundColor: getConnectionColor(),
+            marginRight: 8,
+            height: 24
+          }}
+          textStyle={{ color: 'white', fontSize: 10 }}
+        >
+          <Icon
+            name={isConnected ? "wifi" : "wifi-off"} 
+            size={12} 
+            color="white" 
+          />
+        </Chip>
+        
         <Appbar.Action
           icon="refresh"
           onPress={onRefresh}
           disabled={refreshing}
         />
-        <HeaderMenu  />
+        <HeaderMenu />
       </Appbar.Header>
 
       {/* Filtres de catégories */}
@@ -565,6 +643,7 @@ export const KitchenHomeScreen = () => {
       >
         {infoSnackbar.message}
       </Snackbar>
+      
       {/* Snackbar d'erreur */}
       <Snackbar
         visible={snackbarError.visible}

@@ -17,11 +17,12 @@ const getApiConfig = () => {
     process.env.API_URL || "https://api.preprod.pos.mokengeli-biloko.com";
   const environment = process.env.NODE_ENV || "production";
   const useSecure = process.env.USE_SECURE_CONNECTION === "true";
-
+  const socketioUrl = process.env.SOCKETIO_URL;
   return {
     apiUrl,
     environment,
     useSecure,
+    socketioUrl,
     domain: extractDomain(apiUrl),
   };
 };
@@ -137,6 +138,9 @@ export default {
       environment: config.environment,
       useSecureConnection: config.useSecure,
       apiDomain: config.domain,
+      // Version de l'app pour Socket.io
+      appVersion: "1.0.0",
+      socketioUrl: config.socketioUrl,
       eas: {
         projectId: "fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
       },
@@ -149,19 +153,22 @@ export default {
     runtimeVersion: "1.0.0",
 
     // =============================================================================
-    // PLUGINS
+    // PLUGINS - ORDRE IMPORTANT
     // =============================================================================
     plugins: [
       // OTA
       "expo-updates",
 
-      // Config réseau (si tu gardes ce plugin custom)
+      // Configuration réseau (network security)
       "./plugins/withNetworkSecurity",
 
-      // Permissions d'impression (plugin custom)
+      // NOUVEAU : Configuration ProGuard pour Socket.io
+      "./plugins/withProguardRules",
+
+      // Permissions d'impression
       "./plugins/withPrinterPermissions",
 
-      // Propriétés de build
+      // Propriétés de build - DOIT ÊTRE EN DERNIER
       [
         "expo-build-properties",
         {
@@ -171,6 +178,10 @@ export default {
             targetSdkVersion: 35,
             minSdkVersion: 24,
             // Ne pas définir buildToolsVersion : AGP choisira 35.0.0
+
+            // IMPORTANT : S'assurer que ProGuard est activé pour les builds release
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
           },
           ios: {
             deploymentTarget: "15.1",
@@ -188,4 +199,6 @@ console.log("[App Config] Loaded configuration:", {
   useSecure: config.useSecure,
   domain: config.domain,
   cleartext: true,
+  socketioUrl: config.socketioUrl,
+  proguard: "enabled via plugin",
 });

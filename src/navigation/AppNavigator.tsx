@@ -7,9 +7,9 @@ import { LoginScreen } from "../screens/LoginScreen";
 import { ServerHomeScreen } from "../screens/server/ServerHomeScreen";
 import { CreateOrderScreen } from "../screens/server/CreateOrderScreen";
 import { DishCustomizationScreen } from "../screens/server/DishCustomizationScreen";
+import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
 import { ReadyDishesScreen } from "../screens/server/ReadyDishesScreen";
 import { ProfilScreen } from "../screens/ProfilScreen";
-import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
 import { KitchenHomeScreen } from "../screens/kitchen/KitchenHomeScreen";
 import { RolesUtils } from "../utils/roles";
 import { PrepareBillScreen } from "../screens/server/PrepareBillScreen";
@@ -20,14 +20,14 @@ import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
-import { WebSocketDebugScreen } from "../screens/debug/WebSocketDebugScreen";
+// CHANGEMENT: Import du nouveau SocketIODebugScreen au lieu de WebSocketDebugScreen
+import { SocketIODebugScreen } from "../screens/debug/SocketIODebugScreen";
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
   Login: undefined;
 };
 
-// Types des paramètres pour les routes principales
 // Types des paramètres pour les routes principales
 export type MainStackParamList = {
   ServerHome: undefined;
@@ -77,6 +77,9 @@ export type MainStackParamList = {
     numberOfPeople: number;
     currency: string;
   };
+  // CHANGEMENT: Renommer la route de debug
+  SocketIODebug: undefined;
+  // Garder l'ancienne route pour la compatibilité temporaire
   WebSocketDebug: undefined;
 };
 
@@ -142,12 +145,24 @@ const MainNavigator: React.FC = () => {
         name="PendingValidations"
         component={PendingValidationsScreen}
       />
-      {/* Écrans de debug */}
+      
+      {/* CHANGEMENT: Écran de debug Socket.io */}
       <MainStack.Screen
-        name="WebSocketDebug"
-        component={WebSocketDebugScreen}
+        name="SocketIODebug"
+        component={SocketIODebugScreen}
         options={{
           headerShown: false,
+          title: "Debug Socket.io",
+        }}
+      />
+      
+      {/* Compatibilité temporaire: rediriger l'ancienne route vers le nouveau debug */}
+      <MainStack.Screen
+        name="WebSocketDebug"
+        component={SocketIODebugScreen}
+        options={{
+          headerShown: false,
+          title: "Debug Socket.io (Legacy)",
         }}
       />
     </MainStack.Navigator>
