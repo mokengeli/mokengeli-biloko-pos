@@ -26,6 +26,7 @@ import {
 } from "../../hooks/useSocketConnection";
 import { ConnectionStatus } from '../../services/types/WebSocketTypes';
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
+import { NavigationHelper } from "../../utils/navigationHelper";
 
 type ViewMode = "overview" | "server" | "kitchen";
 
@@ -146,7 +147,7 @@ export const ManagerHomeScreen: React.FC = () => {
 
   // Afficher l'état de connexion dans la console en dev
   useEffect(() => {
-    if (envConfig.environment !== "production") {
+    if (envConfig.environment === 'development' || __DEV__) {
       // CORRECTION: Utiliser JSON.stringify pour les objets
       console.log("[Manager] Socket connection status:", connectionStatus);
       if (connectionStats) {
@@ -263,7 +264,8 @@ export const ManagerHomeScreen: React.FC = () => {
                 disabled
               />
               
-              {envConfig.environment !== "production" && (
+              {/* Écran de debug - seulement en développement */}
+              {(envConfig.environment === 'development' || __DEV__) && (
                 <>
                   <Divider style={styles.divider} />
                   <List.Item
@@ -288,16 +290,14 @@ export const ManagerHomeScreen: React.FC = () => {
                         <Badge style={{ backgroundColor: "#FF5722" }}>DEV</Badge>
                       </View>
                     )}
-                    onPress={() =>
-                      navigation.navigate("SocketIODebug" as never)
-                    }
+                    onPress={() => NavigationHelper.navigateToDebug(navigation)}
                   />
                 </>
               )}
             </Surface>
 
             {/* Affichage des statistiques de connexion en mode dev */}
-            {envConfig.environment !== "production" && connectionStats && (
+            {(envConfig.environment === 'development' || __DEV__) && connectionStats && (
               <Surface style={styles.statsCard}>
                 <Text style={styles.statsTitle}>📊 Socket.io Stats</Text>
                 <View style={styles.statsRow}>
