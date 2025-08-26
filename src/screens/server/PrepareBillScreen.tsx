@@ -30,10 +30,12 @@ import orderService, {
 // CHANGEMENT: Migration vers Socket.io
 import { useSocketConnection } from "../../hooks/useSocketConnection";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
-import { 
-  OrderNotification, 
-  OrderNotificationStatus 
+import {
+  ConnectionStatus,
+  OrderNotification,
+  OrderNotificationStatus,
 } from "../../services/types/WebSocketTypes";
+import { socketIOService } from "../../services";
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -110,19 +112,28 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
   // ============================================================================
   // MIGRATION: Utilisation de Socket.io au lieu de WebSocketService
   // ============================================================================
-  
+
   // Connexion Socket.io
-  const { 
-    isConnected,
-    status: connectionStatus 
-  } = useSocketConnection({
-    autoConnect: true,
-    showStatusNotifications: false
-  });
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(
+    socketIOService.getStatus()
+  );
+
+  // Écouter les changements via le service
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED ||
+          status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+    return unsubscribe;
+  }, []);
 
   // Écouter les notifications
   const { lastNotification } = useOrderNotifications({
-    onNotification: handleOrderNotification
+    onNotification: handleOrderNotification,
   });
 
   // Chargement des données de la commande
@@ -171,7 +182,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
 
     // Ignorer les notifications si on navigue vers l'écran de paiement
     if (isNavigatingToPayment) {
-      console.log('Ignoring notification while navigating to payment');
+      console.log("Ignoring notification while navigating to payment");
       return;
     }
 
@@ -215,7 +226,9 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
   // Afficher l'état de connexion si déconnecté
   useEffect(() => {
     if (!isConnected && !isLoading) {
-      setError("Connexion au service de notification perdue. Les mises à jour en temps réel peuvent ne pas fonctionner.");
+      setError(
+        "Connexion au service de notification perdue. Les mises à jour en temps réel peuvent ne pas fonctionner."
+      );
     } else if (isConnected && error?.includes("Connexion")) {
       setError(null);
     }
@@ -302,14 +315,19 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
       Alert.alert(
         "Commande déjà payée",
         "Cette commande a été entièrement payée.",
-        [{ text: "OK", onPress: () => navigation.navigate("ServerHome" as never) }]
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("ServerHome" as never),
+          },
+        ]
       );
       return;
     }
 
     // MARQUER qu'on navigue vers le paiement
     setIsNavigatingToPayment(true);
-    
+
     // Réinitialiser le flag après un délai
     setTimeout(() => {
       setIsNavigatingToPayment(false);
@@ -329,17 +347,20 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
 
       const selectedTotal = Math.min(calculateSelectedTotal(), remainingAmount);
 
-      navigation.navigate("PaymentScreen" as never, {
-        orderId,
-        tableName,
-        tableId,
-        selectedItems,
-        totalAmount: calculateOrderTotal(),
-        paidAmount: calculatePaidAmount(),
-        remainingAmount: remainingAmount,
-        currency: order?.currency.code || "EUR",
-        paymentMode: "items",
-      } as never);
+      navigation.navigate(
+        "PaymentScreen" as never,
+        {
+          orderId,
+          tableName,
+          tableId,
+          selectedItems,
+          totalAmount: calculateOrderTotal(),
+          paidAmount: calculatePaidAmount(),
+          remainingAmount: remainingAmount,
+          currency: order?.currency.code || "EUR",
+          paymentMode: "items",
+        } as never
+      );
     } else {
       const customAmountValue = calculateCustomAmount();
 
@@ -353,17 +374,20 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         return;
       }
 
-      navigation.navigate("PaymentScreen" as never, {
-        orderId,
-        tableName,
-        tableId,
-        totalAmount: calculateOrderTotal(),
-        paidAmount: calculatePaidAmount(),
-        remainingAmount: remainingAmount,
-        currency: order?.currency.code || "EUR",
-        paymentMode: "amount",
-        customAmount: customAmountValue,
-      } as never);
+      navigation.navigate(
+        "PaymentScreen" as never,
+        {
+          orderId,
+          tableName,
+          tableId,
+          totalAmount: calculateOrderTotal(),
+          paidAmount: calculatePaidAmount(),
+          remainingAmount: remainingAmount,
+          currency: order?.currency.code || "EUR",
+          paymentMode: "amount",
+          customAmount: customAmountValue,
+        } as never
+      );
     }
   };
 
@@ -791,7 +815,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                 Procéder au paiement
               </Button>
             </View>
-            
+
             {/* Bouton pour clôturer avec impayé */}
             {calculateRemainingAmount() > 0 && (
               <>
@@ -799,13 +823,16 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                 <Button
                   mode="text"
                   onPress={() => {
-                    navigation.navigate("CloseWithDebt" as never, {
-                      orderId,
-                      tableName: tableName || "",
-                      tableId: tableId || 0,
-                      remainingAmount: calculateRemainingAmount(),
-                      currency: order?.currency.code || "EUR",
-                    } as never);
+                    navigation.navigate(
+                      "CloseWithDebt" as never,
+                      {
+                        orderId,
+                        tableName: tableName || "",
+                        tableId: tableId || 0,
+                        remainingAmount: calculateRemainingAmount(),
+                        currency: order?.currency.code || "EUR",
+                      } as never
+                    );
                   }}
                   style={styles.debtButton}
                   textColor={theme.colors.error}

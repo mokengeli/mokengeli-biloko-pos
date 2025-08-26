@@ -25,7 +25,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
-import { useSocketConnection } from "../../hooks/useSocketConnection";
+// CHANGEMENT: Import direct du service Socket.io au lieu du hook
+import { socketIOService } from "../../services/SocketIOService";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 import { OrderNotificationStatus, ConnectionStatus } from "../../services/types/WebSocketTypes";
 import orderService, { DebtValidationRequest } from "../../api/orderService";
@@ -61,21 +62,28 @@ export const PendingValidationsScreen: React.FC<
   const [isProcessing, setIsProcessing] = useState(false);
 
   // ============================================================================
-  // CORRECTION: Utilisation cohérente de useSocketConnection comme dans ServerHomeScreen
+  // CHANGEMENT: Utiliser directement le service Socket.io au lieu du hook
+  // Cela évite de créer une nouvelle connexion
   // ============================================================================
   
-  // Connexion Socket.io avec les mêmes options que ServerHomeScreen
-  const { 
-    isConnected,
-    status: connectionStatus,
-    stats: connectionStats
-  } = useSocketConnection({
-    autoConnect: true,
-    showStatusNotifications: false,
-    reconnectOnFocus: true // Important pour la reconnexion au retour
-  });
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(socketIOService.getStatus());
+  const [connectionStats] = useState(socketIOService.getStats());
 
-  // Écouter les notifications de validation de dette
+  // Écouter l'état de connexion via le service directement
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED || 
+        status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Écouter les notifications de validation de dette SANS créer une nouvelle connexion
   useOrderNotifications({
     onNotification: (notification) => {
       if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REQUEST) {
@@ -319,7 +327,7 @@ export const PendingValidationsScreen: React.FC<
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Validations en attente" />
         
-        {/* CORRECTION: Ajout de l'indicateur de connexion Socket.io comme dans ServerHomeScreen */}
+        {/* CHANGEMENT: Indicateur de connexion Socket.io comme dans ServerHomeScreen */}
         <View style={styles.connectionBadge}>
           <Chip 
             compact
@@ -362,7 +370,7 @@ export const PendingValidationsScreen: React.FC<
           {!isConnected && (
             <View style={styles.connectionWarning}>
               <Icon name="wifi-off" size={20} color={theme.colors.error} />
-              <Text style={[styles.detailText, { color: theme.colors.error }]}>
+              <Text style={[styles.warningText, { color: theme.colors.error }]}>
                 Hors ligne - Les mises à jour en temps réel sont désactivées
               </Text>
             </View>
@@ -500,6 +508,10 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#FFEBEE",
     borderRadius: 8,
+  },
+  warningText: {
+    marginLeft: 8,
+    fontSize: 14,
   },
   loadingContainer: {
     flex: 1,

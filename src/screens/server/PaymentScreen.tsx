@@ -32,12 +32,14 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useSocketConnection } from "../../hooks/useSocketConnection";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 import { 
+  ConnectionStatus,
   OrderNotification, 
   OrderNotificationStatus 
 } from "../../services/types/WebSocketTypes";
 import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";
+import { socketIOService } from "../../services";
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -132,13 +134,20 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // ============================================================================
   
   // Connexion Socket.io
-  const { 
-    isConnected,
-    status: connectionStatus 
-  } = useSocketConnection({
-    autoConnect: true,
-    showStatusNotifications: false
-  });
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(socketIOService.getStatus());
+  
+  // Écouter les changements via le service
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED || 
+        status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+    return unsubscribe;
+  }, []);
 
   // Écouter les notifications
   const { lastNotification } = useOrderNotifications({
