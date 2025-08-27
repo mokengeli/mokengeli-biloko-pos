@@ -33,7 +33,7 @@ import {
   useSocketConnection, 
  
 } from "../../hooks/useSocketConnection";
-import { OrderNotificationStatus, ConnectionStatus } from "../../services/SocketIOService";
+import { OrderNotificationStatus, ConnectionStatus } from "../../services/types/WebSocketTypes";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";

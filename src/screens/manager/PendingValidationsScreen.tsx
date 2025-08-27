@@ -1,4 +1,4 @@
-// src/screens/manager/PendingValidationsScreen.tsx
+// src/screens/manager/PendingValidationsScreen.tsx - VERSION CORRIGÉE
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
@@ -25,7 +25,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
-import { webSocketService } from "../../services/WebSocketService";
+// CHANGEMENT: Import direct du service Socket.io au lieu du hook
+import { socketIOService } from "../../services/SocketIOService";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
+import { OrderNotificationStatus, ConnectionStatus } from "../../services/types/WebSocketTypes";
 import orderService, { DebtValidationRequest } from "../../api/orderService";
 import PinInput from "../../components/common/PinInput";
 import { formatDistanceToNow } from "date-fns";
@@ -58,6 +61,74 @@ export const PendingValidationsScreen: React.FC<
   const [rejectReason, setRejectReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // ============================================================================
+  // CHANGEMENT: Utiliser directement le service Socket.io au lieu du hook
+  // Cela évite de créer une nouvelle connexion
+  // ============================================================================
+  
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(socketIOService.getStatus());
+  const [connectionStats] = useState(socketIOService.getStats());
+
+  // Écouter l'état de connexion via le service directement
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED || 
+        status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Écouter les notifications de validation de dette SANS créer une nouvelle connexion
+  useOrderNotifications({
+    onNotification: (notification) => {
+      if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REQUEST) {
+        // Rafraîchir la liste quand une nouvelle demande arrive
+        loadPendingValidations();
+      }
+    }
+  });
+
+  // Obtenir la couleur du statut de connexion (même logique que ServerHomeScreen)
+  const getConnectionColor = () => {
+    switch (connectionStatus) {
+      case ConnectionStatus.AUTHENTICATED:
+        return theme.colors.primary;
+      case ConnectionStatus.CONNECTED:
+        return "#4CAF50";
+      case ConnectionStatus.CONNECTING:
+      case ConnectionStatus.RECONNECTING:
+        return theme.colors.tertiary;
+      case ConnectionStatus.DISCONNECTED:
+      case ConnectionStatus.FAILED:
+        return theme.colors.error;
+      default:
+        return theme.colors.onSurface;
+    }
+  };
+
+  // Obtenir l'icône du statut (même logique que ServerHomeScreen)
+  const getConnectionIcon = () => {
+    switch (connectionStatus) {
+      case ConnectionStatus.AUTHENTICATED:
+      case ConnectionStatus.CONNECTED:
+        return "wifi";
+      case ConnectionStatus.CONNECTING:
+      case ConnectionStatus.RECONNECTING:
+        return "wifi-strength-2";
+      case ConnectionStatus.DISCONNECTED:
+        return "wifi-off";
+      case ConnectionStatus.FAILED:
+        return "wifi-alert";
+      default:
+        return "wifi";
+    }
+  };
+
   // Charger les validations en attente
   const loadPendingValidations = useCallback(async () => {
     if (!user?.tenantCode) return;
@@ -79,25 +150,6 @@ export const PendingValidationsScreen: React.FC<
       setRefreshing(false);
     }
   }, [user?.tenantCode]);
-
-  // WebSocket pour les mises à jour en temps réel
-  useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      (notification) => {
-        if (notification.orderStatus === "DEBT_VALIDATION_REQUEST") {
-          // Rafraîchir la liste
-          loadPendingValidations();
-        }
-      }
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode, loadPendingValidations]);
 
   // Charger au montage
   useEffect(() => {
@@ -274,6 +326,32 @@ export const PendingValidationsScreen: React.FC<
       <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Validations en attente" />
+        
+        {/* CHANGEMENT: Indicateur de connexion Socket.io comme dans ServerHomeScreen */}
+        <View style={styles.connectionBadge}>
+          <Chip 
+            compact
+            mode="flat"
+            style={{ 
+              backgroundColor: getConnectionColor(),
+              paddingHorizontal: 8,
+              height: 24
+            }}
+            textStyle={{ color: 'white', fontSize: 10 }}
+          >
+            <Icon 
+              name={getConnectionIcon()} 
+              size={14} 
+              color="white" 
+            />
+            {connectionStats?.latency > 0 && ` ${connectionStats.latency}ms`}
+          </Chip>
+        </View>
+        
+        <Appbar.Action 
+          icon="refresh" 
+          onPress={onRefresh}
+        />
       </Appbar.Header>
 
       {isLoading && validations.length === 0 ? (
@@ -288,6 +366,15 @@ export const PendingValidationsScreen: React.FC<
           <Text style={styles.emptyText}>
             Toutes les demandes ont été traitées
           </Text>
+          {/* Afficher l'état de connexion si déconnecté */}
+          {!isConnected && (
+            <View style={styles.connectionWarning}>
+              <Icon name="wifi-off" size={20} color={theme.colors.error} />
+              <Text style={[styles.warningText, { color: theme.colors.error }]}>
+                Hors ligne - Les mises à jour en temps réel sont désactivées
+              </Text>
+            </View>
+          )}
         </View>
       ) : (
         <FlatList
@@ -410,6 +497,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+  },
+  connectionBadge: {
+    marginRight: 8,
+  },
+  connectionWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: "#FFEBEE",
+    borderRadius: 8,
+  },
+  warningText: {
+    marginLeft: 8,
+    fontSize: 14,
   },
   loadingContainer: {
     flex: 1,

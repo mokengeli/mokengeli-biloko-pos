@@ -28,14 +28,18 @@ import orderService from "../../api/orderService";
 import { usePrinter } from "../../hooks/usePrinter";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  webSocketService,
-  OrderNotification,
-  OrderNotificationStatus,
-} from "../../services/WebSocketService";
+// CHANGEMENT: Migration vers Socket.io
+import { useSocketConnection } from "../../hooks/useSocketConnection";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
+import { 
+  ConnectionStatus,
+  OrderNotification, 
+  OrderNotificationStatus 
+} from "../../services/types/WebSocketTypes";
 import { NotificationSnackbar } from "../../components/common/NotificationSnackbar";
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";
+import { socketIOService } from "../../services";
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -110,7 +114,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [receiptModalVisible, setReceiptModalVisible] = useState(false);
 
-  // États pour les notifications WebSocket
+  // États pour les notifications
   const [currentNotification, setCurrentNotification] =
     useState<OrderNotification | null>(null);
   const [notificationVisible, setNotificationVisible] = useState(false);
@@ -120,10 +124,35 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [redirectAfterReceipt, setRedirectAfterReceipt] =
     useState<RedirectionTarget>(null);
 
-  // NOUVEAUX ÉTATS pour ignorer les notifications pendant le traitement local
+  // États pour ignorer les notifications pendant le traitement local
   const [isLocalProcessing, setIsLocalProcessing] = useState(false);
   const [lastProcessedPaymentTime, setLastProcessedPaymentTime] =
     useState<number>(0);
+
+  // ============================================================================
+  // MIGRATION: Utilisation de Socket.io au lieu de WebSocketService
+  // ============================================================================
+  
+  // Connexion Socket.io
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(socketIOService.getStatus());
+  
+  // Écouter les changements via le service
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED || 
+        status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+    return unsubscribe;
+  }, []);
+
+  // Écouter les notifications
+  const { lastNotification } = useOrderNotifications({
+    onNotification: handleOrderNotification
+  });
 
   // Rafraîchir les données de la commande
   const refreshOrderData = useCallback(async () => {
@@ -151,95 +180,75 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   }, [orderId, remainingAmount]);
 
-  // Gestionnaire de notifications WebSocket MODIFIÉ
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("WebSocket notification received:", notification);
+  // Gestionnaire de notifications
+  function handleOrderNotification(notification: OrderNotification) {
+    console.log("Payment screen - notification received:", notification);
 
-      // IGNORER les notifications pendant le traitement local ou juste après
-      const timeSinceLastPayment = Date.now() - lastProcessedPaymentTime;
-      if (isLocalProcessing || timeSinceLastPayment < 3000) {
-        console.log("Ignoring notification during local processing");
+    // Ignorer les notifications pendant le traitement local ou juste après
+    const timeSinceLastPayment = Date.now() - lastProcessedPaymentTime;
+    if (isLocalProcessing || timeSinceLastPayment < 3000) {
+      console.log("Ignoring notification during local processing");
+      return;
+    }
+
+    // Ne traiter que les notifications pour cette commande
+    if (notification.orderId === orderId) {
+      // Ne pas afficher de notification si le modal de reçu est visible
+      if (receiptModalVisible) {
+        console.log("Receipt modal is visible, ignoring notification UI");
+        refreshOrderData();
         return;
       }
 
-      // Ne traiter que les notifications pour cette commande
-      if (notification.orderId === orderId) {
-        // NE PAS afficher de notification si le modal de reçu est visible
-        if (receiptModalVisible) {
-          console.log("Receipt modal is visible, ignoring notification UI");
+      // Pour les autres cas, traiter normalement mais de manière simplifiée
+      switch (notification.orderStatus) {
+        case OrderNotificationStatus.PAYMENT_UPDATE:
+          // Seulement rafraîchir les données, pas de snackbar
+          refreshOrderData().then((updatedRemaining) => {
+            // Redirection silencieuse si nécessaire
+            if (
+              updatedRemaining <= 0 &&
+              !receiptModalVisible &&
+              !isLocalProcessing
+            ) {
+              // Notification discrète uniquement si c'est un paiement externe
+              setCurrentNotification(notification);
+              setNotificationVisible(true);
+
+              // Redirection après un délai
+              setTimeout(() => {
+                setRedirectAfterReceipt("ServerHome");
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: "ServerHome" }],
+                  })
+                );
+              }, 2000);
+            }
+          });
+          break;
+
+        case OrderNotificationStatus.DISH_UPDATE:
+          // Rafraîchir silencieusement
           refreshOrderData();
-          return;
-        }
+          break;
 
-        // Pour les autres cas, traiter normalement mais de manière simplifiée
-        switch (notification.orderStatus) {
-          case OrderNotificationStatus.PAYMENT_UPDATE:
-            // Seulement rafraîchir les données, pas de snackbar
-            refreshOrderData().then((updatedRemaining) => {
-              // Redirection silencieuse si nécessaire
-              if (
-                updatedRemaining <= 0 &&
-                !receiptModalVisible &&
-                !isLocalProcessing
-              ) {
-                // Notification discrète uniquement si c'est un paiement externe
-                setCurrentNotification(notification);
-                setNotificationVisible(true);
-
-                // Redirection après un délai
-                setTimeout(() => {
-                  setRedirectAfterReceipt("ServerHome");
-                  navigation.dispatch(
-                    CommonActions.reset({
-                      index: 0,
-                      routes: [{ name: "ServerHome" }],
-                    })
-                  );
-                }, 2000);
-              }
-            });
-            break;
-
-          case OrderNotificationStatus.DISH_UPDATE:
-            // Rafraîchir silencieusement
-            refreshOrderData();
-            break;
-
-          default:
-            refreshOrderData();
-            break;
-        }
+        default:
+          refreshOrderData();
+          break;
       }
-    },
-    [
-      orderId,
-      refreshOrderData,
-      isLocalProcessing,
-      lastProcessedPaymentTime,
-      receiptModalVisible,
-      navigation,
-    ]
-  );
+    }
+  }
 
-  // Configurer la connexion WebSocket
+  // Afficher les erreurs de connexion
   useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    webSocketService.connect(user.tenantCode).catch((error) => {
-      console.error("WebSocket connection error:", error);
-      setError("Erreur de connexion au service de notification en temps réel");
-    });
-
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode, handleOrderNotification]);
+    if (!isConnected && !isProcessing) {
+      setError("Connexion au service de notification perdue. Les mises à jour en temps réel peuvent ne pas fonctionner.");
+    } else if (isConnected) {
+      setError(null);
+    }
+  }, [isConnected, isProcessing]);
 
   // Calculer la monnaie à rendre
   const calculateChange = (): number => {
@@ -349,12 +358,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     finalizePendingPayment(effectiveAmount);
   };
 
-  // Finaliser un paiement en attente MODIFIÉ
+  // Finaliser un paiement en attente
   const finalizePendingPayment = async (effectiveAmount: number) => {
     setIsProcessing(true);
     setError(null);
-    setIsLocalProcessing(true); // MARQUER le début du traitement local
-    setLastProcessedPaymentTime(Date.now()); // ENREGISTRER le timestamp
+    setIsLocalProcessing(true); // Marquer le début du traitement local
+    setLastProcessedPaymentTime(Date.now()); // Enregistrer le timestamp
 
     try {
       const paymentRequest = {
@@ -385,7 +394,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     } catch (err: any) {
       console.error("Error processing payment:", err);
       setError(err.message || "Erreur lors du traitement du paiement");
-      setIsLocalProcessing(false); // RÉINITIALISER en cas d'erreur
+      setIsLocalProcessing(false); // Réinitialiser en cas d'erreur
 
       Alert.alert(
         "Erreur",
@@ -485,6 +494,15 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
           title="Paiement"
           subtitle={tableName ? `Table: ${tableName}` : `Commande #${orderId}`}
         />
+        {/* Indicateur de connexion Socket.io */}
+        {!isConnected && (
+          <Icon 
+            name="wifi-off" 
+            size={20} 
+            color={theme.colors.error} 
+            style={{ marginRight: 16 }}
+          />
+        )}
       </Appbar.Header>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
@@ -762,7 +780,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         </Modal>
       </Portal>
 
-      {/* Snackbar SIMPLIFIÉ - uniquement pour les notifications externes */}
+      {/* Snackbar pour les notifications externes */}
       {!isLocalProcessing && !receiptModalVisible && currentNotification && (
         <SnackbarContainer bottomOffset={80}>
           <NotificationSnackbar
@@ -892,13 +910,13 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "white",
     padding: 16,
-    paddingBottom: 24, // Ajouter cet espace supplémentaire
+    paddingBottom: 24,
     flexDirection: "row",
     justifyContent: "space-between",
-    elevation: 8, // Ajouter une élévation pour l'ombre
-    borderTopLeftRadius: 16, // Optionnel : coins arrondis
-    borderTopRightRadius: 16, // Optionnel : coins arrondis
-    zIndex: 10, // S'assurer qu'il est au-dessus
+    elevation: 8,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    zIndex: 10,
   },
   cancelButton: {
     flex: 1,

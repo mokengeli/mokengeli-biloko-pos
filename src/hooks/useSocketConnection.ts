@@ -1,6 +1,8 @@
 // src/hooks/useSocketConnection.ts
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { socketIOService, ConnectionStatus } from '../services/SocketIOService';
+import { socketIOService } from '../services/SocketIOService';
+import { ConnectionStatus } from '../services/types/WebSocketTypes';
+
 import { useAuth } from '../contexts/AuthContext';
 import { Snackbar } from 'react-native-paper';
 

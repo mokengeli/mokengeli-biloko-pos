@@ -1,58 +1,26 @@
-// src/services/SocketIOService.ts
+// src/services/SocketIOService.ts - VERSION CORRIGÉE
 import { io, Socket } from 'socket.io-client';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import env from '../config/environment';
 import { ConnectionManager } from './ConnectionManager';
 import { NotificationHandler } from './NotificationHandler';
+import {
+  ConnectionStatus,
+  OrderNotificationStatus,
+  OrderNotification,
+  SocketStats,
+  EventCallback,
+  StatusCallback
+} from './types/WebSocketTypes';
 
-// Types
-export enum ConnectionStatus {
-  CONNECTING = "CONNECTING",
-  CONNECTED = "CONNECTED",
-  DISCONNECTED = "DISCONNECTED",
-  RECONNECTING = "RECONNECTING",
-  FAILED = "FAILED",
-  AUTHENTICATED = "AUTHENTICATED",
-  ERROR = "ERROR"
-}
-
-export enum OrderNotificationStatus {
-  NEW_ORDER = "NEW_ORDER",
-  DISH_UPDATE = "DISH_UPDATE",
-  PAYMENT_UPDATE = "PAYMENT_UPDATE",
-  TABLE_STATUS_UPDATE = "TABLE_STATUS_UPDATE",
-  DEBT_VALIDATION_REQUEST = "DEBT_VALIDATION_REQUEST"
-}
-
-export interface OrderNotification {
-  orderId: number;
-  tableId: number;
-  tenantCode: string;
-  newState: string;
-  previousState: string;
-  tableState: "FREE" | "OCCUPIED" | "RESERVED";
-  orderStatus: OrderNotificationStatus;
-  timestamp: string;
-  itemId?: number;
-  metadata?: Record<string, any>;
-}
-
-export interface SocketStats {
-  isConnected: boolean;
-  connectionStatus: ConnectionStatus;
-  reconnectAttempts: number;
-  lastConnectionTime: number;
-  lastDisconnectionTime: number;
-  messagesSent: number;
-  messagesReceived: number;
-  errors: number;
-  latency: number;
-  transport: string | null;
-}
-
-type EventCallback = (data: any) => void;
-type StatusCallback = (status: ConnectionStatus) => void;
+// Export réexportés pour compatibilité
+export {
+  ConnectionStatus,
+  OrderNotificationStatus,
+  OrderNotification,
+  SocketStats
+} from './types/WebSocketTypes';
 
 /**
  * Service Socket.io optimisé pour React Native
@@ -87,34 +55,50 @@ class SocketIOService {
     transport: null
   };
   
-  // Configuration
+  // Configuration OPTIMISÉE pour éviter les timeouts intempestifs
   private readonly config = {
     maxReconnectAttempts: 10,
-    reconnectInterval: 1000,
+    reconnectInterval: 2000,
     reconnectMultiplier: 1.5,
     maxReconnectInterval: 60000,
-    heartbeatInterval: 30000,
+    heartbeatInterval: 60000,
+    heartbeatTimeout: 90000,
+    pingInterval: 25000,
+    pingTimeout: 60000,
     debug: env.environment !== 'production'
   };
   
   // Health check
   private healthCheckTimer: NodeJS.Timeout | null = null;
   private lastHealthCheck: number = Date.now();
+  private lastPingTime: number = Date.now();
+  private lastPongTime: number = Date.now();
   
   constructor() {
     this.connectionManager = new ConnectionManager();
     this.notificationHandler = new NotificationHandler();
     this.setupAppStateListener();
-    this.log('SocketIO Service initialized');
+    this.log('SocketIO Service initialized with optimized timeouts');
   }
   
   /**
    * Connexion au serveur Socket.io
    */
   async connect(tenantCode: string): Promise<void> {
+    // CORRECTION 1: Validation du tenantCode
+    if (!tenantCode) {
+      throw new Error('TenantCode is required for connection');
+    }
+    
     // Vérifier si déjà connecté au même tenant
     if (this.socket?.connected && this.currentTenantCode === tenantCode) {
       this.log('Already connected to the same tenant');
+      return;
+    }
+    
+    // Vérifier si une connexion est déjà en cours
+    if (this.currentStatus === ConnectionStatus.CONNECTING) {
+      this.log('Connection already in progress');
       return;
     }
     
@@ -124,6 +108,7 @@ class SocketIOService {
       await this.disconnect();
     }
     
+    // CORRECTION 2: Stocker le tenantCode AVANT la connexion
     this.currentTenantCode = tenantCode;
     this.setStatus(ConnectionStatus.CONNECTING);
     
@@ -139,24 +124,24 @@ class SocketIOService {
       
       this.log(`Connecting to ${wsUrl} for tenant ${tenantCode}`);
       
-      // Options Socket.io optimisées pour React Native
+      // Options Socket.io optimisées pour React Native avec timeouts ajustés
       const socketOptions = {
-        // Transport
-        transports: ['websocket', 'polling'], // WebSocket first, polling fallback
-        upgrade: true, // Tenter l'upgrade vers WebSocket
+        // Transport - Préférer websocket pour React Native
+        transports: ['websocket', 'polling'],
+        upgrade: true,
         
-        // Authentification
+        // CORRECTION 3: S'assurer que le tenantCode est bien passé dans auth et query
         auth: {
           token: token,
-          tenantCode: tenantCode,
+          tenantCode: tenantCode, // Utiliser directement le paramètre
           platform: Platform.OS,
           appVersion: env.appVersion || '1.0.0'
         },
         
-        // Query params (fallback pour auth)
         query: {
           token: token,
-          tenant: tenantCode
+          tenant: tenantCode, // Utiliser directement le paramètre
+          tenantCode: tenantCode // Ajouter aussi avec le nom complet
         },
         
         // Reconnexion
@@ -167,18 +152,22 @@ class SocketIOService {
         randomizationFactor: 0.5,
         
         // Timeouts
-        timeout: 20000,
-        ackTimeout: 10000,
+        timeout: 30000,
+        ackTimeout: 15000,
+        
+        // Configuration des ping/pong
+        pingInterval: this.config.pingInterval,
+        pingTimeout: this.config.pingTimeout,
         
         // React Native Android specific
         ...(Platform.OS === 'android' && {
-          forceBase64: true, // Important pour Android
+          forceBase64: true,
           jsonp: false,
           forceNew: true
         }),
         
         // Options supplémentaires
-        autoConnect: true,
+        autoConnect: false, // IMPORTANT: Ne pas auto-connecter, on veut contrôler le timing
         withCredentials: true,
         closeOnBeforeunload: false,
         path: '/socket.io/'
@@ -187,8 +176,11 @@ class SocketIOService {
       // Créer la connexion Socket.io
       this.socket = io(wsUrl, socketOptions);
       
-      // Configurer les listeners
+      // Configurer les listeners AVANT de connecter
       this.setupSocketListeners();
+      
+      // Maintenant, connecter manuellement
+      this.socket.connect();
       
       // Attendre la connexion
       await this.waitForConnection();
@@ -196,6 +188,8 @@ class SocketIOService {
     } catch (error) {
       this.logError('Connection failed', error);
       this.setStatus(ConnectionStatus.FAILED);
+      // CORRECTION 4: Ne pas effacer le tenantCode en cas d'échec pour permettre la reconnexion
+      // this.currentTenantCode = null; // SUPPRIMÉ
       throw error;
     }
   }
@@ -214,8 +208,20 @@ class SocketIOService {
       this.stats.reconnectAttempts = 0;
       this.stats.transport = this.socket?.io.engine.transport.name || null;
       
+      // Réinitialiser les compteurs de santé
+      this.lastHealthCheck = Date.now();
+      this.lastPingTime = Date.now();
+      this.lastPongTime = Date.now();
+      
       this.setStatus(ConnectionStatus.CONNECTED);
-      this.authenticate();
+      
+      // CORRECTION 5: S'authentifier après un court délai pour s'assurer que la connexion est stable
+      setTimeout(() => {
+        if (this.socket?.connected) {
+          this.authenticate();
+        }
+      }, 100);
+      
       this.startHealthCheck();
     });
     
@@ -225,9 +231,12 @@ class SocketIOService {
       this.isAuthenticated = true;
       this.setStatus(ConnectionStatus.AUTHENTICATED);
       
-      // Rejoindre la room du tenant
+      // CORRECTION 6: Rejoindre la room du tenant avec validation
       if (this.currentTenantCode) {
+        this.log(`Joining room for tenant: ${this.currentTenantCode}`);
         this.joinTenantRoom(this.currentTenantCode);
+      } else {
+        this.logError('No tenant code available after authentication');
       }
     });
     
@@ -249,12 +258,13 @@ class SocketIOService {
       this.setStatus(ConnectionStatus.DISCONNECTED);
       this.stopHealthCheck();
       
+      // CORRECTION 7: Ne pas effacer le tenantCode lors de la déconnexion
+      // this.currentTenantCode = null; // SUPPRIMÉ
+      
       // Gérer la reconnexion selon la raison
       if (reason === 'io server disconnect') {
-        // Le serveur a forcé la déconnexion
         this.logError('Server forced disconnect');
       } else if (reason === 'transport close' || reason === 'transport error') {
-        // Problème réseau, tenter la reconnexion
         this.setStatus(ConnectionStatus.RECONNECTING);
       }
     });
@@ -270,6 +280,8 @@ class SocketIOService {
     this.socket.on('reconnect', (attemptNumber: number) => {
       this.log(`Reconnected after ${attemptNumber} attempts`);
       this.stats.reconnectAttempts = 0;
+      this.lastHealthCheck = Date.now();
+      // CORRECTION 8: S'authentifier après reconnexion
       this.authenticate();
     });
     
@@ -284,15 +296,31 @@ class SocketIOService {
       this.logError('Connection error', error);
       this.stats.errors++;
       
-      // Gérer les erreurs spécifiques
       if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
         this.handleAuthError(error);
       }
     });
     
-    // Ping/Pong pour la latence
-    this.socket.on('pong', (latency: number) => {
-      this.stats.latency = latency;
+    // Gestion du ping/pong
+    this.socket.on('ping', () => {
+      this.debugLog('Ping sent');
+      this.lastPingTime = Date.now();
+    });
+    
+    this.socket.on('pong', (latency?: number) => {
+      this.debugLog(`Pong received, latency: ${latency || Date.now() - this.lastPingTime}ms`);
+      this.lastPongTime = Date.now();
+      this.stats.latency = latency || (Date.now() - this.lastPingTime);
+      this.lastHealthCheck = Date.now();
+    });
+    
+    // CORRECTION 9: Listener pour la confirmation de jointure de room
+    this.socket.on('joined:tenant', (data: any) => {
+      this.log(`Successfully joined tenant room: ${data.tenantCode || data.tenant || 'unknown'}`);
+    });
+    
+    this.socket.on('join:error', (error: any) => {
+      this.logError('Failed to join tenant room', error);
     });
     
     // Notifications métier
@@ -309,6 +337,7 @@ class SocketIOService {
     this.socket.on('order:notification', (notification: OrderNotification) => {
       this.log('Order notification received', notification);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       
       // Traiter via le handler
       this.notificationHandler.processNotification(notification);
@@ -321,6 +350,7 @@ class SocketIOService {
     this.socket.on('table:update', (data: any) => {
       this.log('Table update received', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('table:update', data);
     });
     
@@ -328,6 +358,7 @@ class SocketIOService {
     this.socket.on('dish:ready', (data: any) => {
       this.log('Dish ready notification', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('dish:ready', data);
     });
     
@@ -335,6 +366,7 @@ class SocketIOService {
     this.socket.on('validation:required', (data: any) => {
       this.log('Validation required', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('validation:required', data);
     });
     
@@ -342,6 +374,7 @@ class SocketIOService {
     this.socket.on('tenant:broadcast', (data: any) => {
       this.log('Tenant broadcast received', data);
       this.stats.messagesReceived++;
+      this.lastHealthCheck = Date.now();
       this.emitEvent('tenant:broadcast', data);
     });
   }
@@ -350,7 +383,16 @@ class SocketIOService {
    * Authentification après connexion
    */
   private async authenticate(): Promise<void> {
-    if (!this.socket?.connected) return;
+    if (!this.socket?.connected) {
+      this.logError('Cannot authenticate - socket not connected');
+      return;
+    }
+    
+    // CORRECTION 10: Validation du tenantCode avant l'authentification
+    if (!this.currentTenantCode) {
+      this.logError('Cannot authenticate - no tenant code available');
+      return;
+    }
     
     try {
       const token = await this.getAuthToken();
@@ -358,10 +400,13 @@ class SocketIOService {
         throw new Error('No token for authentication');
       }
       
-      // Envoyer l'authentification
+      this.log(`Authenticating with tenant: ${this.currentTenantCode}`);
+      
+      // Envoyer l'authentification avec le tenantCode
       this.socket.emit('authenticate', {
         token: token,
         tenantCode: this.currentTenantCode,
+        tenant: this.currentTenantCode, // Compatibilité avec différentes implémentations serveur
         platform: Platform.OS
       });
       
@@ -375,23 +420,45 @@ class SocketIOService {
    * Rejoindre la room du tenant
    */
   private joinTenantRoom(tenantCode: string): void {
-    if (!this.socket?.connected || !this.isAuthenticated) return;
+    // CORRECTION 11: Validation stricte avant de rejoindre la room
+    if (!this.socket?.connected) {
+      this.logError('Cannot join room - socket not connected');
+      return;
+    }
+    
+    if (!this.isAuthenticated) {
+      this.logError('Cannot join room - not authenticated');
+      return;
+    }
+    
+    if (!tenantCode) {
+      this.logError('Cannot join room - tenantCode is undefined or empty');
+      return;
+    }
     
     this.log(`Joining tenant room: ${tenantCode}`);
     
+    // CORRECTION 12: Utiliser différents formats pour la compatibilité
     this.socket.emit('join:tenant', {
-      tenantCode: tenantCode
+      tenantCode: tenantCode,
+      tenant: tenantCode // Compatibilité avec différentes implémentations
     }, (response: any) => {
       if (response?.success) {
         this.log('Successfully joined tenant room');
+      } else if (response?.error) {
+        this.logError('Failed to join tenant room', response.error);
       } else {
-        this.logError('Failed to join tenant room', response?.error);
+        // Si pas de callback, le serveur peut envoyer un événement séparé
+        this.log('Join request sent, waiting for confirmation');
       }
     });
+    
+    // Alternative: essayer aussi avec l'événement 'join:room' si le serveur l'utilise
+    this.socket.emit('join:room', `tenant:${tenantCode}`);
   }
   
   /**
-   * Health check périodique
+   * Health check périodique OPTIMISÉ
    */
   private startHealthCheck(): void {
     this.stopHealthCheck();
@@ -400,17 +467,33 @@ class SocketIOService {
       if (this.socket?.connected) {
         const now = Date.now();
         
-        // Ping pour mesurer la latence
-        this.socket.emit('ping');
+        const timeSinceLastActivity = Math.min(
+          now - this.lastHealthCheck,
+          now - this.lastPongTime,
+          now - (this.stats.lastConnectionTime || 0)
+        );
         
-        // Vérifier la dernière activité
-        const timeSinceLastCheck = now - this.lastHealthCheck;
-        if (timeSinceLastCheck > this.config.heartbeatInterval * 2) {
-          this.logError('Health check timeout - connection may be stale');
-          this.reconnect();
+        if (timeSinceLastActivity > this.config.heartbeatTimeout) {
+          this.logError(`Health check timeout - no activity for ${Math.round(timeSinceLastActivity / 1000)}s`);
+          
+          if (this.socket?.connected) {
+            this.socket.emit('ping');
+            
+            setTimeout(() => {
+              const checkTime = Date.now();
+              if (checkTime - this.lastPongTime > this.config.heartbeatTimeout) {
+                this.logError('No pong response - connection is stale, reconnecting...');
+                this.reconnect();
+              } else {
+                this.debugLog('Connection is still alive after manual ping');
+              }
+            }, 5000);
+          } else {
+            this.reconnect();
+          }
+        } else {
+          this.debugLog(`Health check OK - last activity ${Math.round(timeSinceLastActivity / 1000)}s ago`);
         }
-        
-        this.lastHealthCheck = now;
       }
     }, this.config.heartbeatInterval);
   }
@@ -423,7 +506,7 @@ class SocketIOService {
   }
   
   /**
-   * Gestion de l'état de l'application (background/foreground)
+   * Gestion de l'état de l'application
    */
   private setupAppStateListener(): void {
     this.appStateSubscription = AppState.addEventListener(
@@ -436,13 +519,16 @@ class SocketIOService {
     this.log(`App state changed to: ${nextAppState}`);
     
     if (nextAppState === 'active') {
-      // App au premier plan - reconnecter si nécessaire
       if (!this.socket?.connected && this.currentTenantCode) {
         this.log('App became active, reconnecting...');
         this.reconnect();
+      } else if (this.socket?.connected) {
+        this.lastHealthCheck = Date.now();
+        this.lastPingTime = Date.now();
+        this.lastPongTime = Date.now();
+        this.startHealthCheck();
       }
     } else if (nextAppState === 'background') {
-      // App en arrière-plan - garder la connexion mais arrêter le health check
       this.stopHealthCheck();
     }
   };
@@ -456,8 +542,26 @@ class SocketIOService {
       return;
     }
     
-    this.log('Manual reconnection triggered');
-    await this.disconnect();
+    this.log(`Manual reconnection triggered for tenant: ${this.currentTenantCode}`);
+    
+    // CORRECTION 13: Ne pas appeler disconnect qui efface le tenantCode
+    if (this.socket) {
+      // Stocker le tenantCode temporairement
+      const savedTenantCode = this.currentTenantCode;
+      
+      // Nettoyer la connexion existante sans effacer le tenantCode
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+      
+      // Restaurer le tenantCode
+      this.currentTenantCode = savedTenantCode;
+    }
+    
+    // Petit délai pour s'assurer que la déconnexion est complète
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Reconnecter avec le tenantCode existant
     await this.connect(this.currentTenantCode);
   }
   
@@ -476,10 +580,10 @@ class SocketIOService {
     }
     
     this.isAuthenticated = false;
+    // CORRECTION 14: Effacer le tenantCode seulement lors d'une déconnexion explicite
     this.currentTenantCode = null;
     this.setStatus(ConnectionStatus.DISCONNECTED);
     
-    // Reset stats
     this.stats = {
       ...this.stats,
       isConnected: false,
@@ -500,6 +604,7 @@ class SocketIOService {
     
     this.log(`Emitting ${event}`, data);
     this.stats.messagesSent++;
+    this.lastHealthCheck = Date.now();
     
     if (callback) {
       this.socket.emit(event, data, callback);
@@ -519,7 +624,6 @@ class SocketIOService {
     this.eventCallbacks.get(event)!.add(callback);
     this.log(`Subscribed to event: ${event}`);
     
-    // Retourner une fonction de désabonnement
     return () => {
       this.off(event, callback);
     };
@@ -544,7 +648,6 @@ class SocketIOService {
    */
   onStatusChange(callback: StatusCallback): () => void {
     this.statusCallbacks.add(callback);
-    // Appeler immédiatement avec le statut actuel
     callback(this.currentStatus);
     
     return () => {
@@ -578,7 +681,6 @@ class SocketIOService {
       
       this.log(`Status changed to: ${status}`);
       
-      // Notifier les listeners
       this.statusCallbacks.forEach(callback => {
         try {
           callback(status);
@@ -596,10 +698,7 @@ class SocketIOService {
     this.logError('Authentication error - attempting token refresh', error);
     
     try {
-      // Tenter de rafraîchir le token
       // TODO: Implémenter la logique de refresh token
-      
-      // Pour l'instant, déconnecter
       await this.disconnect();
     } catch (refreshError) {
       this.logError('Token refresh failed', refreshError);
@@ -624,9 +723,8 @@ class SocketIOService {
    * Construction de l'URL Socket.io
    */
   private buildSocketUrl(): string {
-    // Utiliser le sous-domaine dédié
-    return env.socketioUrl;
-}
+    return env.socketioUrl || env.apiUrl;
+  }
   
   /**
    * Attendre la connexion
@@ -634,31 +732,67 @@ class SocketIOService {
   private waitForConnection(): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        this.logError('Connection timeout after 30s');
         reject(new Error('Connection timeout'));
       }, 30000);
       
-      const checkConnection = () => {
-        if (this.socket?.connected) {
+      let resolved = false;
+      
+      // Écouter directement l'événement connect pour résoudre la promesse
+      const handleConnect = () => {
+        if (!resolved) {
+          resolved = true;
           clearTimeout(timeout);
+          this.log('Connection established in waitForConnection');
           resolve();
-        } else if (this.currentStatus === ConnectionStatus.FAILED) {
-          clearTimeout(timeout);
-          reject(new Error('Connection failed'));
-        } else {
-          setTimeout(checkConnection, 100);
         }
       };
       
-      checkConnection();
+      // Écouter l'événement d'erreur
+      const handleError = (error: any) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          this.logError('Connection error in waitForConnection', error);
+          reject(error);
+        }
+      };
+      
+      // Si déjà connecté (cas rare), résoudre immédiatement
+      if (this.socket?.connected) {
+        resolved = true;
+        clearTimeout(timeout);
+        resolve();
+        return;
+      }
+      
+      // Ajouter les listeners temporaires
+      this.socket?.once('connect', handleConnect);
+      this.socket?.once('connect_error', handleError);
+      
+      // Nettoyer les listeners si timeout
+      const originalTimeout = timeout;
+      setTimeout(() => {
+        if (!resolved) {
+          this.socket?.off('connect', handleConnect);
+          this.socket?.off('connect_error', handleError);
+        }
+      }, 30000);
     });
   }
   
   /**
-   * Logging
+   * Logging avec niveaux
    */
   private log(...args: any[]): void {
     if (this.config.debug) {
       console.log('[SocketIO]', ...args);
+    }
+  }
+  
+  private debugLog(...args: any[]): void {
+    if (this.config.debug && env.environment === 'development') {
+      console.log('[SocketIO Debug]', ...args);
     }
   }
   

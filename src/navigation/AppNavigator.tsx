@@ -1,4 +1,4 @@
-// src/navigation/AppNavigator.tsx
+// src/navigation/AppNavigator.tsx - VERSION MISE À JOUR
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -20,8 +20,9 @@ import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
-// CHANGEMENT: Import du nouveau SocketIODebugScreen au lieu de WebSocketDebugScreen
+// Import conditionnel de l'écran de debug
 import { SocketIODebugScreen } from "../screens/debug/SocketIODebugScreen";
+import env from "../config/environment";
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -77,15 +78,17 @@ export type MainStackParamList = {
     numberOfPeople: number;
     currency: string;
   };
-  // CHANGEMENT: Renommer la route de debug
-  SocketIODebug: undefined;
-  // Garder l'ancienne route pour la compatibilité temporaire
-  WebSocketDebug: undefined;
+  // Routes de debug (conditionnelles)
+  SocketIODebug?: undefined;
+  WebSocketDebug?: undefined;
 };
 
 // Créer les navigateurs
 const AuthStack = createStackNavigator<AuthStackParamList>();
 const MainStack = createStackNavigator<MainStackParamList>();
+
+// Déterminer si on est en mode développement
+const isDevelopment = env.environment === 'development' || __DEV__;
 
 // Composant pour les routes d'authentification
 const AuthNavigator = () => {
@@ -146,25 +149,21 @@ const MainNavigator: React.FC = () => {
         component={PendingValidationsScreen}
       />
       
-      {/* CHANGEMENT: Écran de debug Socket.io */}
-      <MainStack.Screen
-        name="SocketIODebug"
-        component={SocketIODebugScreen}
-        options={{
-          headerShown: false,
-          title: "Debug Socket.io",
-        }}
-      />
-      
-      {/* Compatibilité temporaire: rediriger l'ancienne route vers le nouveau debug */}
-      <MainStack.Screen
-        name="WebSocketDebug"
-        component={SocketIODebugScreen}
-        options={{
-          headerShown: false,
-          title: "Debug Socket.io (Legacy)",
-        }}
-      />
+      {/* ÉCRAN DE DEBUG - UNIQUEMENT EN DÉVELOPPEMENT */}
+      {isDevelopment && (
+        <>
+          <MainStack.Screen
+            name="SocketIODebug"
+            component={SocketIODebugScreen}
+            options={{
+              headerShown: false,
+              title: "Debug Socket.io",
+            }}
+          />
+          
+          
+        </>
+      )}
     </MainStack.Navigator>
   );
 };
@@ -172,6 +171,11 @@ const MainNavigator: React.FC = () => {
 // Composant de navigation principale
 export const AppNavigator: React.FC = () => {
   const { user, isLoading } = useAuth();
+
+  // Log pour debug (seulement en dev)
+  if (isDevelopment) {
+    console.log('[AppNavigator] Debug mode enabled - Debug screens available');
+  }
 
   // Afficher un indicateur de chargement pendant la vérification de l'authentification
   if (isLoading) {
