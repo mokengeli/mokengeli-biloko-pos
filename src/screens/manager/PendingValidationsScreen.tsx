@@ -1,4 +1,4 @@
-// src/screens/manager/PendingValidationsScreen.tsx - VERSION CORRIGÉE
+// src/screens/manager/PendingValidationsScreen.tsx - VERSION REFONTE COMPLÈTE
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
@@ -20,57 +20,75 @@ import {
   ActivityIndicator,
   Chip,
   Divider,
+  Snackbar,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { useFocusEffect } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
-// CHANGEMENT: Import direct du service Socket.io au lieu du hook
+// CHANGEMENT: Utiliser directement le service Socket.io au lieu de créer une nouvelle connexion
 import { socketIOService } from "../../services/SocketIOService";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 import { OrderNotificationStatus, ConnectionStatus } from "../../services/types/WebSocketTypes";
 import orderService, { DebtValidationRequest } from "../../api/orderService";
 import PinInput from "../../components/common/PinInput";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { getNotificationMessage, isUrgentNotification, getNotificationColor } from "../../utils/notificationHelpers";
 
-type PendingValidationsScreenNavigationProp = StackNavigationProp<
-  any,
-  "PendingValidations"
->;
+// Types navigation
+type PendingValidationsScreenNavigationProp = StackNavigationProp<any, "PendingValidations">;
 
 interface PendingValidationsScreenProps {
   navigation: PendingValidationsScreenNavigationProp;
 }
 
-export const PendingValidationsScreen: React.FC<
-  PendingValidationsScreenProps
-> = ({ navigation }) => {
+// Interface pour validation sécurisée
+interface SafeDebtValidationRequest {
+  id: number;
+  orderId: number;
+  tableId: number;
+  tableName: string;
+  serverName: string;
+  amount: number;
+  currency: string;
+  reason: string;
+  createdAt: string; // Toujours string après validation
+}
+
+export const PendingValidationsScreen: React.FC<PendingValidationsScreenProps> = ({ navigation }) => {
   const pinInputRef = useRef<any>(null);
   const { user } = useAuth();
   const theme = useTheme();
 
-  // États
+  // États principaux
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [validations, setValidations] = useState<DebtValidationRequest[]>([]);
-  const [selectedValidation, setSelectedValidation] =
-    useState<DebtValidationRequest | null>(null);
+  const [validations, setValidations] = useState<SafeDebtValidationRequest[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // États pour les modals
+  const [selectedValidation, setSelectedValidation] = useState<SafeDebtValidationRequest | null>(null);
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // États pour les notifications
+  const [snackbar, setSnackbar] = useState({
+    visible: false,
+    message: "",
+    type: "info" as "info" | "error" | "success" | "warning",
+  });
+
   // ============================================================================
-  // CHANGEMENT: Utiliser directement le service Socket.io au lieu du hook
-  // Cela évite de créer une nouvelle connexion
+  // CONNEXION SOCKET.IO (Pattern ServerHomeScreen - SANS créer de nouvelle connexion)
   // ============================================================================
   
   const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
   const [connectionStatus, setConnectionStatus] = useState(socketIOService.getStatus());
   const [connectionStats] = useState(socketIOService.getStats());
 
-  // Écouter l'état de connexion via le service directement
+  // Écouter l'état de connexion via le service directement (comme dans ServerHomeScreen)
   useEffect(() => {
     const unsubscribe = socketIOService.onStatusChange((status) => {
       setConnectionStatus(status);
@@ -83,18 +101,106 @@ export const PendingValidationsScreen: React.FC<
     return unsubscribe;
   }, []);
 
-  // Écouter les notifications de validation de dette SANS créer une nouvelle connexion
-  useOrderNotifications({
-    onNotification: (notification) => {
-      if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REQUEST) {
-        // Rafraîchir la liste quand une nouvelle demande arrive
-        loadPendingValidations();
-      }
-    }
-  });
+  // ============================================================================
+  // FONCTIONS UTILITAIRES SÉCURISÉES
+  // ============================================================================
 
-  // Obtenir la couleur du statut de connexion (même logique que ServerHomeScreen)
-  const getConnectionColor = () => {
+  // Fonction de validation et nettoyage des données
+  const sanitizeValidationData = useCallback((rawData: any): SafeDebtValidationRequest | null => {
+    try {
+      if (!rawData || typeof rawData !== 'object') {
+        console.warn('[PendingValidations] Invalid validation object:', rawData);
+        return null;
+      }
+
+      // Vérifier les champs requis
+      const requiredFields = ['id', 'orderId', 'tableId', 'amount'];
+      for (const field of requiredFields) {
+        if (rawData[field] === undefined || rawData[field] === null) {
+          console.warn(`[PendingValidations] Missing required field: ${field}`, rawData);
+          return null;
+        }
+      }
+
+      // Nettoyer le timestamp - PROTECTION CRITIQUE contre {sessionId, timestamp}
+      let cleanTimestamp: string;
+      if (rawData.createdAt) {
+        if (typeof rawData.createdAt === 'object') {
+          console.warn('[PendingValidations] Corrupted timestamp object detected, using fallback:', rawData.createdAt);
+          cleanTimestamp = new Date().toISOString();
+        } else if (typeof rawData.createdAt === 'string' || typeof rawData.createdAt === 'number') {
+          try {
+            const date = new Date(rawData.createdAt);
+            if (isNaN(date.getTime())) {
+              cleanTimestamp = new Date().toISOString();
+            } else {
+              cleanTimestamp = date.toISOString();
+            }
+          } catch {
+            cleanTimestamp = new Date().toISOString();
+          }
+        } else {
+          cleanTimestamp = new Date().toISOString();
+        }
+      } else {
+        cleanTimestamp = new Date().toISOString();
+      }
+
+      // Créer l'objet sécurisé
+      const safeValidation: SafeDebtValidationRequest = {
+        id: Number(rawData.id),
+        orderId: Number(rawData.orderId),
+        tableId: Number(rawData.tableId),
+        tableName: String(rawData.tableName || 'Table inconnue'),
+        serverName: String(rawData.serverName || 'Serveur inconnu'),
+        amount: Number(rawData.amount || 0),
+        currency: String(rawData.currency || 'FCFA'),
+        reason: String(rawData.reason || 'Aucune raison spécifiée'),
+        createdAt: cleanTimestamp
+      };
+
+      return safeValidation;
+
+    } catch (error) {
+      console.error('[PendingValidations] Error sanitizing validation data:', error, rawData);
+      return null;
+    }
+  }, []);
+
+  // Formatage sécurisé du temps
+  const formatTimeAgo = useCallback((timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return 'Date invalide';
+      }
+
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      
+      if (diffMins < 1) return 'À l\'instant';
+      if (diffMins < 60) return `Il y a ${diffMins} min`;
+      
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `Il y a ${diffHours}h`;
+      
+      const diffDays = Math.floor(diffHours / 24);
+      return `Il y a ${diffDays}j`;
+      
+    } catch (error) {
+      console.error('[PendingValidations] Error formatting time:', error, timestamp);
+      return 'Date invalide';
+    }
+  }, []);
+
+  // Fonction d'affichage des notifications
+  const showNotification = useCallback((message: string, type: typeof snackbar.type = "info") => {
+    setSnackbar({ visible: true, message, type });
+  }, []);
+
+  // Obtenir la couleur de connexion
+  const getConnectionColor = useCallback(() => {
     switch (connectionStatus) {
       case ConnectionStatus.AUTHENTICATED:
         return theme.colors.primary;
@@ -109,10 +215,10 @@ export const PendingValidationsScreen: React.FC<
       default:
         return theme.colors.onSurface;
     }
-  };
+  }, [connectionStatus, theme]);
 
-  // Obtenir l'icône du statut (même logique que ServerHomeScreen)
-  const getConnectionIcon = () => {
+  // Obtenir l'icône de connexion
+  const getConnectionIcon = useCallback(() => {
     switch (connectionStatus) {
       case ConnectionStatus.AUTHENTICATED:
       case ConnectionStatus.CONNECTED:
@@ -127,60 +233,153 @@ export const PendingValidationsScreen: React.FC<
       default:
         return "wifi";
     }
-  };
+  }, [connectionStatus]);
 
-  // Charger les validations en attente
-  const loadPendingValidations = useCallback(async () => {
-    if (!user?.tenantCode) return;
+  // ============================================================================
+  // GESTION DES DONNÉES
+  // ============================================================================
+
+  // Charger les validations avec protection complète
+  const loadValidations = useCallback(async () => {
+    if (!user?.tenantCode) {
+      setError("Code tenant manquant");
+      setIsLoading(false);
+      setRefreshing(false);
+      return;
+    }
 
     try {
-      const response = await orderService.getPendingDebtValidations(
-        user.tenantCode
-      );
-      setValidations(response);
-    } catch (err) {
-      console.error("Error loading pending validations:", err);
-      Alert.alert(
-        "Erreur",
-        "Impossible de charger les validations en attente",
-        [{ text: "OK" }]
-      );
+      setError(null);
+      console.log('[PendingValidations] Loading validations...');
+
+      const response = await orderService.getPendingDebtValidations(user.tenantCode);
+      
+      if (!Array.isArray(response)) {
+        console.warn('[PendingValidations] Invalid response format:', response);
+        setValidations([]);
+        return;
+      }
+
+      // Nettoyer et valider toutes les données
+      const safeValidations = response
+        .map(sanitizeValidationData)
+        .filter((v): v is SafeDebtValidationRequest => v !== null);
+
+      console.log(`[PendingValidations] Loaded ${safeValidations.length}/${response.length} validations`);
+      
+      // Mise à jour sécurisée du state
+      setValidations(prev => {
+        try {
+          return safeValidations;
+        } catch (error) {
+          console.error('[PendingValidations] Error updating state:', error);
+          return prev;
+        }
+      });
+
+      if (safeValidations.length !== response.length) {
+        const filteredCount = response.length - safeValidations.length;
+        showNotification(`${filteredCount} validation(s) corrompue(s) filtrée(s)`, "warning");
+      }
+
+    } catch (error) {
+      console.error('[PendingValidations] Error loading validations:', error);
+      setError("Erreur lors du chargement des validations");
+      
+      if (isConnected) {
+        showNotification("Erreur de chargement des validations", "error");
+      } else {
+        showNotification("Hors ligne - Données non disponibles", "warning");
+      }
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, [user?.tenantCode]);
+  }, [user?.tenantCode, isConnected, sanitizeValidationData, showNotification]);
 
-  // Charger au montage
-  useEffect(() => {
-    loadPendingValidations();
-  }, [loadPendingValidations]);
+  // ============================================================================
+  // NOTIFICATIONS WEBSOCKET
+  // ============================================================================
+  
+  const { lastNotification } = useOrderNotifications({
+    onNotification: useCallback((notification) => {
+      try {
+        console.log('[PendingValidations] Received notification:', notification);
 
-  // Rafraîchir
-  const onRefresh = () => {
+        // Validation robuste
+        if (!notification || typeof notification.orderId !== 'number' || !notification.orderStatus) {
+          console.warn('[PendingValidations] Invalid notification:', notification);
+          return;
+        }
+
+        // Traiter selon le type
+        switch (notification.orderStatus) {
+          case OrderNotificationStatus.DEBT_VALIDATION_REQUEST:
+            console.log('[PendingValidations] New validation request, reloading...');
+            loadValidations();
+            showNotification("Nouvelle demande de validation reçue", "info");
+            break;
+            
+          case OrderNotificationStatus.DEBT_VALIDATION_APPROVED:
+            console.log('[PendingValidations] Validation approved, reloading...');
+            loadValidations();
+            showNotification("Validation approuvée", "success");
+            break;
+            
+          case OrderNotificationStatus.DEBT_VALIDATION_REJECTED:
+            console.log('[PendingValidations] Validation rejected, reloading...');
+            loadValidations();
+            showNotification("Validation rejetée", "warning");
+            break;
+            
+          default:
+            // Ignorer les autres types de notifications
+            break;
+        }
+
+      } catch (error) {
+        console.error('[PendingValidations] Error handling notification:', error);
+      }
+    }, [loadValidations, showNotification])
+  });
+
+  // ============================================================================
+  // CYCLE DE VIE DU COMPOSANT
+  // ============================================================================
+  
+  // Chargement initial avec useFocusEffect comme ServerHomeScreen
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[PendingValidations] Screen focused, loading data...');
+      loadValidations();
+    }, [loadValidations])
+  );
+
+  // Rafraîchissement
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadPendingValidations();
-  };
+    loadValidations();
+  }, [loadValidations]);
 
-  // Valider avec PIN
-  const handleValidate = (validation: DebtValidationRequest) => {
+  // ============================================================================
+  // ACTIONS DE VALIDATION
+  // ============================================================================
+
+  const handleValidate = useCallback((validation: SafeDebtValidationRequest) => {
     setSelectedValidation(validation);
     setPinModalVisible(true);
-  };
+  }, []);
 
-  // Refuser
-  const handleReject = (validation: DebtValidationRequest) => {
+  const handleReject = useCallback((validation: SafeDebtValidationRequest) => {
     setSelectedValidation(validation);
     setRejectReason("");
     setRejectModalVisible(true);
-  };
+  }, []);
 
-  // Soumettre la validation
-  const submitValidation = async (pin: string) => {
+  const submitValidation = useCallback(async (pin: string) => {
     if (!selectedValidation || isProcessing) return;
 
     setIsProcessing(true);
-
     try {
       await orderService.validateDebtRequest({
         debtValidationId: selectedValidation.id,
@@ -190,46 +389,32 @@ export const PendingValidationsScreen: React.FC<
 
       setPinModalVisible(false);
       setSelectedValidation(null);
-      loadPendingValidations();
+      
+      showNotification("Validation approuvée avec succès", "success");
+      loadValidations();
 
-      Alert.alert("Validation réussie", "La perte a été validée avec succès.", [
-        { text: "OK" },
-      ]);
-    } catch (err: any) {
-      console.error("Error validating debt request:", err);
-
+    } catch (error: any) {
+      console.error('[PendingValidations] Validation error:', error);
+      
       // Vider le PIN en cas d'erreur
       if (pinInputRef.current) {
         pinInputRef.current.clear();
       }
 
-      if (err.response?.status === 401 || err.message?.includes("PIN")) {
-        Alert.alert("Code PIN incorrect", "Le code PIN saisi est incorrect.", [
-          { text: "OK" },
-        ]);
+      if (error.response?.status === 401 || error.message?.includes("PIN")) {
+        showNotification("Code PIN incorrect", "error");
       } else {
-        Alert.alert("Erreur", "Impossible de valider la demande.", [
-          { text: "OK" },
-        ]);
+        showNotification("Erreur lors de la validation", "error");
       }
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [selectedValidation, isProcessing, showNotification, loadValidations]);
 
-  // Soumettre le refus
-  const submitRejection = async () => {
-    if (!selectedValidation || !rejectReason.trim()) {
-      Alert.alert(
-        "Raison requise",
-        "Veuillez indiquer une raison pour le refus.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
+  const submitRejection = useCallback(async () => {
+    if (!selectedValidation || !rejectReason.trim() || isProcessing) return;
 
     setIsProcessing(true);
-
     try {
       await orderService.validateDebtRequest({
         debtValidationId: selectedValidation.id,
@@ -239,29 +424,24 @@ export const PendingValidationsScreen: React.FC<
 
       setRejectModalVisible(false);
       setSelectedValidation(null);
+      
+      showNotification("Demande refusée", "success");
+      loadValidations();
 
-      // Rafraîchir la liste
-      loadPendingValidations();
-
-      Alert.alert("Refus enregistré", "La demande a été refusée.", [
-        { text: "OK" },
-      ]);
-    } catch (err) {
-      console.error("Error rejecting debt request:", err);
-      Alert.alert("Erreur", "Impossible de refuser la demande.", [
-        { text: "OK" },
-      ]);
+    } catch (error) {
+      console.error('[PendingValidations] Rejection error:', error);
+      showNotification("Erreur lors du refus", "error");
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [selectedValidation, rejectReason, isProcessing, showNotification, loadValidations]);
 
-  // Rendu d'une validation
-  const renderValidation = ({ item }: { item: DebtValidationRequest }) => {
-    const timeAgo = formatDistanceToNow(new Date(item.createdAt), {
-      addSuffix: true,
-      locale: fr,
-    });
+  // ============================================================================
+  // RENDU DES COMPOSANTS
+  // ============================================================================
+
+  const renderValidation = useCallback(({ item }: { item: SafeDebtValidationRequest }) => {
+    const timeAgo = formatTimeAgo(item.createdAt);
 
     return (
       <Card style={styles.validationCard}>
@@ -298,11 +478,9 @@ export const PendingValidationsScreen: React.FC<
             <Button
               mode="contained"
               onPress={() => handleValidate(item)}
-              style={[
-                styles.actionButton,
-                { backgroundColor: theme.colors.success },
-              ]}
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
               icon="check"
+              disabled={isProcessing}
             >
               Valider
             </Button>
@@ -312,6 +490,7 @@ export const PendingValidationsScreen: React.FC<
               style={[styles.actionButton, { borderColor: theme.colors.error }]}
               textColor={theme.colors.error}
               icon="close"
+              disabled={isProcessing}
             >
               Refuser
             </Button>
@@ -319,15 +498,16 @@ export const PendingValidationsScreen: React.FC<
         </Card.Content>
       </Card>
     );
-  };
+  }, [formatTimeAgo, handleValidate, handleReject, isProcessing, theme]);
 
+  // Rendu principal
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Validations en attente" />
         
-        {/* CHANGEMENT: Indicateur de connexion Socket.io comme dans ServerHomeScreen */}
+        {/* Indicateur de connexion */}
         <View style={styles.connectionBadge}>
           <Chip 
             compact
@@ -351,6 +531,7 @@ export const PendingValidationsScreen: React.FC<
         <Appbar.Action 
           icon="refresh" 
           onPress={onRefresh}
+          disabled={refreshing}
         />
       </Appbar.Header>
 
@@ -359,6 +540,15 @@ export const PendingValidationsScreen: React.FC<
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Chargement...</Text>
         </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Icon name="alert-circle" size={64} color={theme.colors.error} />
+          <Text style={styles.errorTitle}>Erreur de chargement</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button mode="contained" onPress={loadValidations} style={styles.retryButton}>
+            Réessayer
+          </Button>
+        </View>
       ) : validations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Icon name="check-circle" size={64} color={theme.colors.primary} />
@@ -366,7 +556,6 @@ export const PendingValidationsScreen: React.FC<
           <Text style={styles.emptyText}>
             Toutes les demandes ont été traitées
           </Text>
-          {/* Afficher l'état de connexion si déconnecté */}
           {!isConnected && (
             <View style={styles.connectionWarning}>
               <Icon name="wifi-off" size={20} color={theme.colors.error} />
@@ -408,9 +597,7 @@ export const PendingValidationsScreen: React.FC<
           {selectedValidation && (
             <Surface style={styles.validationSummary}>
               <Text style={styles.summaryText}>
-                {selectedValidation.tableName} -{" "}
-                {selectedValidation.amount.toFixed(2)}{" "}
-                {selectedValidation.currency}
+                {selectedValidation.tableName} - {selectedValidation.amount.toFixed(2)} {selectedValidation.currency}
               </Text>
             </Surface>
           )}
@@ -420,6 +607,7 @@ export const PendingValidationsScreen: React.FC<
             onComplete={submitValidation}
             disabled={isProcessing}
           />
+          
           {isProcessing && (
             <ActivityIndicator
               size="small"
@@ -451,9 +639,7 @@ export const PendingValidationsScreen: React.FC<
           {selectedValidation && (
             <Surface style={styles.validationSummary}>
               <Text style={styles.summaryText}>
-                {selectedValidation.tableName} -{" "}
-                {selectedValidation.amount.toFixed(2)}{" "}
-                {selectedValidation.currency}
+                {selectedValidation.tableName} - {selectedValidation.amount.toFixed(2)} {selectedValidation.currency}
               </Text>
             </Surface>
           )}
@@ -489,6 +675,22 @@ export const PendingValidationsScreen: React.FC<
           </View>
         </Modal>
       </Portal>
+
+      {/* Snackbar pour les notifications */}
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar(prev => ({ ...prev, visible: false }))}
+        duration={3000}
+        style={{
+          backgroundColor: 
+            snackbar.type === "error" ? theme.colors.error :
+            snackbar.type === "success" ? "#4CAF50" :
+            snackbar.type === "warning" ? "#FF9800" :
+            theme.colors.primary
+        }}
+      >
+        {snackbar.message}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -522,6 +724,27 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: 24,
+  },
+  retryButton: {
+    minWidth: 120,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -547,6 +770,7 @@ const styles = StyleSheet.create({
   },
   validationCard: {
     borderRadius: 12,
+    elevation: 2,
   },
   validationHeader: {
     flexDirection: "row",

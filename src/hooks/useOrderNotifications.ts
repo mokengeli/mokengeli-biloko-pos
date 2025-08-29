@@ -2,7 +2,7 @@
 // src/hooks/useOrderNotifications.ts
 // ============================================================================
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { socketIOService } from '../services/SocketIOService';
 import { OrderNotification, OrderNotificationStatus } from '../services/types/WebSocketTypes';
 
@@ -21,6 +21,17 @@ export function useOrderNotifications(options: UseOrderNotificationsOptions = {}
   
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
   const [lastNotification, setLastNotification] = useState<OrderNotification | null>(null);
+  
+  // ✅ CORRECTION RACE CONDITION: Stabiliser onNotification avec useRef
+  const onNotificationRef = useRef(onNotification);
+  onNotificationRef.current = onNotification;
+  
+  // Callback stable qui ne change jamais
+  const stableOnNotification = useCallback((notification: OrderNotification) => {
+    if (onNotificationRef.current) {
+      onNotificationRef.current(notification);
+    }
+  }, []); // ✅ Pas de dépendances = callback stable
   
   // S'abonner aux notifications avec robustesse
   useEffect(() => {
@@ -70,14 +81,12 @@ export function useOrderNotifications(options: UseOrderNotificationsOptions = {}
         
         setLastNotification(notification);
         
-        // Callback personnalisé avec protection
-        if (onNotification) {
-          try {
-            onNotification(notification);
-          } catch (error) {
-            console.error('[useOrderNotifications] Error in onNotification callback:', error, notification);
-            // Ne pas faire planter l'app, juste logger l'erreur
-          }
+        // ✅ CORRECTION: Utiliser le callback stable
+        try {
+          stableOnNotification(notification);
+        } catch (error) {
+          console.error('[useOrderNotifications] Error in onNotification callback:', error, notification);
+          // Ne pas faire planter l'app, juste logger l'erreur
         }
         
       } catch (error) {
@@ -87,7 +96,7 @@ export function useOrderNotifications(options: UseOrderNotificationsOptions = {}
     });
     
     return unsubscribe;
-  }, [tableId, orderId, types, onNotification]);
+  }, [tableId, orderId, types, stableOnNotification]); // ✅ CORRECTION: stableOnNotification ne change jamais
   
   // Effacer les notifications
   const clearNotifications = useCallback(() => {
