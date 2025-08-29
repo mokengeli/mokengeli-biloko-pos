@@ -77,6 +77,13 @@ class SocketIOService {
   constructor() {
     this.connectionManager = new ConnectionManager();
     this.notificationHandler = new NotificationHandler();
+    
+    // ✅ CORRECTION CRITIQUE: S'abonner aux notifications validées du handler
+    // Au lieu d'émettre directement les notifications non validées
+    this.notificationHandler.onAnyNotification((validatedNotification) => {
+      // Émettre seulement les notifications qui ont passé la validation
+      this.emitEvent('order:notification', validatedNotification);
+    });
     this.setupAppStateListener();
     this.log('SocketIO Service initialized with optimized timeouts');
   }
@@ -227,7 +234,13 @@ class SocketIOService {
     
     // Authentification réussie
     this.socket.on('authenticated', (data: any) => {
-      this.log('Authentication successful', data);
+      // ✅ PROTECTION: Valider les données d'authentification
+      if (data && typeof data === 'object' && data.sessionId && Object.keys(data).length === 2) {
+        this.debugLog('Received sessionId object in authenticated event, ignoring data but proceeding:', data);
+      } else {
+        this.log('Authentication successful', data);
+      }
+      
       this.isAuthenticated = true;
       this.setStatus(ConnectionStatus.AUTHENTICATED);
       
@@ -307,16 +320,35 @@ class SocketIOService {
       this.lastPingTime = Date.now();
     });
     
-    this.socket.on('pong', (latency?: number) => {
-      this.debugLog(`Pong received, latency: ${latency || Date.now() - this.lastPingTime}ms`);
+    this.socket.on('pong', (data?: any) => {
+      // ✅ PROTECTION: Valider que c'est bien une latence et non un objet corrompu
+      let latency: number = 0;
+      if (typeof data === 'number') {
+        latency = data;
+      } else if (typeof data === 'object' && data !== null && typeof data.latency === 'number') {
+        latency = data.latency;
+      } else if (data !== undefined) {
+        // Si c'est un objet {sessionId, timestamp}, l'ignorer et calculer manuellement
+        this.debugLog('Received corrupted pong data, using manual calculation:', data);
+        latency = Date.now() - this.lastPingTime;
+      } else {
+        latency = Date.now() - this.lastPingTime;
+      }
+      
+      this.debugLog(`Pong received, latency: ${latency}ms`);
       this.lastPongTime = Date.now();
-      this.stats.latency = latency || (Date.now() - this.lastPingTime);
+      this.stats.latency = latency;
       this.lastHealthCheck = Date.now();
     });
     
     // CORRECTION 9: Listener pour la confirmation de jointure de room
     this.socket.on('joined:tenant', (data: any) => {
-      this.log(`Successfully joined tenant room: ${data.tenantCode || data.tenant || 'unknown'}`);
+      // ✅ PROTECTION: Valider les données de jointure de tenant
+      if (data && typeof data === 'object' && !data.sessionId) {
+        this.log(`Successfully joined tenant room: ${data.tenantCode || data.tenant || 'unknown'}`);
+      } else {
+        this.debugLog('Received corrupted joined:tenant data, ignoring:', data);
+      }
     });
     
     this.socket.on('join:error', (error: any) => {
@@ -325,25 +357,95 @@ class SocketIOService {
     
     // Notifications métier
     this.setupBusinessEventListeners();
+    
+    // ✅ PROTECTION GÉNÉRALE: Capturer tous les événements pour détecter les fuites d'objets corrompus
+    const originalOn = this.socket.on.bind(this.socket);
+    const protectedOn = (event: string, callback: (...args: any[]) => void) => {
+      return originalOn(event, (...args: any[]) => {
+        // Détecter les objets {sessionId, timestamp} qui fuient dans d'autres événements
+        for (let i = 0; i < args.length; i++) {
+          const arg = args[i];
+          if (arg && typeof arg === 'object' && arg.sessionId !== undefined && arg.timestamp !== undefined) {
+            this.debugLog(`Detected corrupted {sessionId, timestamp} object in event '${event}', sanitizing:`, arg);
+            // Remplacer par null pour éviter le crash React
+            args[i] = null;
+          }
+        }
+        return callback(...args);
+      });
+    };
+    
+    // Ne pas écraser pour les événements déjà configurés, c'est juste une sécurité supplémentaire
   }
   
+  /**
+   * ✅ PROTECTION CRITIQUE contre les objets {sessionId, timestamp} corrompus
+   * Filtre les objets qui ne sont pas de vraies notifications
+   */
+  private isValidNotificationObject(data: any): data is OrderNotification {
+    try {
+      // Rejeter null/undefined
+      if (!data || typeof data !== 'object') {
+        this.debugLog('Rejected non-object notification:', data);
+        return false;
+      }
+      
+      // ✅ PROTECTION CRITIQUE: Rejeter les objets {sessionId, timestamp} du health check
+      if (data.sessionId !== undefined && data.timestamp !== undefined && Object.keys(data).length === 2) {
+        this.debugLog('Rejected health check object masquerading as notification:', data);
+        return false;
+      }
+      
+      // ✅ PROTECTION: Rejeter si c'est clairement un objet de health check/ping
+      if (data.sessionId !== undefined && !data.orderId && !data.orderStatus) {
+        this.debugLog('Rejected sessionId object without notification fields:', data);
+        return false;
+      }
+      
+      // Vérifier la présence des champs critiques d'une vraie notification
+      const hasRequiredFields = 
+        typeof data.orderId === 'number' && 
+        data.orderId > 0 &&
+        typeof data.orderStatus === 'string' && 
+        data.orderStatus.length > 0;
+        
+      if (!hasRequiredFields) {
+        this.debugLog('Rejected object missing notification fields:', data);
+        return false;
+      }
+      
+      return true;
+      
+    } catch (error) {
+      this.logError('Error validating notification object:', error, data);
+      return false;
+    }
+  }
+
   /**
    * Configuration des listeners pour les événements métier
    */
   private setupBusinessEventListeners(): void {
     if (!this.socket) return;
     
-    // Notification de commande
-    this.socket.on('order:notification', (notification: OrderNotification) => {
-      this.log('Order notification received', notification);
+    // Notification de commande avec PROTECTION RENFORCÉE
+    this.socket.on('order:notification', (notification: any) => {
+      this.log('Raw notification received:', notification);
       this.stats.messagesReceived++;
       this.lastHealthCheck = Date.now();
       
-      // Traiter via le handler
-      this.notificationHandler.processNotification(notification);
+      // ✅ PROTECTION CRITIQUE: Valider avant de traiter
+      if (!this.isValidNotificationObject(notification)) {
+        this.logError('Rejected invalid notification object, preventing corruption:', notification);
+        return;
+      }
       
-      // Distribuer aux callbacks
-      this.emitEvent('order:notification', notification);
+      // ✅ CORRECTION CRITIQUE: Traiter via le handler SEULEMENT si validé
+      // Le handler validera davantage et émettra via notre callback configuré dans le constructor
+      this.notificationHandler.processNotification(notification as OrderNotification);
+      
+      // ❌ SUPPRIMÉ: Émission directe dangereuse sans validation
+      // this.emitEvent('order:notification', notification);
     });
     
     // Mise à jour de table

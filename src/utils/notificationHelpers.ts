@@ -4,13 +4,52 @@ import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 /**
+ * ✅ CORRECTION CRITIQUE: Fonction helper sécurisée pour formater les timestamps
+ * Protège contre les objets malformés qui causent l'erreur React {sessionId, timestamp}
+ */
+function safeFormatTimestamp(timestamp: any): string {
+  try {
+    // Validation stricte du type timestamp
+    if (!timestamp) {
+      return '';
+    }
+    
+    // ✅ PROTECTION: Rejeter les objets complexes (comme {sessionId, timestamp})
+    if (typeof timestamp === 'object' && timestamp !== null) {
+      console.warn('[notificationHelpers] Invalid timestamp object received:', timestamp);
+      return '';
+    }
+    
+    // Accepter seulement string ou number
+    if (typeof timestamp !== 'string' && typeof timestamp !== 'number') {
+      console.warn('[notificationHelpers] Invalid timestamp type:', typeof timestamp, timestamp);
+      return '';
+    }
+    
+    // Créer la date de manière sécurisée
+    const date = new Date(timestamp);
+    
+    // Vérifier que la date est valide
+    if (isNaN(date.getTime())) {
+      console.warn('[notificationHelpers] Invalid date from timestamp:', timestamp);
+      return '';
+    }
+    
+    // Formater avec date-fns
+    return formatDistanceToNow(date, { addSuffix: true, locale: fr });
+    
+  } catch (error) {
+    console.error('[notificationHelpers] Error formatting timestamp:', error, timestamp);
+    return '';
+  }
+}
+
+/**
  * Génère un message user-friendly basé sur une notification WebSocket
  */
 export const getNotificationMessage = (notification: OrderNotification): string => {
-  // Obtenir un timestamp formaté si disponible
-  const timeAgo = notification.timestamp 
-    ? formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true, locale: fr })
-    : '';
+  // ✅ CORRECTION CRITIQUE: Utiliser la fonction sécurisée
+  const timeAgo = safeFormatTimestamp(notification.timestamp);
   
   // Déterminer le message en fonction du type de notification et des états
   switch (notification.orderStatus) {

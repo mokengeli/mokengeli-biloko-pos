@@ -100,6 +100,21 @@ export class NotificationHandler {
       return false;
     }
     
+    // ✅ CORRECTION CRITIQUE: Valider le timestamp pour éviter l'erreur React {sessionId, timestamp}
+    if (notification.timestamp !== undefined && notification.timestamp !== null) {
+      // Rejeter les objets complexes comme {sessionId, timestamp}
+      if (typeof notification.timestamp === 'object') {
+        console.warn(`[NotificationHandler] Invalid timestamp object received:`, notification.timestamp);
+        return false;
+      }
+      
+      // Accepter seulement string ou number
+      if (typeof notification.timestamp !== 'string' && typeof notification.timestamp !== 'number') {
+        console.warn(`[NotificationHandler] Invalid timestamp type: ${typeof notification.timestamp}`);
+        return false;
+      }
+    }
+    
     return true;
   }
   
