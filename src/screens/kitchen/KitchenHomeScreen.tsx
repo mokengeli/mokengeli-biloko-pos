@@ -88,47 +88,116 @@ export const KitchenHomeScreen = () => {
     count: notificationCount 
   } = useOrderNotifications({
     onNotification: (notification) => {
-      console.log("Kitchen received notification:", notification);
-      
-      // Traiter selon le type de notification
-      switch (notification.orderStatus) {
-        case OrderNotificationStatus.NEW_ORDER:
-          // Nouvelle commande - mise à jour silencieuse
-          loadOrders(); // Pour les nouvelles commandes, on garde le chargement complet car c'est nécessaire
-          showInfoSnackbar(`Nouvelle commande #${notification.orderId} reçue`);
-          break;
-          
-        case OrderNotificationStatus.DISH_UPDATE:
-          // Mise à jour d'un plat
-          if (notification.newState === "READY" || notification.newState === "COOKED") {
-            // Un plat est prêt - le déplacer vers les commandes prêtes
-            handleDishReadyNotification(notification);
-          } else if (notification.newState === "SERVED") {
-            // Un plat a été servi - le retirer des commandes prêtes
-            handleDishServedNotification(notification);
-          } else if (notification.newState === "PENDING" || notification.newState === "ORDERED" || notification.newState === "PREPARING") {
-            // Nouveaux plats ajoutés à une commande existante - recharger pour les récupérer
-            console.log(`New dishes added to existing order - reloading: ${notification.newState}`);
+      try {
+        console.log("Kitchen received notification:", notification);
+        
+        // ✅ VALIDATION: Vérifier les données critiques
+        if (!notification || typeof notification.orderId !== 'number' || !notification.orderStatus) {
+          console.warn('[Kitchen] Invalid notification data:', notification);
+          return;
+        }
+        
+        // Traiter selon le type de notification avec protection
+        try {
+          switch (notification.orderStatus) {
+            case OrderNotificationStatus.NEW_ORDER:
+              // Nouvelle commande - mise à jour silencieuse
+              try {
+                loadOrders(); // Pour les nouvelles commandes, on garde le chargement complet car c'est nécessaire
+                showInfoSnackbar(`Nouvelle commande #${notification.orderId} reçue`);
+              } catch (error) {
+                console.error('[Kitchen] Error handling NEW_ORDER:', error);
+                showErrorSnackbar("Erreur lors du chargement de la nouvelle commande");
+              }
+              break;
+              
+            case OrderNotificationStatus.DISH_UPDATE:
+              // Mise à jour d'un plat avec validation
+              try {
+                const newState = notification.newState;
+                if (!newState) {
+                  console.warn('[Kitchen] Missing newState in DISH_UPDATE:', notification);
+                  return;
+                }
+                
+                if (newState === "READY" || newState === "COOKED") {
+                  // Un plat est prêt - le déplacer vers les commandes prêtes
+                  try {
+                    handleDishReadyNotification(notification);
+                  } catch (error) {
+                    console.error('[Kitchen] Error handling dish ready:', error, notification);
+                    // Fallback: recharger tout
+                    loadOrders();
+                  }
+                } else if (newState === "SERVED") {
+                  // Un plat a été servi - le retirer des commandes prêtes
+                  try {
+                    handleDishServedNotification(notification);
+                  } catch (error) {
+                    console.error('[Kitchen] Error handling dish served:', error, notification);
+                    // Fallback: recharger tout
+                    loadOrders();
+                  }
+                } else if (newState === "PENDING" || newState === "ORDERED" || newState === "PREPARING") {
+                  // Nouveaux plats ajoutés à une commande existante - recharger pour les récupérer
+                  console.log(`New dishes added to existing order - reloading: ${newState}`);
+                  try {
+                    loadOrders();
+                  } catch (error) {
+                    console.error('[Kitchen] Error loading orders for new dishes:', error);
+                    showErrorSnackbar("Erreur lors du chargement des nouveaux plats");
+                  }
+                } else {
+                  // Autre mise à jour - pas de rechargement complet
+                  console.log(`Dish update ignored - state: ${newState}`);
+                }
+                
+                try {
+                  showInfoSnackbar(`Plat mis à jour - Commande #${notification.orderId}`);
+                } catch (error) {
+                  console.error('[Kitchen] Error showing info snackbar:', error);
+                }
+              } catch (error) {
+                console.error('[Kitchen] Error in DISH_UPDATE handler:', error, notification);
+              }
+              break;
+              
+            case OrderNotificationStatus.TABLE_STATUS_UPDATE:
+              // Changement de statut de table - peut affecter les commandes
+              try {
+                if (notification.tableState === "FREE") {
+                  // Table libérée - retirer les commandes associées
+                  try {
+                    handleTableFreedNotification(notification);
+                  } catch (error) {
+                    console.error('[Kitchen] Error handling table freed:', error, notification);
+                    // Fallback: recharger tout
+                    loadOrders();
+                  }
+                }
+              } catch (error) {
+                console.error('[Kitchen] Error in TABLE_STATUS_UPDATE handler:', error, notification);
+              }
+              break;
+              
+            default:
+              // Pour les autres types, log seulement (pas de rechargement automatique)
+              console.log(`Unhandled notification type: ${notification.orderStatus}`);
+              break;
+          }
+        } catch (error) {
+          console.error('[Kitchen] Error in notification switch:', error, notification);
+          // Fallback critique: essayer de recharger les données
+          try {
             loadOrders();
-          } else {
-            // Autre mise à jour - pas de rechargement complet
-            console.log(`Dish update ignored - state: ${notification.newState}`);
+          } catch (fallbackError) {
+            console.error('[Kitchen] Critical fallback error:', fallbackError);
+            showErrorSnackbar("Erreur critique - veuillez recharger manuellement");
           }
-          showInfoSnackbar(`Plat mis à jour - Commande #${notification.orderId}`);
-          break;
-          
-        case OrderNotificationStatus.TABLE_STATUS_UPDATE:
-          // Changement de statut de table - peut affecter les commandes
-          if (notification.tableState === "FREE") {
-            // Table libérée - retirer les commandes associées
-            handleTableFreedNotification(notification);
-          }
-          break;
-          
-        default:
-          // Pour les autres types, log seulement (pas de rechargement automatique)
-          console.log(`Unhandled notification type: ${notification.orderStatus}`);
-          break;
+        }
+      } catch (error) {
+        console.error('[Kitchen] Critical error in onNotification:', error, notification);
+        // Ne pas faire planter l'app, juste logger
       }
     }
   });

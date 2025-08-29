@@ -176,50 +176,94 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     }
   }, [orderId]);
 
-  // Gestionnaire de notifications
+  // Gestionnaire de notifications avec robustesse
   function handleOrderNotification(notification: OrderNotification) {
-    console.log("PrepareBill - notification received:", notification);
+    try {
+      console.log("PrepareBill - notification received:", notification);
 
-    // Ignorer les notifications si on navigue vers l'écran de paiement
-    if (isNavigatingToPayment) {
-      console.log("Ignoring notification while navigating to payment");
-      return;
-    }
-
-    // Ne traiter que les notifications pour cette commande
-    if (notification.orderId === orderId) {
-      // Rafraîchir silencieusement les données
-      switch (notification.orderStatus) {
-        case OrderNotificationStatus.PAYMENT_UPDATE:
-          // Rafraîchir les données
-          loadOrderDetails().then((updatedOrder) => {
-            // Vérifier si la commande est totalement payée
-            if ((updatedOrder?.remainingAmount || 0) <= 0) {
-              // Redirection avec message simple
-              Alert.alert(
-                "Commande entièrement payée",
-                "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
-                [
-                  {
-                    text: "OK",
-                    onPress: () => navigation.navigate("ServerHome" as never),
-                  },
-                ]
-              );
-            }
-          });
-          break;
-
-        case OrderNotificationStatus.DISH_UPDATE:
-          // Rafraîchir silencieusement
-          loadOrderDetails();
-          break;
-
-        default:
-          // Rafraîchir silencieusement pour tout autre changement
-          loadOrderDetails();
-          break;
+      // ✅ VALIDATION: Vérifier les données critiques
+      if (!notification || typeof notification.orderId !== 'number') {
+        console.warn('[PrepareBill] Invalid notification data:', notification);
+        return;
       }
+
+      // Ignorer les notifications si on navigue vers l'écran de paiement
+      if (isNavigatingToPayment) {
+        console.log("Ignoring notification while navigating to payment");
+        return;
+      }
+
+      // Ne traiter que les notifications pour cette commande
+      if (notification.orderId === orderId) {
+        try {
+          // Rafraîchir silencieusement les données
+          switch (notification.orderStatus) {
+            case OrderNotificationStatus.PAYMENT_UPDATE:
+              // Rafraîchir les données avec protection
+              loadOrderDetails()
+                .then((updatedOrder) => {
+                  try {
+                    // Vérifier si la commande est totalement payée
+                    if ((updatedOrder?.remainingAmount || 0) <= 0) {
+                      // Redirection avec message simple
+                      Alert.alert(
+                        "Commande entièrement payée",
+                        "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
+                        [
+                          {
+                            text: "OK",
+                            onPress: () => navigation.navigate("ServerHome" as never),
+                          },
+                        ]
+                      );
+                    }
+                  } catch (error) {
+                    console.error('[PrepareBill] Error handling payment update result:', error);
+                  }
+                })
+                .catch((error) => {
+                  console.error('[PrepareBill] Error loading order details after payment update:', error);
+                  // Fallback: ne pas planter, juste logger
+                });
+              break;
+
+            case OrderNotificationStatus.DISH_UPDATE:
+              // Rafraîchir silencieusement avec gestion d'erreur
+              try {
+                loadOrderDetails().catch((error) => {
+                  console.error('[PrepareBill] Error loading order details after dish update:', error);
+                });
+              } catch (error) {
+                console.error('[PrepareBill] Error calling loadOrderDetails for dish update:', error);
+              }
+              break;
+
+            default:
+              // Rafraîchir silencieusement pour tout autre changement avec protection
+              try {
+                loadOrderDetails().catch((error) => {
+                  console.error('[PrepareBill] Error loading order details for default case:', error);
+                });
+              } catch (error) {
+                console.error('[PrepareBill] Error in default notification handler:', error);
+              }
+              break;
+          }
+        } catch (error) {
+          console.error('[PrepareBill] Error in notification switch statement:', error, notification);
+          // Fallback: recharger les données si possible
+          try {
+            loadOrderDetails().catch((fallbackError) => {
+              console.error('[PrepareBill] Fallback loadOrderDetails also failed:', fallbackError);
+            });
+          } catch (fallbackError) {
+            console.error('[PrepareBill] Critical fallback error:', fallbackError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[PrepareBill] Critical error in handleOrderNotification:', error, notification);
+      // En cas d'erreur critique, ne pas faire planter l'app
     }
   }
 

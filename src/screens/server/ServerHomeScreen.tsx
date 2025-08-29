@@ -127,10 +127,18 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     count: notificationCount
   } = useOrderNotifications({
     onNotification: (notification) => {
-      console.log("Server received notification:", notification);
-      
-      // Traiter selon le type de notification avec animations
-      switch (notification.orderStatus) {
+      try {
+        console.log("Server received notification:", notification);
+        
+        // ✅ VALIDATION: Vérifier les données critiques
+        if (!notification || typeof notification.orderId !== 'number' || !notification.orderStatus) {
+          console.warn('[ServerHome] Invalid notification data:', notification);
+          return;
+        }
+        
+        // Traiter selon le type de notification avec animations et protection
+        try {
+          switch (notification.orderStatus) {
         case OrderNotificationStatus.TABLE_STATUS_UPDATE:
           if (notification.tableId) {
             handleTableStatusUpdateWithAnimation(notification);
@@ -204,8 +212,24 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           break;
           
         default:
-          loadData();
+          try {
+            loadData();
+          } catch (error) {
+            console.error('[ServerHome] Error in default handler:', error);
+          }
           break;
+        }
+        } catch (error) {
+          console.error('[ServerHome] Error in notification switch:', error, notification);
+          // Fallback: recharger les données
+          try {
+            loadData();
+          } catch (fallbackError) {
+            console.error('[ServerHome] Critical fallback error:', fallbackError);
+          }
+        }
+      } catch (error) {
+        console.error('[ServerHome] Critical error in onNotification:', error, notification);
       }
     }
   });

@@ -22,30 +22,68 @@ export function useOrderNotifications(options: UseOrderNotificationsOptions = {}
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
   const [lastNotification, setLastNotification] = useState<OrderNotification | null>(null);
   
-  // S'abonner aux notifications
+  // S'abonner aux notifications avec robustesse
   useEffect(() => {
     const unsubscribe = socketIOService.on('order:notification', (notification: OrderNotification) => {
-      // Filtrer par table si spécifié
-      if (tableId && notification.tableId !== tableId) {
-        return;
+      try {
+        // ✅ VALIDATION: Vérifier que la notification est valide
+        if (!notification) {
+          console.warn('[useOrderNotifications] Received null/undefined notification');
+          return;
+        }
+        
+        // Validation des champs critiques
+        if (typeof notification.orderId !== 'number' || notification.orderId <= 0) {
+          console.warn('[useOrderNotifications] Invalid orderId:', notification);
+          return;
+        }
+        
+        if (!notification.orderStatus) {
+          console.warn('[useOrderNotifications] Missing orderStatus:', notification);
+          return;
+        }
+        
+        // Filtrer par table si spécifié
+        if (tableId && notification.tableId !== tableId) {
+          return;
+        }
+        
+        // Filtrer par commande si spécifié
+        if (orderId && notification.orderId !== orderId) {
+          return;
+        }
+        
+        // Filtrer par type si spécifié
+        if (types && types.length > 0 && !types.includes(notification.orderStatus)) {
+          return;
+        }
+        
+        // Ajouter à la liste avec protection
+        setNotifications(prev => {
+          try {
+            return [...prev, notification];
+          } catch (error) {
+            console.error('[useOrderNotifications] Error updating notifications list:', error);
+            return prev; // Garder l'ancienne liste si erreur
+          }
+        });
+        
+        setLastNotification(notification);
+        
+        // Callback personnalisé avec protection
+        if (onNotification) {
+          try {
+            onNotification(notification);
+          } catch (error) {
+            console.error('[useOrderNotifications] Error in onNotification callback:', error, notification);
+            // Ne pas faire planter l'app, juste logger l'erreur
+          }
+        }
+        
+      } catch (error) {
+        console.error('[useOrderNotifications] Critical error handling notification:', error, notification);
+        // En cas d'erreur critique, ne pas faire planter l'app
       }
-      
-      // Filtrer par commande si spécifié
-      if (orderId && notification.orderId !== orderId) {
-        return;
-      }
-      
-      // Filtrer par type si spécifié
-      if (types && types.length > 0 && !types.includes(notification.orderStatus)) {
-        return;
-      }
-      
-      // Ajouter à la liste
-      setNotifications(prev => [...prev, notification]);
-      setLastNotification(notification);
-      
-      // Callback personnalisé
-      onNotification?.(notification);
     });
     
     return unsubscribe;

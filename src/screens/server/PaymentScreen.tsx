@@ -181,17 +181,24 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   // Gestionnaire de notifications
   function handleOrderNotification(notification: OrderNotification) {
-    console.log("Payment screen - notification received:", notification);
+    try {
+      console.log("Payment screen - notification received:", notification);
 
-    // Ignorer les notifications pendant le traitement local ou juste après
-    const timeSinceLastPayment = Date.now() - lastProcessedPaymentTime;
-    if (isLocalProcessing || timeSinceLastPayment < 3000) {
-      console.log("Ignoring notification during local processing");
-      return;
-    }
+      // ✅ VALIDATION: Vérifier les données critiques
+      if (!notification || typeof notification.orderId !== 'number') {
+        console.warn('[PaymentScreen] Invalid notification data:', notification);
+        return;
+      }
 
-    // Ne traiter que les notifications pour cette commande
-    if (notification.orderId === orderId) {
+      // Ignorer les notifications pendant le traitement local ou juste après
+      const timeSinceLastPayment = Date.now() - lastProcessedPaymentTime;
+      if (isLocalProcessing || timeSinceLastPayment < 3000) {
+        console.log("Ignoring notification during local processing");
+        return;
+      }
+
+      // Ne traiter que les notifications pour cette commande
+      if (notification.orderId === orderId) {
       // Ne pas afficher de notification si le modal de reçu est visible
       if (receiptModalVisible) {
         console.log("Receipt modal is visible, ignoring notification UI");
@@ -234,9 +241,17 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
           break;
 
         default:
-          refreshOrderData();
+          try {
+            refreshOrderData();
+          } catch (error) {
+            console.error('[PaymentScreen] Error in default handler:', error);
+          }
           break;
       }
+    }
+    } catch (error) {
+      console.error('[PaymentScreen] Critical error in handleOrderNotification:', error, notification);
+      // Ne pas faire planter l'app, juste logger
     }
   }
 
