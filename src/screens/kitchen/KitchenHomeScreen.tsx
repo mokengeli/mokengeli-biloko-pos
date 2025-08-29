@@ -93,8 +93,8 @@ export const KitchenHomeScreen = () => {
       // Traiter selon le type de notification
       switch (notification.orderStatus) {
         case OrderNotificationStatus.NEW_ORDER:
-          // Nouvelle commande - recharger les commandes en attente
-          loadOrders();
+          // Nouvelle commande - mise à jour silencieuse
+          loadOrders(); // Pour les nouvelles commandes, on garde le chargement complet car c'est nécessaire
           showInfoSnackbar(`Nouvelle commande #${notification.orderId} reçue`);
           break;
           
@@ -106,9 +106,13 @@ export const KitchenHomeScreen = () => {
           } else if (notification.newState === "SERVED") {
             // Un plat a été servi - le retirer des commandes prêtes
             handleDishServedNotification(notification);
-          } else {
-            // Autre mise à jour - recharger
+          } else if (notification.newState === "PENDING" || notification.newState === "ORDERED" || notification.newState === "PREPARING") {
+            // Nouveaux plats ajoutés à une commande existante - recharger pour les récupérer
+            console.log(`New dishes added to existing order - reloading: ${notification.newState}`);
             loadOrders();
+          } else {
+            // Autre mise à jour - pas de rechargement complet
+            console.log(`Dish update ignored - state: ${notification.newState}`);
           }
           showInfoSnackbar(`Plat mis à jour - Commande #${notification.orderId}`);
           break;
@@ -122,8 +126,8 @@ export const KitchenHomeScreen = () => {
           break;
           
         default:
-          // Pour les autres types, recharger les données
-          loadOrders();
+          // Pour les autres types, log seulement (pas de rechargement automatique)
+          console.log(`Unhandled notification type: ${notification.orderStatus}`);
           break;
       }
     }
@@ -176,7 +180,7 @@ export const KitchenHomeScreen = () => {
         return updated.filter(order => order.items.length > 0);
       });
     } else {
-      loadOrders();
+      console.log('Missing itemId in dish ready notification - skipping silent update');
     }
   }, []);
 
@@ -195,7 +199,7 @@ export const KitchenHomeScreen = () => {
         return updated.filter(order => order.items.length > 0);
       });
     } else {
-      loadOrders();
+      console.log('Missing itemId in dish served notification - skipping silent update');
     }
   }, []);
 
