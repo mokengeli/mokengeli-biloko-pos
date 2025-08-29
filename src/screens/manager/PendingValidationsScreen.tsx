@@ -27,7 +27,8 @@ import { StackNavigationProp } from "@react-navigation/stack";
 import { useFocusEffect } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
-import { useSocketConnection } from "../../hooks/useSocketConnection";
+// CHANGEMENT: Utiliser directement le service Socket.io au lieu de créer une nouvelle connexion
+import { socketIOService } from "../../services/SocketIOService";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 import { OrderNotificationStatus, ConnectionStatus } from "../../services/types/WebSocketTypes";
 import orderService, { DebtValidationRequest } from "../../api/orderService";
@@ -80,17 +81,25 @@ export const PendingValidationsScreen: React.FC<PendingValidationsScreenProps> =
   });
 
   // ============================================================================
-  // CONNEXION SOCKET.IO (Pattern ServerHomeScreen)
+  // CONNEXION SOCKET.IO (Pattern ServerHomeScreen - SANS créer de nouvelle connexion)
   // ============================================================================
-  const { 
-    isConnected, 
-    status: connectionStatus,
-    stats: connectionStats
-  } = useSocketConnection({
-    autoConnect: true,
-    showStatusNotifications: false,
-    reconnectOnFocus: true
-  });
+  
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(socketIOService.getStatus());
+  const [connectionStats] = useState(socketIOService.getStats());
+
+  // Écouter l'état de connexion via le service directement (comme dans ServerHomeScreen)
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED || 
+        status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+
+    return unsubscribe;
+  }, []);
 
   // ============================================================================
   // FONCTIONS UTILITAIRES SÉCURISÉES
