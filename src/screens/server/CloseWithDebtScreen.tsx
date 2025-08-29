@@ -24,7 +24,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { CommonActions } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
 import orderService from "../../api/orderService";
@@ -120,12 +119,7 @@ export const CloseWithDebtScreen: React.FC<CloseWithDebtScreenProps> = ({
             text: "OK",
             onPress: () => {
               // Retourner à l'écran d'accueil
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [{ name: "ServerHome" }],
-                })
-              );
+              navigation.navigate("ServerHome" as never);
             },
           },
         ]
@@ -165,12 +159,7 @@ export const CloseWithDebtScreen: React.FC<CloseWithDebtScreenProps> = ({
           {
             text: "OK",
             onPress: () => {
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [{ name: "ServerHome" }],
-                })
-              );
+              navigation.navigate("ServerHome" as never);
             },
           },
         ]

@@ -29,7 +29,6 @@ import { usePrinter } from "../../hooks/usePrinter";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 // CHANGEMENT: Migration vers Socket.io
-import { useSocketConnection } from "../../hooks/useSocketConnection";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 import { 
   ConnectionStatus,

@@ -170,6 +170,39 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
           }
           break;
           
+        case OrderNotificationStatus.DEBT_VALIDATION_REQUEST:
+          if (notification.tableId) {
+            // Pas de rechargement complet, juste une animation légère
+            animateTableChange(notification.tableId);
+            showNotification(
+              `📋 Demande de validation - Table ${notification.tableId}`, 
+              "warning"
+            );
+          }
+          break;
+          
+        case OrderNotificationStatus.ORDER_CLOSED_WITH_DEBT:
+          if (notification.tableId) {
+            // Mise à jour silencieuse - table libérée
+            animateTableChange(notification.tableId);
+            setTables(prev => prev.map(table => {
+              if (table.tableData.id === notification.tableId) {
+                return {
+                  ...table,
+                  status: "free" as TableStatus,
+                  occupationTime: undefined,
+                  orderCount: 0
+                };
+              }
+              return table;
+            }));
+            showNotification(
+              `💰 Table ${notification.tableId} fermée avec impayé`, 
+              "warning"
+            );
+          }
+          break;
+          
         default:
           loadData();
           break;
@@ -292,15 +325,25 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     }));
   }, []);
 
-  // Gérer une mise à jour de paiement avec animation
+  // Gérer une mise à jour de paiement avec animation silencieuse
   const handlePaymentUpdateWithAnimation = useCallback((notification: any) => {
     const { tableId, newState } = notification;
     
     if (newState === "FULLY_PAID" && tableId) {
       animateTableChange(tableId);
-      setTimeout(() => {
-        loadData();
-      }, 2000);
+      
+      // Mise à jour silencieuse du statut de la table seulement
+      setTables(prev => prev.map(table => {
+        if (table.tableData.id === tableId) {
+          return {
+            ...table,
+            status: "free" as TableStatus,
+            occupationTime: undefined,
+            orderCount: 0
+          };
+        }
+        return table;
+      }));
     }
   }, []);
 

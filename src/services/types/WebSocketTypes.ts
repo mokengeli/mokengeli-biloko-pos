@@ -24,7 +24,8 @@ export enum OrderNotificationStatus {
   DISH_UPDATE = "DISH_UPDATE",
   PAYMENT_UPDATE = "PAYMENT_UPDATE",
   TABLE_STATUS_UPDATE = "TABLE_STATUS_UPDATE",
-  DEBT_VALIDATION_REQUEST = "DEBT_VALIDATION_REQUEST"
+  DEBT_VALIDATION_REQUEST = "DEBT_VALIDATION_REQUEST",
+  ORDER_CLOSED_WITH_DEBT = "ORDER_CLOSED_WITH_DEBT"
 }
 
 // ============================================================================
