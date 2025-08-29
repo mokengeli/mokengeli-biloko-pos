@@ -62,6 +62,15 @@ export const getNotificationMessage = (notification: OrderNotification): string 
     case OrderNotificationStatus.NEW_ORDER:
       return `Nouvelle commande #${notification.orderId} créée ${timeAgo}`;
       
+    case OrderNotificationStatus.DEBT_VALIDATION_REQUEST:
+      return `Demande de validation d'impayé pour la commande #${notification.orderId} ${timeAgo}`;
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_APPROVED:
+      return `Validation d'impayé approuvée pour la commande #${notification.orderId} ${timeAgo}`;
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REJECTED:
+      return `Validation d'impayé rejetée pour la commande #${notification.orderId} ${timeAgo}`;
+      
     default:
       return `Mise à jour de la commande #${notification.orderId} ${timeAgo}`;
   }
@@ -152,6 +161,17 @@ export const isUrgentNotification = (notification: OrderNotification): boolean =
     return true;
   }
   
+  // Les demandes de validation d'impayé sont urgentes
+  if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REQUEST) {
+    return true;
+  }
+  
+  // Les réponses de validation sont importantes
+  if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_APPROVED ||
+      notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REJECTED) {
+    return true;
+  }
+  
   return false;
 };
 
@@ -171,6 +191,15 @@ export const getNotificationColor = (notification: OrderNotification): string =>
       
     case OrderNotificationStatus.NEW_ORDER:
       return '#4CAF50'; // Vert
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REQUEST:
+      return '#FF9800'; // Orange - demande d'attention
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_APPROVED:
+      return '#4CAF50'; // Vert - succès
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REJECTED:
+      return '#F44336'; // Rouge - rejeté
       
     default:
       return '#757575'; // Gris

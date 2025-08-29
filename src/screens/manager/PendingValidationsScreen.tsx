@@ -320,6 +320,18 @@ export const PendingValidationsScreen: React.FC<PendingValidationsScreenProps> =
             showNotification("Nouvelle demande de validation reçue", "info");
             break;
             
+          case OrderNotificationStatus.DEBT_VALIDATION_APPROVED:
+            console.log('[PendingValidations] Validation approved, reloading...');
+            loadValidations();
+            showNotification("Validation approuvée", "success");
+            break;
+            
+          case OrderNotificationStatus.DEBT_VALIDATION_REJECTED:
+            console.log('[PendingValidations] Validation rejected, reloading...');
+            loadValidations();
+            showNotification("Validation rejetée", "warning");
+            break;
+            
           default:
             // Ignorer les autres types de notifications
             break;

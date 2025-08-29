@@ -77,6 +77,23 @@ export const ManagerHomeScreen: React.FC = () => {
               type: "info"
             });
             break;
+            
+          case "DEBT_VALIDATION_APPROVED":
+            setSnackbar({
+              visible: true,
+              message: `Validation d'impayé approuvée - Commande #${notification.orderId}`,
+              type: "success"
+            });
+            break;
+            
+          case "DEBT_VALIDATION_REJECTED":
+            setSnackbar({
+              visible: true,
+              message: `Validation d'impayé rejetée - Commande #${notification.orderId}`,
+              type: "error"
+            });
+            break;
+            
           case "PAYMENT_UPDATE":
             if (notification.newState === "PAID_WITH_REJECTED_ITEM") {
               setSnackbar({
