@@ -57,9 +57,9 @@ export const getUniqueWaiters = (orders: DomainOrder[]): WaiterInfo[] => {
 };
 
 /**
- * Formate la liste des serveurs pour l'affichage
+ * Formate la liste des serveurs pour l'affichage (sans le préfixe "Serveur:")
  * @param orders - Liste des commandes
- * @returns Chaîne formatée des serveurs
+ * @returns Chaîne formatée des noms de serveurs
  */
 export const formatWaitersDisplay = (orders: DomainOrder[]): string => {
   if (orders.length === 0) {
@@ -73,11 +73,11 @@ export const formatWaitersDisplay = (orders: DomainOrder[]): string => {
   }
   
   if (uniqueWaiters.length === 1) {
-    return `Serveur: ${uniqueWaiters[0].name}`;
+    return uniqueWaiters[0].name;
   }
   
   if (uniqueWaiters.length === 2) {
-    return `Serveurs: ${uniqueWaiters[0].name}, ${uniqueWaiters[1].name}`;
+    return `${uniqueWaiters[0].name}, ${uniqueWaiters[1].name}`;
   }
   
   // Plus de 2 serveurs : format condensé
