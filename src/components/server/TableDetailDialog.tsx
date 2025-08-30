@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { TableWithStatus } from './TableGrid';
 import { DomainOrder, DomainOrderItem } from '../../api/orderService';
 import { useCart, CartMode } from '../../contexts/CartContext';
+import { formatWaitersDisplay, getWaiterDisplayName, hasMultipleWaiters, getUniqueWaiters } from '../../utils/waiterHelpers';
 
 interface TableDetailDialogProps {
   visible: boolean;
@@ -163,6 +164,35 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                   <Text style={styles.infoValue}>{formatOccupationTime(table.occupationTime)}</Text>
                 </View>
                 
+                {/* Nouvelle section : Informations des serveurs */}
+                {orders.length > 0 && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>
+                      {hasMultipleWaiters(orders) ? 'Serveurs:' : 'Serveur:'}
+                    </Text>
+                    <View style={styles.waitersContainer}>
+                      <Text style={styles.infoValue}>
+                        {formatWaitersDisplay(orders)}
+                      </Text>
+                      {hasMultipleWaiters(orders) && (
+                        <View style={styles.waiterChips}>
+                          {getUniqueWaiters(orders).map((waiter, index) => (
+                            <Chip
+                              key={waiter.identifier}
+                              mode="outlined"
+                              compact
+                              style={styles.waiterChip}
+                              textStyle={styles.waiterChipText}
+                            >
+                              {waiter.name}
+                            </Chip>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+                
                 <Divider style={styles.divider} />
                 
                 {orders.length > 0 ? (
@@ -174,7 +204,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                         <View key={order.id} style={styles.accordionWrapper}>
                           <List.Accordion
                             title={`Commande #${order.id}`}
-                            description={`${order.items.length} articles - ${order.totalPrice.toFixed(2)} ${order.currency.code}`}
+                            description={`${order.items.length} articles - ${order.totalPrice.toFixed(2)} ${order.currency.code} • ${getWaiterDisplayName(order.waiterName)}`}
                             left={props => <List.Icon {...props} icon="receipt" />}
                             style={styles.orderAccordion}
                           >
@@ -328,6 +358,23 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontWeight: '500',
+  },
+  waitersContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  waiterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  waiterChip: {
+    marginLeft: 4,
+    marginBottom: 2,
+  },
+  waiterChipText: {
+    fontSize: 12,
   },
   divider: {
     marginVertical: 12,

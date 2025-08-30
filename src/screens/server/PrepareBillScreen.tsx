@@ -27,6 +27,7 @@ import orderService, {
   DomainOrder,
   DomainOrderItem,
 } from "../../api/orderService";
+import { getWaiterDisplayName } from "../../utils/waiterHelpers";
 // CHANGEMENT: Migration vers Socket.io
 import { useSocketConnection } from "../../hooks/useSocketConnection";
 import { useOrderNotifications } from "../../hooks/useOrderNotifications";
@@ -626,6 +627,15 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                     </Text>
                     <Text style={styles.orderInfoValue}>
                       {new Date(order?.orderDate || "").toLocaleDateString()}
+                    </Text>
+                  </View>
+
+                  <View style={styles.orderInfoRow}>
+                    <Text style={styles.orderInfoLabel}>
+                      Serveur:
+                    </Text>
+                    <Text style={styles.orderInfoValue}>
+                      {getWaiterDisplayName(order?.waiterName)}
                     </Text>
                   </View>
 

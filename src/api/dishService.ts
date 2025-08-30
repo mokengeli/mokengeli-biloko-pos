@@ -63,6 +63,21 @@ const dishService = {
       throw error;
     }
   },
+
+  async getDishesByName(tenantCode: string, name: string): Promise<DomainDish[]> {
+    try {
+      const response = await api.get('/api/order/dish/name', {
+        params: {
+          code: tenantCode,
+          name
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error searching dishes by name:', error);
+      throw error;
+    }
+  },
   
   async getDishesByCategory(categoryId: number): Promise<DomainDish[]> {
     try {

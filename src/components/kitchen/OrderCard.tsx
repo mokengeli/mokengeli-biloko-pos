@@ -17,6 +17,7 @@ import {
 } from "react-native-paper";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrder, DomainOrderItem } from "../../api/orderService";
+import { getWaiterDisplayName } from "../../utils/waiterHelpers";
 
 interface OrderCardProps {
   order: DomainOrder;
@@ -140,6 +141,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 <Text style={styles.orderNumber}>Commande #{order.id}</Text>
                 <View style={styles.tableTimeContainer}>
                   <Text style={styles.tableText}>Table: {order.tableName}</Text>
+                  <Text style={styles.waiterText}>Serveur: {getWaiterDisplayName(order.waiterName)}</Text>
                   <Text
                     style={[
                       styles.timeText,
@@ -335,10 +337,18 @@ const styles = StyleSheet.create({
   tableTimeContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 4,
+    flexWrap: "wrap",
   },
   tableText: {
     fontSize: 14,
+    marginRight: 8,
+  },
+  waiterText: {
+    fontSize: 14,
+    opacity: 0.8,
+    marginRight: 8,
   },
   timeText: {
     fontSize: 14,

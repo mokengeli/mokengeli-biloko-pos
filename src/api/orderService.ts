@@ -42,7 +42,9 @@ export interface DomainOrder {
   tenantCode: string;
   tableName: string;     
   tableId: number;      
-  employeeNumber: string;
+  employeeNumber: string; // Correspond à waiterIdentifier du nouveau contrat
+  waiterIdentifier?: string; // Nouveau champ (redondant avec employeeNumber)
+  waiterName?: string; // Nouveau champ principal pour affichage
   items: DomainOrderItem[];
   totalPrice: number;
   currency: DomainCurrency;
