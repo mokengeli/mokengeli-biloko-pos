@@ -113,7 +113,19 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
       setIsSearchMode(false);
       setSearchLoading(false);
       if (selectedCategory) {
-        await loadDishesByCategory(selectedCategory.id);
+        // Charger directement sans passer par loadDishesByCategory pour éviter le check isSearchMode
+        setIsLoadingDishes(true);
+        setError(null);
+        
+        try {
+          const dishesData = await dishService.getDishesByCategory(selectedCategory.id);
+          setDishes(dishesData);
+        } catch (err: any) {
+          console.error(`Error loading dishes for category ${selectedCategory.id}:`, err);
+          setError(err.message || 'Erreur lors du chargement des plats');
+        } finally {
+          setIsLoadingDishes(false);
+        }
       }
       return;
     }
@@ -131,7 +143,7 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
     } finally {
       setSearchLoading(false);
     }
-  }, [user?.tenantCode, selectedCategory, isSearchMode]);
+  }, [user?.tenantCode, selectedCategory]);
   
   // Sélectionner une catégorie
   const handleCategorySelect = (category: DomainCategory) => {
