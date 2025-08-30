@@ -80,6 +80,12 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([]);
   const [readyCount, setReadyCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  
+  // States pour la pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [hasMoreTables, setHasMoreTables] = useState(true);
+  const [loadingMoreTables, setLoadingMoreTables] = useState(false);
 
   const [fabOpen, setFabOpen] = useState(false);
 
@@ -521,20 +527,31 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     }
   }, [user?.tenantCode, generateTaskId]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (page: number = 0, append: boolean = false) => {
     if (!user?.tenantCode) {
       setError("Code de restaurant non disponible");
-      setIsLoading(false);
+      setIsLoading(!append);
       return;
     }
 
-    setIsLoading(true);
+    if (!append) {
+      setIsLoading(true);
+      setCurrentPage(0);
+      setHasMoreTables(true);
+    } else {
+      setLoadingMoreTables(true);
+    }
     setError(null);
 
     try {
-      const tablesResponse = await tableService.getTables(user.tenantCode);
+      const tablesResponse = await tableService.getTables(user.tenantCode, page, 3);
       const tablesWithStatus: TableWithStatus[] = [];
       const tableOrdersMap = new Map<number, DomainOrder[]>();
+
+      // Mettre à jour les informations de pagination
+      setTotalPages(tablesResponse.totalPages);
+      setHasMoreTables(!tablesResponse.last);
+      setCurrentPage(page);
 
       for (const table of tablesResponse.content) {
         try {
@@ -577,8 +594,12 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
         });
       }
 
-      setTables(tablesWithStatus);
-      await loadReadyDishes();
+      if (append) {
+        setTables(prev => [...prev, ...tablesWithStatus]);
+      } else {
+        setTables(tablesWithStatus);
+        await loadReadyDishes();
+      }
 
     } catch (err: any) {
       console.error("Error loading data:", err);
@@ -586,12 +607,21 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     } finally {
       setIsLoading(false);
       setRefreshing(false);
+      setLoadingMoreTables(false);
     }
   }, [user?.tenantCode, loadReadyDishes]);
 
+  // Fonction pour charger plus de tables (pagination)
+  const loadMoreTables = useCallback(async () => {
+    if (loadingMoreTables || !hasMoreTables) return;
+    
+    const nextPage = currentPage + 1;
+    await loadData(nextPage, true);
+  }, [loadData, currentPage, hasMoreTables, loadingMoreTables]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadData();
+    loadData(0, false);
   }, [loadData]);
 
   // [Les autres handlers restent identiques...]
@@ -773,6 +803,9 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
               refreshing={refreshing}
               onRefresh={onRefresh}
               recentlyChangedTables={recentlyChangedTables}
+              onLoadMore={loadMoreTables}
+              hasMoreData={hasMoreTables}
+              loadingMore={loadingMoreTables}
             />
 
             <UrgentTasks
