@@ -322,6 +322,39 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     return Math.min(customAmountValue, remainingAmount);
   }, [customAmount, calculateRemainingAmount]);
 
+  // Vérifier si tous les plats sont rejetés ou retournés
+  const areAllItemsRejectedOrReturned = useCallback((): boolean => {
+    return billItems.every(item => 
+      item.state === 'REJECTED' || item.state === 'RETURNED'
+    );
+  }, [billItems]);
+
+  // Obtenir le texte du bouton selon le contexte
+  const getButtonText = useCallback((): string => {
+    return areAllItemsRejectedOrReturned() 
+      ? "Libérer la table" 
+      : "Procéder au paiement";
+  }, [areAllItemsRejectedOrReturned]);
+
+  // Obtenir l'icône du bouton selon le contexte
+  const getButtonIcon = useCallback((): string => {
+    return areAllItemsRejectedOrReturned() 
+      ? "table" 
+      : "cash-register";
+  }, [areAllItemsRejectedOrReturned]);
+
+  // Vérifier si le bouton doit être désactivé
+  const isButtonDisabled = useCallback((): boolean => {
+    if (areAllItemsRejectedOrReturned()) {
+      return false; // Toujours activé pour libération
+    }
+    
+    // Logique existante pour paiement normal
+    return (paymentMode === "items" && calculateSelectedTotal() <= 0) ||
+           (paymentMode === "amount" && calculateCustomAmount() <= 0) ||
+           calculateRemainingAmount() <= 0;
+  }, [areAllItemsRejectedOrReturned, paymentMode, calculateSelectedTotal, calculateCustomAmount, calculateRemainingAmount]);
+
   // Gérer la sélection/désélection d'un article
   const toggleItemSelection = (itemId: number) => {
     setBillItems((prevItems) => {
@@ -352,8 +385,29 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     setCustomAmount(numericValue);
   };
 
-  // Passer à l'écran de paiement MODIFIÉ
-  const proceedToPayment = () => {
+  // Passer à l'écran de paiement ou libérer la table
+  const proceedToPayment = async () => {
+    if (areAllItemsRejectedOrReturned()) {
+      // Cas spécial: libération de table
+      try {
+        await orderService.forceCloseOrder(orderId);
+        Alert.alert(
+          "Table libérée",
+          "La table a été libérée avec succès.",
+          [{ text: "OK", onPress: () => navigation.navigate("ServerHome" as never) }]
+        );
+      } catch (error) {
+        console.error('Error liberating table:', error);
+        Alert.alert(
+          "Erreur", 
+          "Impossible de libérer la table. Veuillez réessayer.",
+          [{ text: "OK" }]
+        );
+      }
+      return;
+    }
+
+    // Cas normal: paiement
     const remainingAmount = calculateRemainingAmount();
 
     if (remainingAmount <= 0) {
@@ -859,14 +913,10 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                 mode="contained"
                 onPress={proceedToPayment}
                 style={styles.continueButton}
-                icon="cash-register"
-                disabled={
-                  (paymentMode === "items" && calculateSelectedTotal() <= 0) ||
-                  (paymentMode === "amount" && calculateCustomAmount() <= 0) ||
-                  calculateRemainingAmount() <= 0
-                }
+                disabled={isButtonDisabled()}
+                icon={getButtonIcon()}
               >
-                Procéder au paiement
+                {getButtonText()}
               </Button>
             </View>
 
