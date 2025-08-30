@@ -235,6 +235,20 @@ const orderService = {
       throw error;
     }
   },
+
+  // Méthode pour forcer la fermeture d'une commande
+  async forceCloseOrder(orderId: number): Promise<void> {
+    try {
+      await api.put('/api/order/force-close', null, {
+        params: {
+          id: orderId,
+        },
+      });
+    } catch (error) {
+      console.error('Error force closing order:', error);
+      throw error;
+    }
+  },
   // Méthode pour récupérer une commande par son ID
   async getOrderById(orderId: number): Promise<DomainOrder> {
     try {
