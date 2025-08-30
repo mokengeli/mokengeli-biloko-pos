@@ -5,6 +5,7 @@ import { Dialog, Portal, Text, Button, Divider, Chip, useTheme, List } from 'rea
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { TableWithStatus } from './TableGrid';
 import { DomainOrder, DomainOrderItem } from '../../api/orderService';
+import orderService from '../../api/orderService';
 import { useCart, CartMode } from '../../contexts/CartContext';
 import { formatWaitersDisplay, getWaiterDisplayName, hasMultipleWaiters, getUniqueWaiters } from '../../utils/waiterHelpers';
 
@@ -17,7 +18,8 @@ interface TableDetailDialogProps {
   onAddToOrder: (order: DomainOrder) => void;
   onRequestBill: (order: DomainOrder) => void;
   onPrintTicket: (order: DomainOrder) => void;
-  onServeReadyDishes: (order: DomainOrder) => void; // Nouvelle prop
+  onServeReadyDishes: (order: DomainOrder) => void;
+  onRefreshOrders?: () => void; // Nouvelle prop pour rafraîchir les commandes
 }
 
 export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
@@ -30,6 +32,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
   onRequestBill,
   onPrintTicket,
   onServeReadyDishes,
+  onRefreshOrders,
 }) => {
   const theme = useTheme();
   const { setEditMode } = useCart();
@@ -88,6 +91,8 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
         return 'Servi';
       case 'REJECTED':
         return 'Rejeté';
+      case 'RETURNED':
+        return 'Retourné';
       case 'PAID':
         return 'Payé';
       default:
@@ -106,6 +111,8 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
         return { color: theme.colors.warning || '#FF9800', fontWeight: 'bold' as const };
       case 'REJECTED':
         return { color: theme.colors.error, fontWeight: 'bold' as const };
+      case 'RETURNED':
+        return { color: theme.colors.disabled, fontWeight: 'bold' as const };
       default:
         return {};
     }
@@ -123,6 +130,25 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
     return order.items.filter(item => 
       item.state === 'READY' || item.state === 'COOKED'
     ).length;
+  };
+
+  // Vérifier si un plat peut être retourné
+  const canReturnDish = (item: DomainOrderItem): boolean => {
+    return item.state === 'PENDING' || item.state === 'IN_PREPARATION';
+  };
+
+  // Fonction pour retourner un plat
+  const handleReturnDish = async (item: DomainOrderItem) => {
+    try {
+      await orderService.returnDish(item.id);
+      // Rafraîchir les commandes si la fonction est fournie
+      if (onRefreshOrders) {
+        onRefreshOrders();
+      }
+    } catch (error) {
+      console.error('Erreur lors du retour du plat:', error);
+      // Ici on pourrait ajouter une notification d'erreur
+    }
   };
 
   // Fonction pour gérer l'ajout d'articles à une commande existante
@@ -214,19 +240,34 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                               nestedScrollEnabled={true}
                             >
                               {order.items.map((item) => (
-                                <List.Item
-                                  key={item.id}
-                                  title={`${item.count}x ${item.dishName}`}
-                                  description={getOrderItemStatusText(item.state)}
-                                  descriptionStyle={getStatusTextStyle(item.state)}
-                                  left={props => <List.Icon {...props} icon="food" />}
-                                  right={props => (
-                                    <Text {...props} style={styles.priceText}>
-                                      {(item.unitPrice * item.count).toFixed(2)} {order.currency.code}
-                                    </Text>
+                                <View key={item.id} style={styles.dishItemContainer}>
+                                  <List.Item
+                                    title={`${item.count}x ${item.dishName}`}
+                                    description={getOrderItemStatusText(item.state)}
+                                    descriptionStyle={getStatusTextStyle(item.state)}
+                                    left={props => <List.Icon {...props} icon="food" />}
+                                    right={props => (
+                                      <Text {...props} style={styles.priceText}>
+                                        {(item.unitPrice * item.count).toFixed(2)} {order.currency.code}
+                                      </Text>
+                                    )}
+                                    style={styles.orderItem}
+                                  />
+                                  {canReturnDish(item) && (
+                                    <View style={styles.dishActions}>
+                                      <Button
+                                        mode="text"
+                                        icon="undo-variant"
+                                        onPress={() => handleReturnDish(item)}
+                                        style={styles.returnButton}
+                                        labelStyle={styles.returnButtonLabel}
+                                        compact
+                                      >
+                                        Retourner
+                                      </Button>
+                                    </View>
                                   )}
-                                  style={styles.orderItem}
-                                />
+                                </View>
                               ))}
                             </ScrollView>
                             
@@ -400,6 +441,27 @@ const styles = StyleSheet.create({
   },
   orderItem: {
     paddingLeft: 16,
+  },
+  dishItemContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  dishActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  returnButton: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  returnButtonLabel: {
+    color: '#d32f2f',
+    fontSize: 12,
   },
   orderActions: {
     paddingVertical: 8,

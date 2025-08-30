@@ -12,6 +12,7 @@ export interface DomainOrderItem {
     | "READY"
     | "IN_PREPARATION"
     | "REJECTED"
+    | "RETURNED"
     | "COOKED"
     | "SERVED"
     | "PAID";
@@ -218,6 +219,20 @@ const orderService = {
     } catch (error) {
       console.error("Error rejecting dish:", error);
       throw error; // Laisser l'erreur se propager pour être traitée par le composant
+    }
+  },
+
+  // Méthode pour retourner un plat
+  async returnDish(itemId: number): Promise<void> {
+    try {
+      await api.put(`/api/order/dish/return`, null, {
+        params: {
+          id: itemId,
+        },
+      });
+    } catch (error) {
+      console.error("Error returning dish:", error);
+      throw error;
     }
   },
   // Méthode pour récupérer une commande par son ID
