@@ -712,15 +712,29 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   // [Les autres handlers restent identiques...]
   const handleTablePress = useCallback(async (table: TableWithStatus) => {
     setSelectedTable(table);
+    await loadTableOrders(table.tableData.id);
+    setTableDialogVisible(true);
+  }, []);
+
+  // Fonction pour charger les commandes d'une table
+  const loadTableOrders = useCallback(async (tableId: number) => {
     try {
-      const activeOrders = await orderService.getActiveOrdersByTable(table.tableData.id);
+      const activeOrders = await orderService.getActiveOrdersByTable(tableId);
       setTableOrders(activeOrders);
     } catch (err) {
       console.error("Error fetching active orders:", err);
       setTableOrders([]);
     }
-    setTableDialogVisible(true);
   }, []);
+
+  // Fonction pour rafraîchir les commandes de la table sélectionnée
+  const refreshSelectedTableOrders = useCallback(async () => {
+    if (selectedTable) {
+      await loadTableOrders(selectedTable.tableData.id);
+      // Aussi rafraîchir les données générales des tables pour mettre à jour les statuts
+      await loadData(0, false);
+    }
+  }, [selectedTable, loadData, loadTableOrders]);
 
   const handleServeReadyDishes = useCallback((order: DomainOrder) => {
     navigation.navigate("ReadyDishes", {
@@ -950,6 +964,7 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
         onRequestBill={handleRequestBill}
         onPrintTicket={handlePrintTicket}
         onServeReadyDishes={handleServeReadyDishes}
+        onRefreshOrders={refreshSelectedTableOrders}
       />
 
       <NotAvailableDialog
