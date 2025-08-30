@@ -24,6 +24,7 @@ import {
 import { QuickActions } from "../../components/server/QuickActions";
 import { UrgentTasks, UrgentTask } from "../../components/server/UrgentTasks";
 import { TableDetailDialog } from "../../components/server/TableDetailDialog";
+import { TableSearchBar } from "../../components/server/TableSearchBar";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import { usePrinter } from "../../hooks/usePrinter";
 import tableService from "../../api/tableService";
@@ -86,6 +87,11 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   const [totalPages, setTotalPages] = useState(0);
   const [hasMoreTables, setHasMoreTables] = useState(true);
   const [loadingMoreTables, setLoadingMoreTables] = useState(false);
+  
+  // States pour la recherche
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const [fabOpen, setFabOpen] = useState(false);
 
@@ -534,6 +540,11 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
       return;
     }
 
+    // Ne pas charger les données normales si on est en mode recherche
+    if (isSearchMode && !append) {
+      return;
+    }
+
     if (!append) {
       setIsLoading(true);
       setCurrentPage(0);
@@ -613,11 +624,85 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
   // Fonction pour charger plus de tables (pagination)
   const loadMoreTables = useCallback(async () => {
-    if (loadingMoreTables || !hasMoreTables) return;
+    if (loadingMoreTables || !hasMoreTables || isSearchMode) return;
     
     const nextPage = currentPage + 1;
     await loadData(nextPage, true);
-  }, [loadData, currentPage, hasMoreTables, loadingMoreTables]);
+  }, [loadData, currentPage, hasMoreTables, loadingMoreTables, isSearchMode]);
+
+  // Fonction de recherche de tables
+  const searchTables = useCallback(async (query: string) => {
+    if (!user?.tenantCode) return;
+    
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      // Si la recherche est vide, revenir au mode normal
+      setIsSearchMode(false);
+      setSearchLoading(false);
+      await loadData(0, false);
+      return;
+    }
+    
+    setSearchLoading(true);
+    setIsSearchMode(true);
+    setError(null);
+    
+    try {
+      const searchResults = await tableService.getTablesByName(user.tenantCode, query);
+      const tablesWithStatus: TableWithStatus[] = [];
+      const tableOrdersMap = new Map<number, DomainOrder[]>();
+      
+      // Charger les commandes actives pour chaque table trouvée
+      for (const table of searchResults) {
+        try {
+          const activeOrders = await orderService.getActiveOrdersByTable(table.id);
+          tableOrdersMap.set(table.id, activeOrders);
+        } catch (err) {
+          console.error(`Error fetching active orders for table ${table.id}:`, err);
+          tableOrdersMap.set(table.id, []);
+        }
+      }
+      
+      const calculateOccupationTime = (orders: DomainOrder[]): number => {
+        if (orders.length === 0) return 0;
+        const oldestOrder = orders.reduce((oldest, current) => {
+          const oldestTime = new Date(oldest.orderDate).getTime();
+          const currentTime = new Date(current.orderDate).getTime();
+          return currentTime < oldestTime ? current : oldest;
+        });
+        const now = new Date().getTime();
+        const orderTime = new Date(oldestOrder.orderDate).getTime();
+        return Math.floor((now - orderTime) / (1000 * 60));
+      };
+      
+      for (const table of searchResults) {
+        const activeOrders = tableOrdersMap.get(table.id) || [];
+        const isOccupied = activeOrders.length > 0;
+        
+        const hasPendingValidation = activeOrders.some(order => 
+          order.paymentStatus === 'PAID_WITH_REJECTED_ITEM' || 
+          order.remainingAmount > 0
+        );
+        
+        tablesWithStatus.push({
+          tableData: table,
+          status: isOccupied ? "occupied" : "free",
+          occupationTime: isOccupied ? calculateOccupationTime(activeOrders) : undefined,
+          orderCount: activeOrders.length,
+          pendingValidation: hasPendingValidation
+        });
+      }
+      
+      setTables(tablesWithStatus);
+      
+    } catch (err: any) {
+      console.error("Error searching tables:", err);
+      setError(err.message || "Erreur lors de la recherche");
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [user?.tenantCode, loadData]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -796,6 +881,11 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
         ) : (
           <View style={styles.mainContent}>
             <Text style={styles.sectionTitle}>Plan de salle</Text>
+            <TableSearchBar
+              onSearch={searchTables}
+              isLoading={searchLoading}
+              placeholder="Rechercher une table..."
+            />
             <TableGrid
               tables={tables}
               onTablePress={handleTablePress}
@@ -804,8 +894,8 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
               onRefresh={onRefresh}
               recentlyChangedTables={recentlyChangedTables}
               onLoadMore={loadMoreTables}
-              hasMoreData={hasMoreTables}
-              loadingMore={loadingMoreTables}
+              hasMoreData={hasMoreTables && !isSearchMode}
+              loadingMore={loadingMoreTables && !isSearchMode}
             />
 
             <UrgentTasks
