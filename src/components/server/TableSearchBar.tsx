@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { View, StyleSheet } from "react-native";
 import { Searchbar, useTheme } from "react-native-paper";
-import { useDebouncedCallback } from "use-debounce";
 
 interface TableSearchBarProps {
   onSearch: (query: string) => void;
@@ -17,15 +16,13 @@ export const TableSearchBar: React.FC<TableSearchBarProps> = ({
   const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Debounce la recherche pour éviter trop d'appels API
-  const debouncedSearch = useDebouncedCallback((query: string) => {
-    onSearch(query);
-  }, 300);
-
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
-    debouncedSearch(query);
-  }, [debouncedSearch]);
+  }, []);
+
+  const handleSearchSubmit = useCallback(() => {
+    onSearch(searchQuery.trim());
+  }, [onSearch, searchQuery]);
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery("");
@@ -39,6 +36,8 @@ export const TableSearchBar: React.FC<TableSearchBarProps> = ({
         onChangeText={handleSearchChange}
         value={searchQuery}
         onClearIconPress={handleClearSearch}
+        onBlur={handleSearchSubmit}
+        onSubmitEditing={handleSearchSubmit}
         style={[
           styles.searchBar,
           { backgroundColor: theme.colors.surface }
