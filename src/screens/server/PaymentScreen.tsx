@@ -21,7 +21,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { CommonActions } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrderItem } from "../../api/orderService";
 import orderService from "../../api/orderService";
@@ -131,6 +130,12 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // ============================================================================
   // MIGRATION: Utilisation de Socket.io au lieu de WebSocketService
   // ============================================================================
+  // 
+  // ⚠️  IMPORTANT: Navigation optimisée pour préserver les connexions WebSocket
+  // - Utilisation de navigation.navigate() au lieu de CommonActions.reset()
+  // - Timeout de redirection augmenté à 5s pour éviter les interruptions
+  // - Gestion améliorée des notifications pendant l'affichage du modal de reçu
+  // ============================================================================
   
   // Connexion Socket.io
   const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
@@ -199,11 +204,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
       // Ne traiter que les notifications pour cette commande
       if (notification.orderId === orderId) {
-      // Ne pas afficher de notification si le modal de reçu est visible
+      // Si le modal de reçu est visible, rafraîchir les données sans bloquer la notification
       if (receiptModalVisible) {
-        console.log("Receipt modal is visible, ignoring notification UI");
+        console.log("Receipt modal is visible, refreshing data silently");
         refreshOrderData();
-        return;
+        // Continuer le traitement normal sans return
       }
 
       // Pour les autres cas, traiter normalement mais de manière simplifiée
@@ -221,16 +226,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               setCurrentNotification(notification);
               setNotificationVisible(true);
 
-              // Redirection après un délai
+              // Redirection après un délai plus long pour permettre à l'utilisateur de voir la notification
               setTimeout(() => {
                 setRedirectAfterReceipt("ServerHome");
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: "ServerHome" }],
-                  })
-                );
-              }, 2000);
+                navigation.navigate("ServerHome");
+              }, 5000);
             }
           });
           break;
@@ -455,12 +455,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
       setReceiptModalVisible(false);
 
       if (redirectAfterReceipt === "ServerHome") {
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [{ name: "ServerHome" }],
-          })
-        );
+        navigation.navigate("ServerHome");
       } else if (redirectAfterReceipt === "PrepareBill") {
         navigation.navigate("PrepareBill", {
           orderId: orderId,
@@ -485,12 +480,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     setReceiptModalVisible(false);
 
     if (redirectAfterReceipt === "ServerHome") {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "ServerHome" }],
-        })
-      );
+      navigation.navigate("ServerHome");
     } else if (redirectAfterReceipt === "PrepareBill") {
       navigation.navigate("PrepareBill", {
         orderId: orderId,
