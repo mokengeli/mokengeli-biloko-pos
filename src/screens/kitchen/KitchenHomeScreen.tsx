@@ -256,21 +256,39 @@ export const KitchenHomeScreen = () => {
   // Gérer une notification de plat servi
   const handleDishServedNotification = useCallback((notification: any) => {
     if (notification.itemId) {
+      //console.log('Processing dish served notification:', notification);
+      
       setReadyOrders(prev => {
         const updated = [...prev];
+        let itemFound = false;
+        
         for (let order of updated) {
           const itemIndex = order.items.findIndex(item => item.id === notification.itemId);
           if (itemIndex !== -1) {
+            //console.log(`Removing served item ${notification.itemId} from order ${order.id}`);
             order.items.splice(itemIndex, 1);
+            itemFound = true;
             break;
           }
         }
-        return updated.filter(order => order.items.length > 0);
+        
+        if (!itemFound) {
+          //console.warn(`Item ${notification.itemId} not found in ready orders - may need full reload`);
+          // Si l'item n'est pas trouvé, déclencher un rechargement complet
+          setTimeout(() => loadOrders(), 500);
+          return prev;
+        }
+        
+        const filteredOrders = updated.filter(order => order.items.length > 0);
+       // console.log(`Ready orders updated: ${filteredOrders.length} orders remaining`);
+        return filteredOrders;
       });
     } else {
-      console.log('Missing itemId in dish served notification - skipping silent update');
+     // console.warn('Missing itemId in dish served notification - triggering full reload');
+      // Sans itemId, recharger complètement pour garantir la cohérence
+      loadOrders();
     }
-  }, []);
+  }, [loadOrders]);
 
   // Gérer une notification de table libérée
   const handleTableFreedNotification = useCallback((notification: any) => {
