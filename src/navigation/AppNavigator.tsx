@@ -11,6 +11,7 @@ import { DishCustomizationParamList } from "../screens/server/DishCustomizationS
 import { ReadyDishesScreen } from "../screens/server/ReadyDishesScreen";
 import { ProfilScreen } from "../screens/ProfilScreen";
 import { KitchenHomeScreen } from "../screens/kitchen/KitchenHomeScreen";
+import { CashierHomeScreen } from "../screens/cashier/CashierHomeScreen";
 import { RolesUtils } from "../utils/roles";
 import { PrepareBillScreen } from "../screens/server/PrepareBillScreen";
 import { PaymentScreen } from "../screens/server/PaymentScreen";
@@ -33,6 +34,7 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   ServerHome: undefined;
   KitchenHome: undefined;
+  CashierHome: undefined;
   ProfilHome: undefined;
   ManagerHome: undefined;
   CreateOrder: {
@@ -137,6 +139,7 @@ const MainNavigator: React.FC = () => {
       />
       <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
       <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
+      <MainStack.Screen name="CashierHome" component={CashierHomeScreen} />
       <MainStack.Screen name="ProfilHome" component={ProfilScreen} />
       <MainStack.Screen name="ManagerHome" component={ManagerHomeScreen} />
 
