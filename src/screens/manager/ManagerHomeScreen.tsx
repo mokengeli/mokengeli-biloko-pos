@@ -255,6 +255,14 @@ export const ManagerHomeScreen: React.FC = () => {
                 right={(props) => <List.Icon {...props} icon="chevron-right" />}
                 onPress={() => handleViewChange("kitchen")}
               />
+
+              <List.Item
+                title="Caisse"
+                description="Encaissement et paiements"
+                left={(props) => <List.Icon {...props} icon="cash-register" />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => navigation.navigate("CashierHome" as never)}
+              />
               
               <List.Item
                 title="Validations en attente"

@@ -13,6 +13,7 @@ import { OrderCart } from '../../components/server/OrderCart';
 import { DishSearchBar } from '../../components/server/DishSearchBar';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { MainStackParamList } from '../../navigation/AppNavigator';
+import { NavigationHelper } from '../../utils/navigationHelper';
 
 // Types pour la navigation
 type CreateOrderScreenRouteProp = RouteProp<MainStackParamList, 'CreateOrder'>;
@@ -165,9 +166,9 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   
 // Finaliser la commande
   const handleFinishOrder = () => {
-    // Navigation vers l'écran d'accueil après finalisation de la commande ou ajout d'articles
+    // Navigation vers l'écran d'accueil contextuel après finalisation de la commande ou ajout d'articles
     // Cette fonction est appelée depuis le composant OrderCart après un traitement réussi
-    navigation.navigate('ServerHome');
+    NavigationHelper.navigateToContextualHome(navigation, user?.roles);
   };
   
 // Gérer l'annulation de commande

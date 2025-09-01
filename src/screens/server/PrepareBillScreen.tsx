@@ -37,6 +37,7 @@ import {
   OrderNotificationStatus,
 } from "../../services/types/WebSocketTypes";
 import { socketIOService } from "../../services";
+import { NavigationHelper } from "../../utils/navigationHelper";
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -213,7 +214,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                         [
                           {
                             text: "OK",
-                            onPress: () => navigation.navigate("ServerHome" as never),
+                            onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles),
                           },
                         ]
                       );
@@ -394,7 +395,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         Alert.alert(
           "Table libérée",
           "La table a été libérée avec succès.",
-          [{ text: "OK", onPress: () => navigation.navigate("ServerHome" as never) }]
+          [{ text: "OK", onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles) }]
         );
       } catch (error) {
         console.error('Error liberating table:', error);
@@ -417,7 +418,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         [
           {
             text: "OK",
-            onPress: () => navigation.navigate("ServerHome" as never),
+            onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles),
           },
         ]
       );

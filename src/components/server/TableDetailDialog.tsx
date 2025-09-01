@@ -8,6 +8,8 @@ import { DomainOrder, DomainOrderItem } from '../../api/orderService';
 import orderService from '../../api/orderService';
 import { useCart, CartMode } from '../../contexts/CartContext';
 import { formatWaitersDisplay, getWaiterDisplayName, hasMultipleWaiters, getUniqueWaiters } from '../../utils/waiterHelpers';
+import { useAuth } from '../../contexts/AuthContext';
+import { NavigationHelper } from '../../utils/navigationHelper';
 
 interface TableDetailDialogProps {
   visible: boolean;
@@ -36,6 +38,10 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
 }) => {
   const theme = useTheme();
   const { setEditMode } = useCart();
+  const { user } = useAuth();
+
+  // Vérifier si l'utilisateur est un manager
+  const isManager = NavigationHelper.isManager(user?.roles);
 
   if (!table) return null;
 
@@ -253,7 +259,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                                     )}
                                     style={styles.orderItem}
                                   />
-                                  {canReturnDish(item) && (
+                                  {canReturnDish(item) && isManager && (
                                     <View style={styles.dishActions}>
                                       <Button
                                         mode="text"
@@ -309,14 +315,16 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                                 >
                                   Imprimer
                                 </Button>
-                                <Button 
-                                  mode="outlined" 
-                                  icon="cash-register" 
-                                  onPress={() => onRequestBill(order)}
-                                  style={styles.actionButton}
-                                >
-                                  Addition
-                                </Button>
+                                {isManager && (
+                                  <Button 
+                                    mode="outlined" 
+                                    icon="cash-register" 
+                                    onPress={() => onRequestBill(order)}
+                                    style={styles.actionButton}
+                                  >
+                                    Addition
+                                  </Button>
+                                )}
                               </ScrollView>
                             </View>
                           </List.Accordion>
