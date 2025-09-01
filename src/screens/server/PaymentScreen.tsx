@@ -38,6 +38,7 @@ import { NotificationSnackbar } from "../../components/common/NotificationSnackb
 import { SnackbarContainer } from "../../components/common/SnackbarContainer";
 import { getNotificationMessage } from "../../utils/notificationHelpers";
 import { socketIOService } from "../../services";
+import { NavigationHelper } from "../../utils/navigationHelper";
 
 // Type définitions pour la navigation
 type PaymentParamList = {
@@ -226,10 +227,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
               setCurrentNotification(notification);
               setNotificationVisible(true);
 
-              // Redirection après un délai plus long pour permettre à l'utilisateur de voir la notification
+              // Redirection contextuelle après un délai plus long pour permettre à l'utilisateur de voir la notification
               setTimeout(() => {
-                setRedirectAfterReceipt("ServerHome");
-                navigation.navigate("ServerHome");
+                const contextualHome = NavigationHelper.getContextualHomeScreen(user?.roles);
+                setRedirectAfterReceipt(contextualHome);
+                NavigationHelper.navigateToContextualHome(navigation, user?.roles);
               }, 5000);
             }
           });
@@ -318,7 +320,7 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         Alert.alert(
           "Commande déjà payée",
           "Cette commande a été entièrement payée.",
-          [{ text: "OK", onPress: () => navigation.navigate("ServerHome") }]
+          [{ text: "OK", onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles) }]
         );
         return;
       }
@@ -364,7 +366,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
       currentRemaining - effectiveAmount
     );
     if (remainingAfterPayment <= 0) {
-      setRedirectAfterReceipt("ServerHome");
+      // Redirection contextuelle si commande entièrement payée
+      const contextualHome = NavigationHelper.getContextualHomeScreen(user?.roles);
+      setRedirectAfterReceipt(contextualHome);
     } else {
       setRedirectAfterReceipt("PrepareBill");
     }
@@ -454,8 +458,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
       setReceiptModalVisible(false);
 
-      if (redirectAfterReceipt === "ServerHome") {
-        navigation.navigate("ServerHome");
+      if (redirectAfterReceipt === "CashierHome" || redirectAfterReceipt === "ServerHome" || redirectAfterReceipt === "ManagerHome" || redirectAfterReceipt === "KitchenHome" || redirectAfterReceipt === "ProfilHome") {
+        // Redirection vers l'écran contextuel déterminé
+        NavigationHelper.safeNavigate(navigation, redirectAfterReceipt);
       } else if (redirectAfterReceipt === "PrepareBill") {
         navigation.navigate("PrepareBill", {
           orderId: orderId,
@@ -479,8 +484,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const finishWithoutPrinting = () => {
     setReceiptModalVisible(false);
 
-    if (redirectAfterReceipt === "ServerHome") {
-      navigation.navigate("ServerHome");
+    if (redirectAfterReceipt === "CashierHome" || redirectAfterReceipt === "ServerHome" || redirectAfterReceipt === "ManagerHome" || redirectAfterReceipt === "KitchenHome" || redirectAfterReceipt === "ProfilHome") {
+      // Redirection vers l'écran contextuel déterminé
+      NavigationHelper.safeNavigate(navigation, redirectAfterReceipt);
     } else if (redirectAfterReceipt === "PrepareBill") {
       navigation.navigate("PrepareBill", {
         orderId: orderId,

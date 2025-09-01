@@ -28,6 +28,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
 import orderService from "../../api/orderService";
 import PinInput from "../../components/common/PinInput";
+import { NavigationHelper } from "../../utils/navigationHelper";
 
 // Types pour la navigation
 type CloseWithDebtParamList = {
@@ -118,8 +119,8 @@ export const CloseWithDebtScreen: React.FC<CloseWithDebtScreenProps> = ({
           {
             text: "OK",
             onPress: () => {
-              // Retourner à l'écran d'accueil
-              navigation.navigate("ServerHome" as never);
+              // Retourner à l'écran d'accueil contextuel
+              NavigationHelper.navigateToContextualHome(navigation, user?.roles);
             },
           },
         ]
@@ -159,7 +160,7 @@ export const CloseWithDebtScreen: React.FC<CloseWithDebtScreenProps> = ({
           {
             text: "OK",
             onPress: () => {
-              navigation.navigate("ServerHome" as never);
+              NavigationHelper.navigateToContextualHome(navigation, user?.roles);
             },
           },
         ]
