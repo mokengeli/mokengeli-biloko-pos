@@ -31,9 +31,9 @@ export interface DomainCashierOrderSummary {
 export interface CashierOrderParams {
   tenantCode: string; // TenantCode obligatoire
   date?: string; // Format: YYYY-MM-DD
-  searchType?: 'commande' | 'table';
+  searchType?: 'ORDER' | 'TABLE'; // Valeurs API : ORDER ou TABLE
   status?: string;
-  searchValue?: string; // Valeur de recherche (numéro commande ou table)
+  search?: string; // Valeur de recherche (paramètre API : search)
 }
 
 export interface CashierOrdersByTableParams {
@@ -52,8 +52,8 @@ class CashierService {
         code: params.tenantCode, // Paramètre obligatoire
         date: params.date,
         searchType: params.searchType,
-        status: params.status,
-        searchValue: params.searchValue
+        search: params.search,   // Paramètre API : search
+        status: params.status
       };
       const response = await api.get('/api/order/cashier', { params: requestParams });
       return response.data;
@@ -82,37 +82,16 @@ class CashierService {
   }
 
   /**
-   * Recherche par valeur spécifique (numéro de commande ou table)
+   * Recherche par valeur et type spécifique
    */
-  async searchOrders(tenantCode: string, searchValue: string, searchType: 'commande' | 'table', date?: string): Promise<DomainCashierOrderSummary> {
+  async searchOrders(tenantCode: string, searchValue: string, searchType: 'ORDER' | 'TABLE', date?: string): Promise<DomainCashierOrderSummary> {
     return await this.getCashierOrderSummary({
       tenantCode,
-      searchValue,
+      search: searchValue,  // Utiliser le paramètre 'search' de l'API
       searchType,
       date,
       status: 'ALL'
     });
-  }
-
-  /**
-   * Recherche intelligente - détermine automatiquement le type et essaie différentes approches
-   */
-  async smartSearch(tenantCode: string, searchValue: string, date?: string): Promise<DomainCashierOrderSummary> {
-    // Déterminer le type de recherche
-    const isNumeric = /^\d+$/.test(searchValue);
-    
-    if (isNumeric) {
-      // Essayer d'abord comme numéro de commande
-      try {
-        return await this.searchOrders(tenantCode, searchValue, 'commande', date);
-      } catch (error) {
-        // Si échec, essayer comme numéro de table
-        return await this.searchOrders(tenantCode, searchValue, 'table', date);
-      }
-    } else {
-      // Recherche textuelle (nom de table)
-      return await this.searchOrders(tenantCode, searchValue, 'table', date);
-    }
   }
 
   /**

@@ -14,6 +14,7 @@ import {
   Divider,
   TouchableRipple,
   Badge,
+  SegmentedButtons,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -64,6 +65,7 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
   // États pour la recherche
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [searchType, setSearchType] = useState<'ORDER' | 'TABLE'>('ORDER');
 
   // États pour la date
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -96,7 +98,12 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
       let result: DomainCashierOrderSummary;
       
       if (searchQuery.trim()) {
-        result = await cashierService.smartSearch(user.tenantCode, searchQuery.trim(), dateStr);
+        result = await cashierService.searchOrders(
+          user.tenantCode, 
+          searchQuery.trim(), 
+          searchType, 
+          dateStr
+        );
       } else {
         result = await cashierService.getCashierOrderSummary({
           tenantCode: user.tenantCode,
@@ -118,7 +125,7 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
       setRefreshing(false);
       setIsSearching(false);
     }
-  }, [selectedDate, selectedStatus, searchQuery, user?.tenantCode]);
+  }, [selectedDate, selectedStatus, searchQuery, searchType, user?.tenantCode]);
 
   // Recharger les données au focus
   useFocusEffect(
@@ -141,10 +148,10 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Actualiser quand la date ou le statut change
+  // Actualiser quand la date, le statut ou le type de recherche change
   useEffect(() => {
     loadData();
-  }, [selectedDate, selectedStatus]);
+  }, [selectedDate, selectedStatus, searchType]);
 
   // Gestionnaires
   const handleRefresh = () => {
@@ -278,8 +285,31 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
 
       {/* Barre de recherche */}
       <Surface style={styles.searchContainer} elevation={1}>
+        {/* Sélecteur de type de recherche */}
+        <SegmentedButtons
+          value={searchType}
+          onValueChange={(value) => setSearchType(value as 'ORDER' | 'TABLE')}
+          buttons={[
+            {
+              value: 'ORDER',
+              label: 'Commande',
+              icon: 'receipt',
+            },
+            {
+              value: 'TABLE',
+              label: 'Table',
+              icon: 'table-furniture',
+            },
+          ]}
+          style={styles.searchTypeSelector}
+        />
+        
         <Searchbar
-          placeholder="Rechercher par table ou n° commande..."
+          placeholder={
+            searchType === 'ORDER' 
+              ? "Rechercher par numéro de commande..." 
+              : "Rechercher par nom/numéro de table..."
+          }
           onChangeText={setSearchQuery}
           value={searchQuery}
           style={styles.searchBar}
@@ -396,6 +426,9 @@ const styles = StyleSheet.create({
   searchContainer: {
     padding: 16,
     backgroundColor: "white",
+  },
+  searchTypeSelector: {
+    marginBottom: 12,
   },
   searchBar: {
     marginBottom: 12,
