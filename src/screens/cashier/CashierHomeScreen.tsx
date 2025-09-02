@@ -217,7 +217,7 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
                   color={themeColors[statusColor]}
                   style={styles.orderIcon}
                 />
-                <Text style={styles.orderNumber}>#{order.orderId}</Text>
+                <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
                 <Text style={styles.tableName}>{order.tableName}</Text>
                 {order.waitingTime > 10 && (
                   <Badge 

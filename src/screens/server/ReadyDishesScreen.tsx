@@ -212,7 +212,7 @@ export const ReadyDishesScreen: React.FC<ReadyDishesScreenProps> = ({ navigation
         <Card.Content>
           <View style={styles.orderHeader}>
             <View style={styles.orderTitleContainer}>
-              <Text style={styles.orderTitle}>Commande #{order.id}</Text>
+              <Text style={styles.orderTitle}>Commande #{order.orderNumber}</Text>
               <Text style={styles.tableText}>Table: {order.tableName}</Text>
             </View>
             <Badge
