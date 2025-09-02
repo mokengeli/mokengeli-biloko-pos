@@ -555,7 +555,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     setError(null);
 
     try {
-      const tablesResponse = await tableService.getTables(user.tenantCode, page, 3);
+      const tablesResponse = await tableService.getTables(user.tenantCode, page, 10);
       const tablesWithStatus: TableWithStatus[] = [];
       const tableOrdersMap = new Map<number, DomainOrder[]>();
 
