@@ -170,7 +170,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
         // Message de succès
         Alert.alert(
           "Commande créée",
-          `Commande #${result.id} créée avec succès.`,
+          `Commande #${result.orderNumber} créée avec succès.`,
           [
             {
               text: "OK",
@@ -196,7 +196,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
         // Message de succès
         Alert.alert(
           "Articles ajoutés",
-          `Articles ajoutés avec succès à la commande #${currentOrderId}.`,
+          `Articles ajoutés avec succès à la commande #${existingOrder?.orderNumber || currentOrderId}.`,
           [
             {
               text: "OK",
@@ -253,7 +253,10 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
   const getCartTitle = () => {
     if (mode === CartMode.CREATE) {
       return "Panier";
+    } else if (mode === CartMode.ADD && existingOrder) {
+      return `Ajout à la commande #${existingOrder.orderNumber}`;
     } else if (mode === CartMode.ADD && currentOrderId) {
+      // Fallback au cas où existingOrder n'est pas disponible
       return `Ajout à la commande #${currentOrderId}`;
     }
     return "Panier";
@@ -314,7 +317,7 @@ export const OrderCart: React.FC<OrderCartProps> = ({ onFinishOrder, onCancelOrd
             <Card style={styles.existingOrderCard}>
               <Card.Content>
                 <View style={styles.existingOrderHeader}>
-                  <Text style={styles.existingOrderTitle}>Commande #{existingOrder.id}</Text>
+                  <Text style={styles.existingOrderTitle}>Commande #{existingOrder.orderNumber}</Text>
                   <Text style={styles.existingOrderPrice}>
                     {existingOrder.totalPrice.toFixed(2)} {existingOrder.currency.code}
                   </Text>

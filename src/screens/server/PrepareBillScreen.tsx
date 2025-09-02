@@ -678,7 +678,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
 
                   <View style={styles.orderInfoRow}>
                     <Text style={styles.orderInfoLabel}>
-                      Commande #{order?.id}
+                      Commande #{order?.orderNumber}
                     </Text>
                     <Text style={styles.orderInfoValue}>
                       {new Date(order?.orderDate || "").toLocaleDateString()}
@@ -838,7 +838,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                   </TouchableRipple>
 
                   <View style={styles.orderInfo}>
-                    <Text style={styles.orderIdText}>#{order?.id}</Text>
+                    <Text style={styles.orderIdText}>#{order?.orderNumber}</Text>
                     <Text style={styles.orderDateText}>
                       {new Date(order?.orderDate || "").toLocaleTimeString()}
                     </Text>

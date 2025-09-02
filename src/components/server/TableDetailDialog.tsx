@@ -235,7 +235,7 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                       {orders.map((order) => (
                         <View key={order.id} style={styles.accordionWrapper}>
                           <List.Accordion
-                            title={`Commande #${order.id}`}
+                            title={`Commande #${order.orderNumber}`}
                             description={`${order.items.length} articles - ${order.totalPrice.toFixed(2)} ${order.currency.code} • ${getWaiterDisplayName(order.waiterName)}`}
                             left={props => <List.Icon {...props} icon="receipt" />}
                             style={styles.orderAccordion}

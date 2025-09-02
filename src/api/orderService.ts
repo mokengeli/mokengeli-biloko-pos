@@ -40,6 +40,7 @@ export interface DomainPaymentTransaction {
 
 export interface DomainOrder {
   id: number;
+  orderNumber: string;
   tenantCode: string;
   tableName: string;     
   tableId: number;      

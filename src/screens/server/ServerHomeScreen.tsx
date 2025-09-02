@@ -776,7 +776,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
   const handlePrintTicket = useCallback(async (order: DomainOrder) => {
     setTableDialogVisible(false);
     const ticketContent = `
-COMMANDE #${order.id}
+COMMANDE #${order.orderNumber}
 Table: ${order.tableName}
 Date: ${new Date(order.orderDate).toLocaleString()}
 

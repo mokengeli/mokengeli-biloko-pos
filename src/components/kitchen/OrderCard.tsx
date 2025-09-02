@@ -138,7 +138,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <Card.Content style={styles.cardContent}>
             <View style={styles.headerRow}>
               <View style={styles.orderInfo}>
-                <Text style={styles.orderNumber}>Commande #{order.id}</Text>
+                <Text style={styles.orderNumber}>Commande #{order.orderNumber}</Text>
                 <View style={styles.tableTimeContainer}>
                   <Text style={styles.tableText}>Table: {order.tableName}</Text>
                   <Text style={styles.waiterText}>Serveur: {getWaiterDisplayName(order.waiterName)}</Text>
@@ -269,7 +269,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <Text style={styles.modalText}>
               {actionType === "ready"
                 ? `Confirmer que "${selectedItem?.dishName}" est prêt à servir?`
-                : `Rejeter "${selectedItem?.dishName}" de la commande #${order.id}?`}
+                : `Rejeter "${selectedItem?.dishName}" de la commande #${order.orderNumber}?`}
             </Text>
             <View style={styles.modalActions}>
               <Button
