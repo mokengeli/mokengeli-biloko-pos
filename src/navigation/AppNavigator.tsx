@@ -19,10 +19,13 @@ import { DomainOrderItem } from "../api/orderService";
 import { ManagerHomeScreen } from "../screens/manager/ManagerHomeScreen";
 import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
+import { PrinterConfigScreen } from "../screens/settings/PrinterConfigScreen";
+import { AddEditPrinterScreen } from "../screens/settings/AddEditPrinterScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 // Import conditionnel de l'écran de debug
 import { SocketIODebugScreen } from "../screens/debug/SocketIODebugScreen";
+import PrinterDebugScreen from "../screens/settings/PrinterDebugScreen";
 import env from "../config/environment";
 
 // Types des paramètres pour les routes d'authentification
@@ -71,6 +74,11 @@ export type MainStackParamList = {
     currency: string;
   };
   PendingValidations: undefined;
+  PrinterConfig: undefined;
+  AddEditPrinter: {
+    printerId?: string;
+  };
+  PrinterDebug: undefined;
   SplitBill: {
     orderId: number;
     tableName?: string;
@@ -150,6 +158,22 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen
         name="PendingValidations"
         component={PendingValidationsScreen}
+      />
+      <MainStack.Screen
+        name="PrinterConfig"
+        component={PrinterConfigScreen}
+      />
+      <MainStack.Screen
+        name="AddEditPrinter"
+        component={AddEditPrinterScreen}
+      />
+      <MainStack.Screen
+        name="PrinterDebug"
+        component={PrinterDebugScreen}
+        options={{
+          headerShown: false,
+          title: "Debug Impression",
+        }}
       />
       
       {/* ÉCRAN DE DEBUG - UNIQUEMENT EN DÉVELOPPEMENT */}

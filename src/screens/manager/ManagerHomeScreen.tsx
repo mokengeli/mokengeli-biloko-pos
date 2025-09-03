@@ -1,6 +1,6 @@
 // src/screens/manager/ManagerHomeScreen.tsx - VERSION CORRIGÉE
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Alert } from "react-native";
 import {
   Appbar,
   SegmentedButtons,
@@ -173,6 +173,16 @@ export const ManagerHomeScreen: React.FC = () => {
     }
   }, [connectionStatus, connectionStats]);
 
+  // Menu items pour HeaderMenu
+  const managerMenuItems = [
+    {
+      title: "Configuration Imprimantes",
+      icon: "printer-settings",
+      onPress: () => navigation.navigate("PrinterConfig" as never),
+      dividerAfter: true,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header>
@@ -202,7 +212,7 @@ export const ManagerHomeScreen: React.FC = () => {
         {notificationCount > 0 && (
           <Badge style={styles.notificationBadge}>{notificationCount}</Badge>
         )}
-        <HeaderMenu />
+        <HeaderMenu additionalItems={managerMenuItems} />
       </Appbar.Header>
 
       <Surface style={styles.content}>

@@ -79,11 +79,36 @@
     <!-- IMPRIMANTES RÉSEAU LOCAL : Autoriser HTTP pour les imprimantes     -->
     <!-- =================================================================== -->
     <domain-config cleartextTrafficPermitted="true">
-        <!-- Plages IP typiques des imprimantes réseau -->
-        <domain includeSubdomains="true">192.168.1.0/24</domain>
-        <domain includeSubdomains="true">192.168.0.0/24</domain>
-        <domain includeSubdomains="true">10.0.0.0/24</domain>
-        <domain includeSubdomains="true">10.0.1.0/24</domain>
+        <!-- IPs spécifiques pour imprimantes (Android ne supporte pas les ranges) -->
+        <!-- IP de votre imprimante actuelle -->
+        <domain includeSubdomains="true">192.168.1.159</domain>
+        
+        <!-- Autres IPs potentielles -->
+        <domain includeSubdomains="true">192.168.1.151</domain>
+        <domain includeSubdomains="true">192.168.1.152</domain>
+        <domain includeSubdomains="true">192.168.1.153</domain>
+        <domain includeSubdomains="true">192.168.1.154</domain>
+        <domain includeSubdomains="true">192.168.1.155</domain>
+        <domain includeSubdomains="true">192.168.1.156</domain>
+        <domain includeSubdomains="true">192.168.1.157</domain>
+        <domain includeSubdomains="true">192.168.1.158</domain>
+        <domain includeSubdomains="true">192.168.1.160</domain>
+        
+        <!-- IPs communes pour imprimantes réseau -->
+        <domain includeSubdomains="true">192.168.1.200</domain>
+        <domain includeSubdomains="true">192.168.1.201</domain>
+        <domain includeSubdomains="true">192.168.1.202</domain>
+        <domain includeSubdomains="true">192.168.1.250</domain>
+        <domain includeSubdomains="true">192.168.1.251</domain>
+        <domain includeSubdomains="true">192.168.1.252</domain>
+        <domain includeSubdomains="true">192.168.1.253</domain>
+        <domain includeSubdomains="true">192.168.1.254</domain>
+        
+        <!-- Même chose pour le réseau 192.168.0.x -->
+        <domain includeSubdomains="true">192.168.0.151</domain>
+        <domain includeSubdomains="true">192.168.0.152</domain>
+        <domain includeSubdomains="true">192.168.0.200</domain>
+        <domain includeSubdomains="true">192.168.0.250</domain>
         
         <!-- Ports d'imprimantes courants -->
         <!-- Note: Android ne permet pas de spécifier les ports directement -->
