@@ -273,10 +273,6 @@ export const PrinterConfigScreen: React.FC<PrinterConfigScreenProps> = ({ naviga
       <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
         <Appbar.Content title="Configuration Imprimantes" />
-        <Appbar.Action 
-          icon="bug" 
-          onPress={() => navigation.navigate('PrinterDebug')} 
-        />
       </Appbar.Header>
 
       {!printerService.isExternalLibraryAvailable() && (

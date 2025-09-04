@@ -45,7 +45,6 @@ export class ThermalReceiptPrinterService {
     try {
       // Initialisation avec la vraie API
       await NetPrinter.init();
-      printerDebugLogger.info('NetPrinter initialisé');
 
       // Configuration de l'imprimante réseau
       const printerConfig: INetPrinterIdentity = {
@@ -54,8 +53,6 @@ export class ThermalReceiptPrinterService {
         port: port
       };
 
-      printerDebugLogger.info('Configuration imprimante TCP', printerConfig);
-
       // Connecter à l'imprimante avec la vraie API
       const connectedPrinter = await NetPrinter.connectPrinter(printerConfig.host, printerConfig.port);
       
@@ -63,7 +60,6 @@ export class ThermalReceiptPrinterService {
       this.currentPrinter = printerConfig;
       
       printerDebugLogger.connectionSuccess(ip, port);
-      printerDebugLogger.info('Connexion TCP établie avec react-native-thermal-receipt-printer');
       
       return true;
     } catch (error) {
@@ -92,7 +88,6 @@ export class ThermalReceiptPrinterService {
       await NetPrinter.closeConn();
       this.isConnected = false;
       this.currentPrinter = null;
-      printerDebugLogger.info('Déconnecté de l\'imprimante avec succès');
     } catch (error) {
       printerDebugLogger.error('Erreur déconnexion', error);
     }
@@ -134,11 +129,6 @@ export class ThermalReceiptPrinterService {
       return false;
     }
 
-    printerDebugLogger.info('Début test impression avec react-native-thermal-receipt-printer', { 
-      printerName, 
-      ip, 
-      port 
-    });
 
     try {
       // Se connecter si nécessaire
@@ -182,7 +172,6 @@ Status: CONNECTÉ
       await NetPrinter.printBill(testTicket);
 
       printerDebugLogger.printSuccess(printerName, 'test');
-      printerDebugLogger.info('Test d\'impression terminé avec succès');
       
       return true;
     } catch (error) {
@@ -205,13 +194,6 @@ Status: CONNECTÉ
       throw new Error('Module d\'impression non disponible');
     }
 
-    printerDebugLogger.info('Début impression ticket commande', {
-      printerName,
-      ip,
-      port,
-      orderNumber: order.orderNumber,
-      tableId: order.tableId
-    });
 
     try {
       // Se connecter si nécessaire

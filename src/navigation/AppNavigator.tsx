@@ -25,7 +25,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 // Import conditionnel de l'écran de debug
 import { SocketIODebugScreen } from "../screens/debug/SocketIODebugScreen";
-import PrinterDebugScreen from "../screens/settings/PrinterDebugScreen";
 import env from "../config/environment";
 
 // Types des paramètres pour les routes d'authentification
@@ -78,7 +77,6 @@ export type MainStackParamList = {
   AddEditPrinter: {
     printerId?: string;
   };
-  PrinterDebug: undefined;
   SplitBill: {
     orderId: number;
     tableName?: string;
@@ -166,14 +164,6 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen
         name="AddEditPrinter"
         component={AddEditPrinterScreen}
-      />
-      <MainStack.Screen
-        name="PrinterDebug"
-        component={PrinterDebugScreen}
-        options={{
-          headerShown: false,
-          title: "Debug Impression",
-        }}
       />
       
       {/* ÉCRAN DE DEBUG - UNIQUEMENT EN DÉVELOPPEMENT */}
