@@ -206,6 +206,16 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
     navigation.navigate("PrinterConfig" as never);
   };
 
+  // Menu items pour HeaderMenu
+  const cashierMenuItems = [
+    {
+      title: "Configuration imprimantes",
+      icon: "printer-settings",
+      onPress: () => navigation.navigate("PrinterConfig" as never),
+      dividerAfter: true,
+    },
+  ];
+
   const handlePrintOrder = async (order: DomainCashierOrder) => {
     try {
       // Récupérer les détails complets de la commande
@@ -344,12 +354,16 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header>
-        <HeaderMenu />
-        <Appbar.Content title="Caisse" />
-        <Appbar.Action 
-          icon="printer" 
-          onPress={handlePrintTicket}
+        {isManager && (
+          <Appbar.BackAction
+            onPress={() => navigation.navigate("ManagerHome" as never)}
+          />
+        )}
+        <Appbar.Content
+          title="Mokengeli Biloko POS"
+          subtitle={`Caisse: ${user?.firstName || ""} ${user?.lastName || ""}`}
         />
+        <HeaderMenu additionalItems={cashierMenuItems} />
       </Appbar.Header>
 
       {/* Barre de recherche */}

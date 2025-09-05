@@ -837,7 +837,7 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
 
   const serverMenuItems = [
     {
-      title: "Configuration d'impression",
+      title: "Configuration imprimantes",
       icon: "printer-settings",
       onPress: () => navigation.navigate("PrinterConfig" as never),
       dividerAfter: true,
@@ -899,9 +899,7 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
         )}
         <Appbar.Content
           title="Mokengeli Biloko POS"
-          subtitle={`${RolesUtils.getRoleDescription(Role.SERVER)}: ${
-            user?.firstName || ""
-          } ${user?.lastName || ""}`}
+          subtitle={`Service: ${user?.firstName || ""} ${user?.lastName || ""}`}
         />
         
         {/* Indicateur de connexion Socket.io */}

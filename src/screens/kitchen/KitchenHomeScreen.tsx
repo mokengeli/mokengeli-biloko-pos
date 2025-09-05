@@ -66,6 +66,16 @@ export const KitchenHomeScreen = () => {
 
   const isManager = RolesUtils.hasRole(user?.roles, Role.MANAGER);
 
+  // Menu items pour HeaderMenu
+  const kitchenMenuItems = [
+    {
+      title: "Configuration imprimantes",
+      icon: "printer-settings",
+      onPress: () => navigation.navigate("PrinterConfig" as never),
+      dividerAfter: true,
+    },
+  ];
+
   // ============================================================================
   // CHANGEMENT: Utilisation de Socket.io au lieu de WebSocketService
   // ============================================================================
@@ -617,10 +627,8 @@ export const KitchenHomeScreen = () => {
           />
         )}
         <Appbar.Content
-          title="Mokengeli Biloko POS - Cuisine"
-          subtitle={`${RolesUtils.getRoleDescription(Role.COOK)}: ${
-            user?.firstName || ""
-          } ${user?.lastName || ""}`}
+          title="Mokengeli Biloko POS"
+          subtitle={`Cuisine: ${user?.firstName || ""} ${user?.lastName || ""}`}
         />
         
         {/* AMÉLIORATION: Indicateur de connexion Socket.io */}
@@ -646,7 +654,7 @@ export const KitchenHomeScreen = () => {
           onPress={onRefresh}
           disabled={refreshing}
         />
-        <HeaderMenu />
+        <HeaderMenu additionalItems={kitchenMenuItems} />
       </Appbar.Header>
 
       {/* Filtres de catégories */}

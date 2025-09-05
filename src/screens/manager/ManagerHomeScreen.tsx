@@ -176,7 +176,7 @@ export const ManagerHomeScreen: React.FC = () => {
   // Menu items pour HeaderMenu
   const managerMenuItems = [
     {
-      title: "Configuration Imprimantes",
+      title: "Configuration imprimantes",
       icon: "printer-settings",
       onPress: () => navigation.navigate("PrinterConfig" as never),
       dividerAfter: true,
@@ -187,8 +187,8 @@ export const ManagerHomeScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header>
         <Appbar.Content
-          title="Mokengeli Biloko POS - Manager"
-          subtitle={`${user?.firstName || ""} ${user?.lastName || ""}`}
+          title="Mokengeli Biloko POS"
+          subtitle={`Manager: ${user?.firstName || ""} ${user?.lastName || ""}`}
         />
         {/* Indicateur de connexion Socket.io */}
         <View style={styles.connectionIndicator}>
