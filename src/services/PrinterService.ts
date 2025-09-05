@@ -1,11 +1,13 @@
 // src/services/PrinterService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus } from 'react-native';
 import { DomainOrder } from '../api/orderService';
 import { ThermalPrinterService } from './ThermalPrinterService';
 
 // Import conditionnel et sécurisé du service d'impression natif
 import { NativePrinterService } from './NativePrinterService';
 import { ThermalReceiptPrinterService } from './ThermalReceiptPrinterService';
+import { printerConnectionManager } from './PrinterConnectionManager';
 
 export interface PrinterConfig {
   id: string;
@@ -31,8 +33,11 @@ class PrinterService {
   private static instance: PrinterService;
   private printers: Map<string, PrinterConfig> = new Map();
   private defaultPrinterId?: string;
+  private appStateSubscription: any = null;
 
-  private constructor() {}
+  private constructor() {
+    this.setupAppStateListener();
+  }
 
   static getInstance(): PrinterService {
     if (!PrinterService.instance) {
@@ -215,6 +220,89 @@ class PrinterService {
   }
 
   // ============================================================================
+  // GESTION APPSTATE POUR RECONNEXION APRÈS VEILLE
+  // ============================================================================
+  
+  private setupAppStateListener(): void {
+    this.appStateSubscription = AppState.addEventListener(
+      'change',
+      this.handleAppStateChange
+    );
+  }
+
+  private handleAppStateChange = async (nextAppState: AppStateStatus): Promise<void> => {
+    console.log(`[PrinterService] App state changed to: ${nextAppState}`);
+    
+    if (nextAppState === 'active') {
+      // App devient active après veille - valider les connexions imprimantes
+      console.log('[PrinterService] App became active, validating printer connections...');
+      await this.validateActivePrinters();
+    } else if (nextAppState === 'background') {
+      // App passe en arrière-plan - nettoyer les connexions si nécessaire
+      console.log('[PrinterService] App going to background, cleaning up printer connections...');
+      await this.cleanupConnections();
+    }
+  };
+
+  private async validateActivePrinters(): Promise<void> {
+    try {
+      const activePrinters = Array.from(this.printers.values()).filter(p => p.isActive);
+      
+      for (const printer of activePrinters) {
+        try {
+          console.log(`[PrinterService] Testing connection to ${printer.name} (${printer.connection.ip}:${printer.connection.port})`);
+          
+          const isOnline = await this.pingPrinter(
+            printer.connection.ip, 
+            printer.connection.port,
+            3000 // Timeout réduit pour test rapide
+          );
+          
+          if (isOnline && printer.status === 'offline') {
+            // Imprimante revenue en ligne
+            const updatedPrinter = { 
+              ...printer, 
+              status: 'online' as const, 
+              lastConnected: new Date() 
+            };
+            this.printers.set(printer.id, updatedPrinter);
+            console.log(`[PrinterService] ✅ ${printer.name} is back online`);
+          } else if (!isOnline && printer.status === 'online') {
+            // Imprimante perdue
+            const updatedPrinter = { ...printer, status: 'offline' as const };
+            this.printers.set(printer.id, updatedPrinter);
+            console.log(`[PrinterService] ❌ ${printer.name} went offline`);
+          }
+        } catch (error) {
+          console.error(`[PrinterService] Error validating printer ${printer.name}:`, error);
+          const updatedPrinter = { ...printer, status: 'unknown' as const };
+          this.printers.set(printer.id, updatedPrinter);
+        }
+      }
+      
+      // Sauvegarder les changements de statut
+      if (activePrinters.length > 0) {
+        await this.savePrinters(activePrinters[0].tenantCode);
+      }
+      
+    } catch (error) {
+      console.error('[PrinterService] Error during printer validation:', error);
+    }
+  }
+
+  private async cleanupConnections(): Promise<void> {
+    try {
+      // Déconnecter explicitement les services d'impression
+      if (ThermalReceiptPrinterService.isModuleAvailable()) {
+        await ThermalReceiptPrinterService.disconnect();
+        console.log('[PrinterService] ThermalReceiptPrinterService disconnected');
+      }
+    } catch (error) {
+      console.error('[PrinterService] Error during cleanup:', error);
+    }
+  }
+
+  // ============================================================================
   // CONNEXION ET TESTS
   // ============================================================================
 
@@ -299,37 +387,163 @@ class PrinterService {
       throw new Error('L\'imprimante sélectionnée est désactivée');
     }
 
+    // Utiliser la nouvelle méthode avec retry
+    await this.printWithRetry(printer, order, establishmentName);
+  }
+
+  // ============================================================================
+  // IMPRESSION AVEC RETRY ET BACKOFF EXPONENTIEL
+  // ============================================================================
+
+  private async printWithRetry(
+    printer: PrinterConfig, 
+    order: DomainOrder, 
+    establishmentName?: string,
+    maxRetries: number = 3
+  ): Promise<void> {
+    let lastError: Error | null = null;
+    let attemptNumber = 0;
+
+    for (attemptNumber = 1; attemptNumber <= maxRetries; attemptNumber++) {
+      try {
+        console.log(`[PrinterService] Print attempt ${attemptNumber}/${maxRetries} for ${printer.name}`);
+        
+        // Première tentative ou reconnexion avant retry
+        if (attemptNumber > 1) {
+          console.log(`[PrinterService] Attempting reconnection before retry ${attemptNumber}`);
+          await this.reconnectPrinter(printer);
+        }
+        
+        // Tentative d'impression
+        await this.printToThermalPrinter(printer, order, establishmentName);
+        
+        // Succès - mettre à jour le statut
+        const updatedPrinter = {
+          ...printer,
+          status: 'online' as const,
+          lastConnected: new Date()
+        };
+        this.printers.set(printer.id, updatedPrinter);
+        await this.savePrinters(printer.tenantCode);
+        
+        console.log(`[PrinterService] ✅ Print successful on attempt ${attemptNumber}`);
+        return; // Succès, sortir de la boucle
+        
+      } catch (error) {
+        lastError = error as Error;
+        console.error(`[PrinterService] Print attempt ${attemptNumber} failed:`, error);
+        
+        // Si ce n'est pas la dernière tentative, attendre avec backoff exponentiel
+        if (attemptNumber < maxRetries) {
+          const delay = this.calculateBackoffDelay(attemptNumber);
+          console.log(`[PrinterService] Waiting ${delay}ms before retry ${attemptNumber + 1}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    // Toutes les tentatives ont échoué
+    console.error(`[PrinterService] ❌ All ${maxRetries} print attempts failed`);
+    
+    // Marquer comme offline
+    const updatedPrinter = { ...printer, status: 'offline' as const };
+    this.printers.set(printer.id, updatedPrinter);
+    await this.savePrinters(printer.tenantCode);
+    
+    throw new Error(
+      `Impossible d'imprimer sur ${printer.name} après ${maxRetries} tentatives. ` +
+      `Dernière erreur: ${lastError?.message || 'Erreur inconnue'}`
+    );
+  }
+
+  private calculateBackoffDelay(attemptNumber: number): number {
+    // Backoff exponentiel : 1s, 2s, 4s, 8s, max 10s
+    const baseDelay = 1000; // 1 seconde
+    const maxDelay = 10000; // 10 secondes max
+    const delay = Math.min(baseDelay * Math.pow(2, attemptNumber - 1), maxDelay);
+    
+    // Ajouter un jitter pour éviter la synchronisation
+    const jitter = Math.random() * 0.1 * delay; // ±10% de variation
+    return Math.floor(delay + jitter);
+  }
+
+  private async reconnectPrinter(printer: PrinterConfig): Promise<void> {
     try {
-      await this.printToThermalPrinter(printer, order, establishmentName);
+      console.log(`[PrinterService] Attempting to reconnect ${printer.name}...`);
       
-      // Mettre à jour le statut de dernière connexion
-      const updatedPrinter = {
-        ...printer,
-        status: 'online' as const,
-        lastConnected: new Date()
-      };
-      this.printers.set(printer.id, updatedPrinter);
-      await this.savePrinters(printer.tenantCode);
+      // Déconnecter d'abord si connecté
+      if (ThermalReceiptPrinterService.isModuleAvailable()) {
+        await ThermalReceiptPrinterService.disconnect();
+        console.log('[PrinterService] Previous connection disconnected');
+      }
+      
+      // Petit délai pour s'assurer que la déconnexion est complète
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Tenter la reconnexion
+      const connected = await ThermalReceiptPrinterService.connectToPrinter(
+        printer.connection.ip,
+        printer.connection.port,
+        8000 // Timeout légèrement plus long pour reconnexion
+      );
+      
+      if (connected) {
+        console.log(`[PrinterService] ✅ Successfully reconnected to ${printer.name}`);
+      } else {
+        throw new Error('Reconnection failed');
+      }
       
     } catch (error) {
-      console.error('Error printing ticket:', error);
-      
-      // Marquer comme offline
-      const updatedPrinter = { ...printer, status: 'offline' as const };
-      this.printers.set(printer.id, updatedPrinter);
-      await this.savePrinters(printer.tenantCode);
-      
-      throw new Error(`Impossible d'imprimer sur ${printer.name}: ${error}`);
+      console.error(`[PrinterService] ❌ Failed to reconnect to ${printer.name}:`, error);
+      throw new Error(`Reconnection failed: ${error}`);
     }
   }
 
   private async printToThermalPrinter(printer: PrinterConfig, order: DomainOrder, establishmentName?: string): Promise<void> {
-    // Essayer d'abord la nouvelle librairie thermal-receipt-printer
+    // Utiliser le gestionnaire de connexions centralisé pour maintenir les connexions persistantes
     if (ThermalReceiptPrinterService.isModuleAvailable()) {
-      await this.printWithThermalReceiptPrinter(printer, order, establishmentName);
+      console.log(`[PrinterService] Using centralized connection manager for ${printer.name}`);
+      
+      // Obtenir une connexion persistante du pool
+      const connection = await printerConnectionManager.getConnection(printer);
+      
+      // Utiliser la connexion pour l'impression
+      await this.printWithManagedConnection(printer, order, establishmentName);
     } else {
       // Fallback vers l'ancien service
       await this.printWithNativeImplementation(printer, order, establishmentName);
+    }
+  }
+
+  private async printWithManagedConnection(printer: PrinterConfig, order: DomainOrder, establishmentName?: string): Promise<void> {
+    try {
+      // Le gestionnaire de connexions s'occupe de maintenir la connexion
+      await ThermalReceiptPrinterService.printTicket(
+        printer.name,
+        printer.connection.ip,
+        printer.connection.port,
+        order,
+        establishmentName
+      );
+      
+      console.log(`[PrinterService] ✅ Successfully printed using managed connection for ${printer.name}`);
+    } catch (error) {
+      console.error(`[PrinterService] ❌ Print failed with managed connection for ${printer.name}:`, error);
+      
+      // En cas d'erreur, forcer une reconnexion via le gestionnaire
+      const reconnected = await printerConnectionManager.forceReconnect(printer);
+      if (reconnected) {
+        // Retry une fois après reconnexion
+        await ThermalReceiptPrinterService.printTicket(
+          printer.name,
+          printer.connection.ip,
+          printer.connection.port,
+          order,
+          establishmentName
+        );
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -449,6 +663,43 @@ ${centerText('À bientôt')}
     };
 
     await this.printTicket(testOrder, printerId, establishmentName);
+  }
+
+  // ============================================================================
+  // NETTOYAGE ET STATISTIQUES
+  // ============================================================================
+
+  /**
+   * Obtenir les statistiques du pool de connexions
+   */
+  getConnectionStats() {
+    return printerConnectionManager.getPoolStats();
+  }
+
+  /**
+   * Forcer la reconnexion d'une imprimante
+   */
+  async forceReconnectPrinter(printerId: string): Promise<boolean> {
+    const printer = this.printers.get(printerId);
+    if (!printer) {
+      throw new Error('Imprimante introuvable');
+    }
+    
+    return await printerConnectionManager.forceReconnect(printer);
+  }
+
+  /**
+   * Nettoyer toutes les connexions (à appeler lors de la fermeture de l'app)
+   */
+  async cleanup(): Promise<void> {
+    console.log('[PrinterService] Cleaning up service');
+    
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+      this.appStateSubscription = null;
+    }
+    
+    await printerConnectionManager.cleanup();
   }
 }
 
