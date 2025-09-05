@@ -779,7 +779,7 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
     
     try {
       // Essayer d'abord l'impression thermique
-      await printerService.printTicket(order);
+      await printerService.printTicket(order, undefined, user?.tenantName);
       showNotification(`✅ Ticket #${order.orderNumber} imprimé avec succès`, "success");
     } catch (thermalError) {
       console.error("Échec impression thermique:", thermalError);

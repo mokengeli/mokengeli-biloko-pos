@@ -25,6 +25,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrderItem } from "../../api/orderService";
 import orderService from "../../api/orderService";
 import { usePrinter } from "../../hooks/usePrinter";
+import printerService from "../../services/PrinterService";
 import { Dimensions } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 // CHANGEMENT: Migration vers Socket.io
@@ -153,6 +154,21 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     });
     return unsubscribe;
   }, []);
+
+  // Charger les imprimantes au montage
+  useEffect(() => {
+    const loadPrinters = async () => {
+      if (user?.tenantCode) {
+        try {
+          await printerService.loadPrinters(user.tenantCode);
+          console.log('Imprimantes chargées pour PaymentScreen:', user.tenantCode);
+        } catch (error) {
+          console.error('Erreur lors du chargement des imprimantes:', error);
+        }
+      }
+    };
+    loadPrinters();
+  }, [user?.tenantCode]);
 
   // Écouter les notifications
   const { lastNotification } = useOrderNotifications({
@@ -428,46 +444,38 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // Imprimer un reçu
   const printReceipt = async () => {
     try {
-      const receipt = `
-        RESTAURANT XYZ
-        -----------------------------------
-        Table: ${tableName || "N/A"}
-        Commande #${orderId}
-        Date: ${new Date().toLocaleString()}
-        -----------------------------------
-        Montant total: ${totalAmount.toFixed(2)} ${currency}
-        Montant payé précédemment: ${paidAmount.toFixed(2)} ${currency}
-        Montant de ce paiement: ${calculateEffectivePayment().toFixed(
-          2
-        )} ${currency}
-        Montant reçu: ${parseFloat(amountTendered.replace(",", ".")).toFixed(
-          2
-        )} ${currency}
-        Monnaie rendue: ${calculateChange().toFixed(2)} ${currency}
-        Reste à payer: ${Math.max(
-          0,
-          currentRemaining - calculateEffectivePayment()
-        ).toFixed(2)} ${currency}
-        -----------------------------------
-        Mode de paiement: Espèces
-        
-        Merci de votre visite!
-      `;
-
-      await printDocument(receipt);
-
-      setReceiptModalVisible(false);
-
-      if (redirectAfterReceipt === "CashierHome" || redirectAfterReceipt === "ServerHome" || redirectAfterReceipt === "ManagerHome" || redirectAfterReceipt === "KitchenHome" || redirectAfterReceipt === "ProfilHome") {
-        // Redirection vers l'écran contextuel déterminé
-        NavigationHelper.safeNavigate(navigation, redirectAfterReceipt);
-      } else if (redirectAfterReceipt === "PrepareBill") {
-        navigation.navigate("PrepareBill", {
-          orderId: orderId,
-          tableId: route.params.tableId,
-          tableName: tableName,
-        });
+      // Récupérer les détails complets de la commande pour l'impression
+      const orderDetails = await orderService.getOrderById(orderId);
+      
+      if (!orderDetails) {
+        throw new Error("Impossible de récupérer les détails de la commande");
       }
+
+      // Utiliser notre service d'impression thermique
+      await printerService.printTicket(orderDetails, undefined, user?.tenantName);
+      
+      Alert.alert(
+        "Impression réussie", 
+        "Le reçu a été imprimé avec succès!",
+        [{ 
+          text: "OK", 
+          onPress: () => {
+            setReceiptModalVisible(false);
+
+            if (redirectAfterReceipt === "CashierHome" || redirectAfterReceipt === "ServerHome" || redirectAfterReceipt === "ManagerHome" || redirectAfterReceipt === "KitchenHome" || redirectAfterReceipt === "ProfilHome") {
+              // Redirection vers l'écran contextuel déterminé
+              NavigationHelper.safeNavigate(navigation, redirectAfterReceipt);
+            } else if (redirectAfterReceipt === "PrepareBill") {
+              navigation.navigate("PrepareBill", {
+                orderId: orderId,
+                tableId: route.params.tableId,
+                tableName: tableName,
+              });
+            }
+          }
+        }]
+      );
+
     } catch (err: any) {
       console.error("Error printing receipt:", err);
       setError(err.message || "Erreur lors de l'impression du reçu");
@@ -475,7 +483,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
       Alert.alert(
         "Erreur d'impression",
         err.message || "Une erreur s'est produite lors de l'impression du reçu",
-        [{ text: "OK" }]
+        [
+          { 
+            text: "Continuer sans imprimer", 
+            onPress: () => finishWithoutPrinting()
+          },
+          { text: "Réessayer", onPress: () => printReceipt() }
+        ]
       );
     }
   };

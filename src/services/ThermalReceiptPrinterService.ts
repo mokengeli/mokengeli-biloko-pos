@@ -114,7 +114,7 @@ export class ThermalReceiptPrinterService {
   }
 
   // Imprimer un ticket de test
-  static async printTestTicket(printerName: string, ip: string, port: number): Promise<boolean> {
+  static async printTestTicket(printerName: string, ip: string, port: number, establishmentName?: string): Promise<boolean> {
     if (!this.isModuleAvailable()) {
       printerDebugLogger.warning('Module non disponible pour le test');
       Alert.alert(
@@ -144,7 +144,7 @@ export class ThermalReceiptPrinterService {
 
       // Créer le ticket de test avec les balises de formatage de la vraie API
       const testTicket = `<C>================================</C>
-<C><B>MOKENGELI BILOKO POS</B></C>
+<C><B>${establishmentName || 'MOKENGELI BILOKO POS'}</B></C>
 <C><B>TEST D'IMPRESSION</B></C>
 <C>================================</C>
 
@@ -189,7 +189,7 @@ Status: CONNECTÉ
   }
 
   // Imprimer un ticket de commande
-  static async printTicket(printerName: string, ip: string, port: number, order: DomainOrder): Promise<void> {
+  static async printTicket(printerName: string, ip: string, port: number, order: DomainOrder, establishmentName?: string): Promise<void> {
     if (!this.isModuleAvailable()) {
       throw new Error('Module d\'impression non disponible');
     }
@@ -205,7 +205,7 @@ Status: CONNECTÉ
       }
 
       // Générer le ticket de commande avec les balises de formatage
-      const orderTicket = this.generateOrderTicketFormatted(order);
+      const orderTicket = this.generateOrderTicketFormatted(order, establishmentName);
 
       printerDebugLogger.printStart(printerName, 'ticket');
 
@@ -232,9 +232,9 @@ Status: CONNECTÉ
   }
 
   // Générer le ticket de commande avec balises de formatage
-  private static generateOrderTicketFormatted(order: DomainOrder): string {
+  private static generateOrderTicketFormatted(order: DomainOrder, establishmentName?: string): string {
     let ticket = `<C>================================</C>
-<C><B>MOKENGELI BILOKO POS</B></C>
+<C><B>${establishmentName || 'MOKENGELI BILOKO POS'}</B></C>
 <C>Restaurant</C>
 <C>================================</C>
 

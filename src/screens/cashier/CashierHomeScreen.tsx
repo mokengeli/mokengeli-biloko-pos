@@ -25,10 +25,14 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { HeaderMenu } from "../../components/common/HeaderMenu";
+import { RolesUtils, Role } from "../../utils/roles";
+import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import cashierService, { 
   DomainCashierOrder, 
   DomainCashierOrderSummary 
 } from "../../api/cashierService";
+import orderService from "../../api/orderService";
+import printerService from "../../services/PrinterService";
 
 // Types pour la navigation
 type CashierStackParamList = {
@@ -54,6 +58,9 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
 }) => {
   const { user } = useAuth();
   const theme = useTheme();
+  
+  // Vérification du rôle pour l'accès aux fonctionnalités
+  const isManager = RolesUtils.hasRole(user?.roles, Role.MANAGER);
 
   // États principaux
   const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +80,12 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
 
   // États pour les filtres
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+
+  // État pour le dialogue non disponible
+  const [notAvailableDialog, setNotAvailableDialog] = useState<{
+    visible: boolean;
+    featureName: string;
+  }>({ visible: false, featureName: "" });
 
   const statusOptions = [
     { value: "ALL", label: "Toutes", icon: "format-list-bulleted" },
@@ -134,6 +147,21 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
     }, [loadData])
   );
 
+  // Charger les imprimantes au montage
+  useEffect(() => {
+    const loadPrinters = async () => {
+      if (user?.tenantCode) {
+        try {
+          await printerService.loadPrinters(user.tenantCode);
+          console.log('Imprimantes chargées pour CashierHomeScreen:', user.tenantCode);
+        } catch (error) {
+          console.error('Erreur lors du chargement des imprimantes:', error);
+        }
+      }
+    };
+    loadPrinters();
+  }, [user?.tenantCode]);
+
   // Recherche avec debounce
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -175,11 +203,47 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
   };
 
   const handlePrintTicket = () => {
-    Alert.alert(
-      "Fonctionnalité à venir",
-      "L'impression de ticket de caisse sera bientôt disponible.",
-      [{ text: "OK" }]
-    );
+    if (isManager) {
+      navigation.navigate("PrinterConfig" as never);
+    } else {
+      setNotAvailableDialog({
+        visible: true,
+        featureName: "Configuration d'impression",
+      });
+    }
+  };
+
+  const handlePrintOrder = async (order: DomainCashierOrder) => {
+    try {
+      // Récupérer les détails complets de la commande
+      const orderDetails = await orderService.getOrderById(order.orderId);
+      
+      if (!orderDetails) {
+        throw new Error("Impossible de récupérer les détails de la commande");
+      }
+      
+      // Imprimer le ticket avec le nom de l'établissement
+      await printerService.printTicket(orderDetails, undefined, user?.tenantName);
+      
+      Alert.alert(
+        "Impression réussie",
+        `Le ticket de la commande #${order.orderNumber} a été imprimé avec succès!`,
+        [{ text: "OK" }]
+      );
+    } catch (err: any) {
+      console.error("Error printing order:", err);
+      Alert.alert(
+        "Erreur d'impression",
+        err.message || "Impossible d'imprimer le ticket",
+        [
+          { text: "Annuler", style: "cancel" },
+          { 
+            text: "Réessayer", 
+            onPress: () => handlePrintOrder(order) 
+          }
+        ]
+      );
+    }
   };
 
   const formatOrderTime = (createdAt: string): string => {
@@ -236,11 +300,11 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
             
             <View style={styles.orderAmount}>
               <Text style={styles.totalAmount}>
-                {order.totalAmount.toFixed(2)}€
+                {order.totalAmount.toFixed(2)} {order.currencyCode}
               </Text>
               {order.remainingAmount > 0 && (
                 <Text style={styles.remainingAmount}>
-                  Reste: {order.remainingAmount.toFixed(2)}€
+                  Reste: {order.remainingAmount.toFixed(2)} {order.currencyCode}
                 </Text>
               )}
             </View>
@@ -266,6 +330,18 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
             <Text style={styles.dishesStatus}>
               {dishesText}
             </Text>
+            
+            <TouchableRipple
+              onPress={() => handlePrintOrder(order)}
+              style={styles.printButton}
+              borderless
+            >
+              <Icon
+                name="printer"
+                size={20}
+                color={theme.colors.primary}
+              />
+            </TouchableRipple>
           </View>
         </Surface>
       </TouchableRipple>
@@ -363,7 +439,7 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Chiffre d'affaires:</Text>
             <Text style={styles.summaryValue}>
-              {summary.totalRevenue.toFixed(2)}€
+              {summary.totalRevenue.toFixed(2)} {summary.currencyCode}
             </Text>
           </View>
         </Surface>
@@ -414,6 +490,13 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
           onChange={handleDateChange}
         />
       )}
+
+      {/* Dialogue fonctionnalité non disponible */}
+      <NotAvailableDialog
+        visible={notAvailableDialog.visible}
+        featureName={notAvailableDialog.featureName}
+        onDismiss={() => setNotAvailableDialog({ visible: false, featureName: "" })}
+      />
     </SafeAreaView>
   );
 };
@@ -547,6 +630,11 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "right",
     flex: 1,
+    marginLeft: 8,
+  },
+  printButton: {
+    padding: 8,
+    borderRadius: 20,
     marginLeft: 8,
   },
   loadingContainer: {

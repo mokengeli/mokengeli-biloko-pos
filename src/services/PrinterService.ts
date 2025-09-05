@@ -282,7 +282,7 @@ class PrinterService {
     return ThermalReceiptPrinterService.isModuleAvailable() || NativePrinterService.isNativeModuleAvailable();
   }
 
-  async printTicket(order: DomainOrder, printerId?: string): Promise<void> {
+  async printTicket(order: DomainOrder, printerId?: string, establishmentName?: string): Promise<void> {
     let printer: PrinterConfig | undefined;
     
     if (printerId) {
@@ -300,7 +300,7 @@ class PrinterService {
     }
 
     try {
-      await this.printToThermalPrinter(printer, order);
+      await this.printToThermalPrinter(printer, order, establishmentName);
       
       // Mettre à jour le statut de dernière connexion
       const updatedPrinter = {
@@ -323,24 +323,25 @@ class PrinterService {
     }
   }
 
-  private async printToThermalPrinter(printer: PrinterConfig, order: DomainOrder): Promise<void> {
+  private async printToThermalPrinter(printer: PrinterConfig, order: DomainOrder, establishmentName?: string): Promise<void> {
     // Essayer d'abord la nouvelle librairie thermal-receipt-printer
     if (ThermalReceiptPrinterService.isModuleAvailable()) {
-      await this.printWithThermalReceiptPrinter(printer, order);
+      await this.printWithThermalReceiptPrinter(printer, order, establishmentName);
     } else {
       // Fallback vers l'ancien service
-      await this.printWithNativeImplementation(printer, order);
+      await this.printWithNativeImplementation(printer, order, establishmentName);
     }
   }
 
-  private async printWithThermalReceiptPrinter(printer: PrinterConfig, order: DomainOrder): Promise<void> {
+  private async printWithThermalReceiptPrinter(printer: PrinterConfig, order: DomainOrder, establishmentName?: string): Promise<void> {
     try {
       console.log('Using react-native-thermal-receipt-printer implementation');
       await ThermalReceiptPrinterService.printTicket(
         printer.name,
         printer.connection.ip, 
         printer.connection.port, 
-        order
+        order,
+        establishmentName
       );
     } catch (error) {
       console.error('Thermal receipt printer error:', error);
@@ -348,14 +349,15 @@ class PrinterService {
     }
   }
 
-  private async printWithNativeImplementation(printer: PrinterConfig, order: DomainOrder): Promise<void> {
+  private async printWithNativeImplementation(printer: PrinterConfig, order: DomainOrder, establishmentName?: string): Promise<void> {
     try {
       console.log('Using native thermal printer implementation (fallback)');
       await NativePrinterService.printTicket(
         printer.name,
         printer.connection.ip, 
         printer.connection.port, 
-        order
+        order,
+        establishmentName
       );
     } catch (error) {
       console.error('Native thermal printer error:', error);
@@ -413,7 +415,7 @@ ${centerText('À bientôt')}
 `;
   }
 
-  async testPrint(printerId: string): Promise<void> {
+  async testPrint(printerId: string, establishmentName?: string): Promise<void> {
     const printer = this.printers.get(printerId);
     if (!printer) {
       throw new Error('Imprimante introuvable');
@@ -446,7 +448,7 @@ ${centerText('À bientôt')}
       paymentStatus: 'UNPAID'
     };
 
-    await this.printTicket(testOrder, printerId);
+    await this.printTicket(testOrder, printerId, establishmentName);
   }
 }
 

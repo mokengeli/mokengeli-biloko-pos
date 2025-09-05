@@ -202,7 +202,7 @@ export class NativePrinterService {
   }
 
   // Imprimer un ticket de test
-  static async printTestTicket(printerName: string, ip: string, port: number): Promise<boolean> {
+  static async printTestTicket(printerName: string, ip: string, port: number, establishmentName?: string): Promise<boolean> {
     if (!this.isNativeModuleAvailable()) {
       printerDebugLogger.warning('Module natif non disponible pour le test');
       Alert.alert(
@@ -244,7 +244,7 @@ export class NativePrinterService {
       // Ticket de test enrichi pour diagnostic
       const testTicket = `
 ================================
-      MOKENGELI BILOKO POS
+      ${establishmentName || 'MOKENGELI BILOKO POS'}
         TEST D'IMPRESSION NATIF
 ================================
 
@@ -317,7 +317,7 @@ Platform: Android
   }
 
   // Méthode principale pour imprimer un ticket (appelée par PrinterService)
-  static async printTicket(printerName: string, ip: string, port: number, order: DomainOrder): Promise<void> {
+  static async printTicket(printerName: string, ip: string, port: number, order: DomainOrder, establishmentName?: string): Promise<void> {
     if (!this.isNativeModuleAvailable()) {
       printerDebugLogger.warning('Module natif non disponible pour l\'impression ticket');
       throw new Error('Module natif non disponible');
@@ -343,7 +343,7 @@ Platform: Android
       }
 
       // Générer le ticket de commande
-      const orderTicket = this.generateOrderTicket(order);
+      const orderTicket = this.generateOrderTicket(order, establishmentName);
 
       // Imprimer avec la nouvelle API v4.4.3
       printerDebugLogger.printStart(printerName, 'ticket');
@@ -393,7 +393,7 @@ Platform: Android
   }
 
   // Générer le contenu du ticket
-  private static generateOrderTicket(order: DomainOrder): string {
+  private static generateOrderTicket(order: DomainOrder, establishmentName?: string): string {
     const lineWidth = 32;
     const separator = '='.repeat(lineWidth);
     const dashes = '-'.repeat(lineWidth);
@@ -424,7 +424,7 @@ Platform: Android
 
     // Construction du ticket
     let ticket = separator + '\n';
-    ticket += centerText('MOKENGELI BILOKO POS') + '\n';
+    ticket += centerText(establishmentName || 'MOKENGELI BILOKO POS') + '\n';
     ticket += centerText('Restaurant') + '\n';
     ticket += separator + '\n\n';
     

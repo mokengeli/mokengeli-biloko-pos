@@ -265,7 +265,8 @@ export const AddEditPrinterScreen: React.FC<AddEditPrinterScreenProps> = ({
         const isSuccess = await NativePrinterService.printTestTicket(
           formData.name,
           ip,
-          port
+          port,
+          user?.tenantName
         );
         
         if (isSuccess) {

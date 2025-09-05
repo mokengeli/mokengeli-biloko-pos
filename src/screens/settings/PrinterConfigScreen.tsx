@@ -145,7 +145,7 @@ export const PrinterConfigScreen: React.FC<PrinterConfigScreenProps> = ({ naviga
   // Test d'impression
   const testPrint = async (printer: PrinterConfig) => {
     try {
-      await printerService.testPrint(printer.id);
+      await printerService.testPrint(printer.id, user?.tenantName);
       Alert.alert('Succès', 'Ticket de test imprimé');
     } catch (error) {
       console.error('Error testing print:', error);
