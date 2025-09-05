@@ -133,10 +133,11 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     return unsubscribe;
   }, []);
 
-  // Écouter les notifications
-  const { lastNotification } = useOrderNotifications({
-    onNotification: handleOrderNotification,
-  });
+  // Écouter les notifications - TEMPORAIREMENT DÉSACTIVÉ pour éviter la désynchronisation
+  // TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur
+  // const { lastNotification } = useOrderNotifications({
+  //   onNotification: handleOrderNotification,
+  // });
 
   // Chargement des données de la commande
   const loadOrderDetails = useCallback(async () => {
@@ -178,8 +179,13 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     }
   }, [orderId]);
 
-  // Gestionnaire de notifications avec robustesse
+  // Gestionnaire de notifications - TEMPORAIREMENT DÉSACTIVÉ
+  // TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur
   function handleOrderNotification(notification: OrderNotification) {
+    console.log("[PrepareBillScreen] Notifications temporairement désactivées - notification ignorée:", notification);
+    return; // Sortie anticipée pour ignorer toutes les notifications
+    
+    // Code original conservé mais inaccessible
     try {
       console.log("PrepareBill - notification received:", notification);
 

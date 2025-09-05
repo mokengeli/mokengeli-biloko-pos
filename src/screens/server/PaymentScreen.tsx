@@ -170,10 +170,11 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     loadPrinters();
   }, [user?.tenantCode]);
 
-  // Écouter les notifications
-  const { lastNotification } = useOrderNotifications({
-    onNotification: handleOrderNotification
-  });
+  // Écouter les notifications - TEMPORAIREMENT DÉSACTIVÉ pour éviter la désynchronisation
+  // TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur
+  // const { lastNotification } = useOrderNotifications({
+  //   onNotification: handleOrderNotification
+  // });
 
   // Rafraîchir les données de la commande
   const refreshOrderData = useCallback(async () => {
@@ -201,8 +202,13 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   }, [orderId, remainingAmount]);
 
-  // Gestionnaire de notifications
+  // Gestionnaire de notifications - TEMPORAIREMENT DÉSACTIVÉ
+  // TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur
   function handleOrderNotification(notification: OrderNotification) {
+    console.log("[PaymentScreen] Notifications temporairement désactivées - notification ignorée:", notification);
+    return; // Sortie anticipée pour ignorer toutes les notifications
+    
+    // Code original conservé mais inaccessible
     try {
       console.log("Payment screen - notification received:", notification);
 
@@ -804,8 +810,9 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         </Modal>
       </Portal>
 
-      {/* Snackbar pour les notifications externes */}
-      {!isLocalProcessing && !receiptModalVisible && currentNotification && (
+      {/* Snackbar pour les notifications externes - TEMPORAIREMENT DÉSACTIVÉ */}
+      {/* TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur */}
+      {false && !isLocalProcessing && !receiptModalVisible && currentNotification && (
         <SnackbarContainer bottomOffset={80}>
           <NotificationSnackbar
             notification={currentNotification}
