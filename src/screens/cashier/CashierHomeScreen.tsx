@@ -203,14 +203,7 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
   };
 
   const handlePrintTicket = () => {
-    if (isManager) {
-      navigation.navigate("PrinterConfig" as never);
-    } else {
-      setNotAvailableDialog({
-        visible: true,
-        featureName: "Configuration d'impression",
-      });
-    }
+    navigation.navigate("PrinterConfig" as never);
   };
 
   const handlePrintOrder = async (order: DomainCashierOrder) => {

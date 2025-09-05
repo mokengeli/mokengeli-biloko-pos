@@ -839,12 +839,7 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
     {
       title: "Configuration d'impression",
       icon: "printer-settings",
-      onPress: isManager 
-        ? () => navigation.navigate("PrinterConfig" as never)
-        : () => setNotAvailableDialog({
-            visible: true,
-            featureName: "Configuration d'impression",
-          }),
+      onPress: () => navigation.navigate("PrinterConfig" as never),
       dividerAfter: true,
     },
   ];
