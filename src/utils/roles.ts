@@ -9,6 +9,7 @@ export enum Role {
   MANAGER = "ROLE_MANAGER",
   SERVER = "ROLE_SERVER",
   COOK = "ROLE_COOK",
+  CASHIER = "ROLE_CASHIER",
 }
 
 /**
@@ -20,6 +21,7 @@ export const RoleDescription: Record<Role, string> = {
   [Role.MANAGER]: "Responsable du lounge/restaurant",
   [Role.SERVER]: "Serveur dans le lounge/restaurant",
   [Role.COOK]: "Cuisinier dans le lounge/restaurant",
+  [Role.CASHIER]: "Caissier du lounge/restaurant",
 };
 
 /**
@@ -78,9 +80,11 @@ export class RolesUtils {
   static getHomeScreenForRoles(userRoles: string[] | undefined): string {
     if (!userRoles || userRoles.length === 0) return "ServerHome";
 
-    // Modification : Les managers vont vers ManagerHome
+    // Priorité des rôles : Manager > Cashier > Server > Cook > Admin
     if (this.hasRole(userRoles, Role.MANAGER)) {
       return "ManagerHome";
+    } else if (this.hasRole(userRoles, Role.CASHIER)) {
+      return "CashierHome";
     } else if (this.hasRole(userRoles, Role.SERVER)) {
       return "ServerHome";
     } else if (this.hasRole(userRoles, Role.COOK)) {

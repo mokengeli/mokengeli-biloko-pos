@@ -1,16 +1,55 @@
 // src/utils/notificationHelpers.ts
-import { OrderNotification, OrderNotificationStatus } from '../services/WebSocketService';
+import { OrderNotification, OrderNotificationStatus } from '../services/types/WebSocketTypes';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+/**
+ * ✅ CORRECTION CRITIQUE: Fonction helper sécurisée pour formater les timestamps
+ * Protège contre les objets malformés qui causent l'erreur React {sessionId, timestamp}
+ */
+function safeFormatTimestamp(timestamp: any): string {
+  try {
+    // Validation stricte du type timestamp
+    if (!timestamp) {
+      return '';
+    }
+    
+    // ✅ PROTECTION: Rejeter les objets complexes (comme {sessionId, timestamp})
+    if (typeof timestamp === 'object' && timestamp !== null) {
+      console.warn('[notificationHelpers] Invalid timestamp object received:', timestamp);
+      return '';
+    }
+    
+    // Accepter seulement string ou number
+    if (typeof timestamp !== 'string' && typeof timestamp !== 'number') {
+      console.warn('[notificationHelpers] Invalid timestamp type:', typeof timestamp, timestamp);
+      return '';
+    }
+    
+    // Créer la date de manière sécurisée
+    const date = new Date(timestamp);
+    
+    // Vérifier que la date est valide
+    if (isNaN(date.getTime())) {
+      console.warn('[notificationHelpers] Invalid date from timestamp:', timestamp);
+      return '';
+    }
+    
+    // Formater avec date-fns
+    return formatDistanceToNow(date, { addSuffix: true, locale: fr });
+    
+  } catch (error) {
+    console.error('[notificationHelpers] Error formatting timestamp:', error, timestamp);
+    return '';
+  }
+}
 
 /**
  * Génère un message user-friendly basé sur une notification WebSocket
  */
 export const getNotificationMessage = (notification: OrderNotification): string => {
-  // Obtenir un timestamp formaté si disponible
-  const timeAgo = notification.timestamp 
-    ? formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true, locale: fr })
-    : '';
+  // ✅ CORRECTION CRITIQUE: Utiliser la fonction sécurisée
+  const timeAgo = safeFormatTimestamp(notification.timestamp);
   
   // Déterminer le message en fonction du type de notification et des états
   switch (notification.orderStatus) {
@@ -22,6 +61,15 @@ export const getNotificationMessage = (notification: OrderNotification): string 
       
     case OrderNotificationStatus.NEW_ORDER:
       return `Nouvelle commande #${notification.orderId} créée ${timeAgo}`;
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REQUEST:
+      return `Demande de validation d'impayé pour la commande #${notification.orderId} ${timeAgo}`;
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_APPROVED:
+      return `Validation d'impayé approuvée pour la commande #${notification.orderId} ${timeAgo}`;
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REJECTED:
+      return `Validation d'impayé rejetée pour la commande #${notification.orderId} ${timeAgo}`;
       
     default:
       return `Mise à jour de la commande #${notification.orderId} ${timeAgo}`;
@@ -35,21 +83,24 @@ const formatPaymentNotification = (
   notification: OrderNotification, 
   timeAgo: string
 ): string => {
+  // Message générique pour éviter la confusion
+  // Ne pas indiquer "entièrement payée" car cela peut être trompeur
   switch (notification.newState) {
     case 'FULLY_PAID':
-      return `Commande #${notification.orderId} entièrement payée ${timeAgo}`;
+      return `Paiement reçu - Commande #${notification.orderId} soldée ${timeAgo}`;
       
     case 'PARTIALLY_PAID':
-      return `Paiement partiel reçu pour la commande #${notification.orderId} ${timeAgo}`;
+      return `Paiement reçu - Commande #${notification.orderId} ${timeAgo}`;
       
     case 'PAID_WITH_DISCOUNT':
-      return `Paiement avec remise pour la commande #${notification.orderId} ${timeAgo}`;
+      return `Paiement avec remise appliqué - Commande #${notification.orderId} ${timeAgo}`;
       
     case 'UNPAID':
       return `La commande #${notification.orderId} est marquée comme non payée ${timeAgo}`;
       
     default:
-      return `Statut de paiement mis à jour: ${notification.newState.toLowerCase().replace('_', ' ')} ${timeAgo}`;
+      // Message générique neutre
+      return `Statut de paiement mis à jour pour la commande #${notification.orderId} ${timeAgo}`;
   }
 };
 
@@ -113,6 +164,17 @@ export const isUrgentNotification = (notification: OrderNotification): boolean =
     return true;
   }
   
+  // Les demandes de validation d'impayé sont urgentes
+  if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REQUEST) {
+    return true;
+  }
+  
+  // Les réponses de validation sont importantes
+  if (notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_APPROVED ||
+      notification.orderStatus === OrderNotificationStatus.DEBT_VALIDATION_REJECTED) {
+    return true;
+  }
+  
   return false;
 };
 
@@ -132,6 +194,15 @@ export const getNotificationColor = (notification: OrderNotification): string =>
       
     case OrderNotificationStatus.NEW_ORDER:
       return '#4CAF50'; // Vert
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REQUEST:
+      return '#FF9800'; // Orange - demande d'attention
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_APPROVED:
+      return '#4CAF50'; // Vert - succès
+      
+    case OrderNotificationStatus.DEBT_VALIDATION_REJECTED:
+      return '#F44336'; // Rouge - rejeté
       
     default:
       return '#757575'; // Gris

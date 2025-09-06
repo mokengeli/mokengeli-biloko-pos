@@ -36,6 +36,21 @@ const tableService = {
       throw error;
     }
   },
+
+  async getTablesByName(tenantCode: string, name: string): Promise<DomainRefTable[]> {
+    try {
+      const response = await api.get('/api/order/table/name', {
+        params: {
+          code: tenantCode,
+          name
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error searching tables by name:', error);
+      throw error;
+    }
+  },
   
   // Ajout d'une méthode pour créer une table (pour référence future)
   async createTable(table: DomainRefTable): Promise<DomainRefTable> {

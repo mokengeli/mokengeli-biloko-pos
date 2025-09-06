@@ -24,11 +24,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { CommonActions } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAuth } from "../../contexts/AuthContext";
 import orderService from "../../api/orderService";
 import PinInput from "../../components/common/PinInput";
+import { NavigationHelper } from "../../utils/navigationHelper";
 
 // Types pour la navigation
 type CloseWithDebtParamList = {
@@ -119,13 +119,8 @@ export const CloseWithDebtScreen: React.FC<CloseWithDebtScreenProps> = ({
           {
             text: "OK",
             onPress: () => {
-              // Retourner à l'écran d'accueil
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [{ name: "ServerHome" }],
-                })
-              );
+              // Retourner à l'écran d'accueil contextuel
+              NavigationHelper.navigateToContextualHome(navigation, user?.roles);
             },
           },
         ]
@@ -165,12 +160,7 @@ export const CloseWithDebtScreen: React.FC<CloseWithDebtScreenProps> = ({
           {
             text: "OK",
             onPress: () => {
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [{ name: "ServerHome" }],
-                })
-              );
+              NavigationHelper.navigateToContextualHome(navigation, user?.roles);
             },
           },
         ]

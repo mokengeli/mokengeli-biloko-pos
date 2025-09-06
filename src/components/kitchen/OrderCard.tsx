@@ -17,6 +17,7 @@ import {
 } from "react-native-paper";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import { DomainOrder, DomainOrderItem } from "../../api/orderService";
+import { getWaiterDisplayName } from "../../utils/waiterHelpers";
 
 interface OrderCardProps {
   order: DomainOrder;
@@ -137,9 +138,10 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <Card.Content style={styles.cardContent}>
             <View style={styles.headerRow}>
               <View style={styles.orderInfo}>
-                <Text style={styles.orderNumber}>Commande #{order.id}</Text>
+                <Text style={styles.orderNumber}>Commande #{order.orderNumber}</Text>
                 <View style={styles.tableTimeContainer}>
                   <Text style={styles.tableText}>Table: {order.tableName}</Text>
+                  <Text style={styles.waiterText}>Serveur: {getWaiterDisplayName(order.waiterName)}</Text>
                   <Text
                     style={[
                       styles.timeText,
@@ -267,7 +269,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <Text style={styles.modalText}>
               {actionType === "ready"
                 ? `Confirmer que "${selectedItem?.dishName}" est prêt à servir?`
-                : `Rejeter "${selectedItem?.dishName}" de la commande #${order.id}?`}
+                : `Rejeter "${selectedItem?.dishName}" de la commande #${order.orderNumber}?`}
             </Text>
             <View style={styles.modalActions}>
               <Button
@@ -335,10 +337,18 @@ const styles = StyleSheet.create({
   tableTimeContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 4,
+    flexWrap: "wrap",
   },
   tableText: {
     fontSize: 14,
+    marginRight: 8,
+  },
+  waiterText: {
+    fontSize: 14,
+    opacity: 0.8,
+    marginRight: 8,
   },
   timeText: {
     fontSize: 14,

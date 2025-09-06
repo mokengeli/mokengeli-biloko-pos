@@ -27,11 +27,17 @@ import orderService, {
   DomainOrder,
   DomainOrderItem,
 } from "../../api/orderService";
+import { getWaiterDisplayName } from "../../utils/waiterHelpers";
+// CHANGEMENT: Migration vers Socket.io
+import { useSocketConnection } from "../../hooks/useSocketConnection";
+import { useOrderNotifications } from "../../hooks/useOrderNotifications";
 import {
-  webSocketService,
+  ConnectionStatus,
   OrderNotification,
   OrderNotificationStatus,
-} from "../../services/WebSocketService";
+} from "../../services/types/WebSocketTypes";
+import { socketIOService } from "../../services";
+import { NavigationHelper } from "../../utils/navigationHelper";
 
 // Type définitions pour la navigation
 type PrepareBillParamList = {
@@ -102,8 +108,36 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [orderSummaryExpanded, setOrderSummaryExpanded] = useState(false);
 
-  // NOUVEL ÉTAT pour indiquer qu'on navigue vers le paiement
+  // État pour indiquer qu'on navigue vers le paiement
   const [isNavigatingToPayment, setIsNavigatingToPayment] = useState(false);
+
+  // ============================================================================
+  // MIGRATION: Utilisation de Socket.io au lieu de WebSocketService
+  // ============================================================================
+
+  // Connexion Socket.io
+  const [isConnected, setIsConnected] = useState(socketIOService.isConnected());
+  const [connectionStatus, setConnectionStatus] = useState(
+    socketIOService.getStatus()
+  );
+
+  // Écouter les changements via le service
+  useEffect(() => {
+    const unsubscribe = socketIOService.onStatusChange((status) => {
+      setConnectionStatus(status);
+      setIsConnected(
+        status === ConnectionStatus.CONNECTED ||
+          status === ConnectionStatus.AUTHENTICATED
+      );
+    });
+    return unsubscribe;
+  }, []);
+
+  // Écouter les notifications - TEMPORAIREMENT DÉSACTIVÉ pour éviter la désynchronisation
+  // TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur
+  // const { lastNotification } = useOrderNotifications({
+  //   onNotification: handleOrderNotification,
+  // });
 
   // Chargement des données de la commande
   const loadOrderDetails = useCallback(async () => {
@@ -145,75 +179,112 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     }
   }, [orderId]);
 
-  // Gestionnaire de notifications WebSocket MODIFIÉ
-  const handleOrderNotification = useCallback(
-    (notification: OrderNotification) => {
-      console.log("WebSocket notification received:", notification);
+  // Gestionnaire de notifications - TEMPORAIREMENT DÉSACTIVÉ
+  // TODO: Réactiver après correction de la désynchronisation entre l'app et l'émetteur
+  function handleOrderNotification(notification: OrderNotification) {
+    console.log("[PrepareBillScreen] Notifications temporairement désactivées - notification ignorée:", notification);
+    return; // Sortie anticipée pour ignorer toutes les notifications
+    
+    // Code original conservé mais inaccessible
+    try {
+      console.log("PrepareBill - notification received:", notification);
 
-      // IGNORER les notifications si on navigue vers l'écran de paiement
+      // ✅ VALIDATION: Vérifier les données critiques
+      if (!notification || typeof notification.orderId !== 'number') {
+        console.warn('[PrepareBill] Invalid notification data:', notification);
+        return;
+      }
+
+      // Ignorer les notifications si on navigue vers l'écran de paiement
       if (isNavigatingToPayment) {
-        console.log('Ignoring notification while navigating to payment');
+        console.log("Ignoring notification while navigating to payment");
         return;
       }
 
       // Ne traiter que les notifications pour cette commande
       if (notification.orderId === orderId) {
-        // SIMPLIFIER : Pas de notifications visuelles, juste rafraîchir les données
-        switch (notification.orderStatus) {
-          case OrderNotificationStatus.PAYMENT_UPDATE:
-            // Rafraîchir silencieusement les données
-            loadOrderDetails().then((updatedOrder) => {
-              // Vérifier si la commande est totalement payée
-              if ((updatedOrder?.remainingAmount || 0) <= 0) {
-                // Redirection avec message simple
-                Alert.alert(
-                  "Commande entièrement payée",
-                  "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => navigation.navigate("ServerHome" as never),
-                    },
-                  ]
-                );
+        try {
+          // Rafraîchir silencieusement les données
+          switch (notification.orderStatus) {
+            case OrderNotificationStatus.PAYMENT_UPDATE:
+              // Rafraîchir les données avec protection
+              loadOrderDetails()
+                .then((updatedOrder) => {
+                  try {
+                    // Vérifier si la commande est totalement payée
+                    if ((updatedOrder?.remainingAmount || 0) <= 0) {
+                      // Redirection avec message simple
+                      Alert.alert(
+                        "Commande entièrement payée",
+                        "Cette commande a été entièrement payée. Vous allez être redirigé vers l'écran d'accueil.",
+                        [
+                          {
+                            text: "OK",
+                            onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles),
+                          },
+                        ]
+                      );
+                    }
+                  } catch (error) {
+                    console.error('[PrepareBill] Error handling payment update result:', error);
+                  }
+                })
+                .catch((error) => {
+                  console.error('[PrepareBill] Error loading order details after payment update:', error);
+                  // Fallback: ne pas planter, juste logger
+                });
+              break;
+
+            case OrderNotificationStatus.DISH_UPDATE:
+              // Rafraîchir silencieusement avec gestion d'erreur
+              try {
+                loadOrderDetails().catch((error) => {
+                  console.error('[PrepareBill] Error loading order details after dish update:', error);
+                });
+              } catch (error) {
+                console.error('[PrepareBill] Error calling loadOrderDetails for dish update:', error);
               }
-              // Pas de snackbar pour les paiements partiels
+              break;
+
+            default:
+              // Rafraîchir silencieusement pour tout autre changement avec protection
+              try {
+                loadOrderDetails().catch((error) => {
+                  console.error('[PrepareBill] Error loading order details for default case:', error);
+                });
+              } catch (error) {
+                console.error('[PrepareBill] Error in default notification handler:', error);
+              }
+              break;
+          }
+        } catch (error) {
+          console.error('[PrepareBill] Error in notification switch statement:', error, notification);
+          // Fallback: recharger les données si possible
+          try {
+            loadOrderDetails().catch((fallbackError) => {
+              console.error('[PrepareBill] Fallback loadOrderDetails also failed:', fallbackError);
             });
-            break;
-
-          case OrderNotificationStatus.DISH_UPDATE:
-            // Rafraîchir silencieusement
-            loadOrderDetails();
-            break;
-
-          default:
-            // Rafraîchir silencieusement pour tout autre changement
-            loadOrderDetails();
-            break;
+          } catch (fallbackError) {
+            console.error('[PrepareBill] Critical fallback error:', fallbackError);
+          }
         }
       }
-    },
-    [orderId, loadOrderDetails, navigation, isNavigatingToPayment]
-  );
+    } catch (error) {
+      console.error('[PrepareBill] Critical error in handleOrderNotification:', error, notification);
+      // En cas d'erreur critique, ne pas faire planter l'app
+    }
+  }
 
-  // Configurer la connexion WebSocket
+  // Afficher l'état de connexion si déconnecté
   useEffect(() => {
-    if (!user?.tenantCode) return;
-
-    webSocketService.connect(user.tenantCode).catch((error) => {
-      console.error("WebSocket connection error:", error);
-      setError("Erreur de connexion au service de notification en temps réel");
-    });
-
-    const unsubscribe = webSocketService.addSubscription(
-      user.tenantCode,
-      handleOrderNotification
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [user?.tenantCode, handleOrderNotification]);
+    if (!isConnected && !isLoading) {
+      setError(
+        "Connexion au service de notification perdue. Les mises à jour en temps réel peuvent ne pas fonctionner."
+      );
+    } else if (isConnected && error?.includes("Connexion")) {
+      setError(null);
+    }
+  }, [isConnected, isLoading, error]);
 
   // Calculer le total des articles sélectionnés
   const calculateSelectedTotal = useCallback(() => {
@@ -258,6 +329,39 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     return Math.min(customAmountValue, remainingAmount);
   }, [customAmount, calculateRemainingAmount]);
 
+  // Vérifier si tous les plats sont rejetés ou retournés
+  const areAllItemsRejectedOrReturned = useCallback((): boolean => {
+    return billItems.every(item => 
+      item.state === 'REJECTED' || item.state === 'RETURNED'
+    );
+  }, [billItems]);
+
+  // Obtenir le texte du bouton selon le contexte
+  const getButtonText = useCallback((): string => {
+    return areAllItemsRejectedOrReturned() 
+      ? "Libérer la table" 
+      : "Procéder au paiement";
+  }, [areAllItemsRejectedOrReturned]);
+
+  // Obtenir l'icône du bouton selon le contexte
+  const getButtonIcon = useCallback((): string => {
+    return areAllItemsRejectedOrReturned() 
+      ? "table" 
+      : "cash-register";
+  }, [areAllItemsRejectedOrReturned]);
+
+  // Vérifier si le bouton doit être désactivé
+  const isButtonDisabled = useCallback((): boolean => {
+    if (areAllItemsRejectedOrReturned()) {
+      return false; // Toujours activé pour libération
+    }
+    
+    // Logique existante pour paiement normal
+    return (paymentMode === "items" && calculateSelectedTotal() <= 0) ||
+           (paymentMode === "amount" && calculateCustomAmount() <= 0) ||
+           calculateRemainingAmount() <= 0;
+  }, [areAllItemsRejectedOrReturned, paymentMode, calculateSelectedTotal, calculateCustomAmount, calculateRemainingAmount]);
+
   // Gérer la sélection/désélection d'un article
   const toggleItemSelection = (itemId: number) => {
     setBillItems((prevItems) => {
@@ -288,22 +392,48 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
     setCustomAmount(numericValue);
   };
 
-  // Passer à l'écran de paiement MODIFIÉ
-  const proceedToPayment = () => {
+  // Passer à l'écran de paiement ou libérer la table
+  const proceedToPayment = async () => {
+    if (areAllItemsRejectedOrReturned()) {
+      // Cas spécial: libération de table
+      try {
+        await orderService.forceCloseOrder(orderId);
+        Alert.alert(
+          "Table libérée",
+          "La table a été libérée avec succès.",
+          [{ text: "OK", onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles) }]
+        );
+      } catch (error) {
+        console.error('Error liberating table:', error);
+        Alert.alert(
+          "Erreur", 
+          "Impossible de libérer la table. Veuillez réessayer.",
+          [{ text: "OK" }]
+        );
+      }
+      return;
+    }
+
+    // Cas normal: paiement
     const remainingAmount = calculateRemainingAmount();
 
     if (remainingAmount <= 0) {
       Alert.alert(
         "Commande déjà payée",
         "Cette commande a été entièrement payée.",
-        [{ text: "OK", onPress: () => navigation.navigate("ServerHome" as never) }]
+        [
+          {
+            text: "OK",
+            onPress: () => NavigationHelper.navigateToContextualHome(navigation, user?.roles),
+          },
+        ]
       );
       return;
     }
 
     // MARQUER qu'on navigue vers le paiement
     setIsNavigatingToPayment(true);
-    
+
     // Réinitialiser le flag après un délai
     setTimeout(() => {
       setIsNavigatingToPayment(false);
@@ -323,17 +453,20 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
 
       const selectedTotal = Math.min(calculateSelectedTotal(), remainingAmount);
 
-      navigation.navigate("PaymentScreen" as never, {
-        orderId,
-        tableName,
-        tableId,
-        selectedItems,
-        totalAmount: calculateOrderTotal(),
-        paidAmount: calculatePaidAmount(),
-        remainingAmount: remainingAmount,
-        currency: order?.currency.code || "EUR",
-        paymentMode: "items",
-      } as never);
+      navigation.navigate(
+        "PaymentScreen" as never,
+        {
+          orderId,
+          tableName,
+          tableId,
+          selectedItems,
+          totalAmount: calculateOrderTotal(),
+          paidAmount: calculatePaidAmount(),
+          remainingAmount: remainingAmount,
+          currency: order?.currency.code || "EUR",
+          paymentMode: "items",
+        } as never
+      );
     } else {
       const customAmountValue = calculateCustomAmount();
 
@@ -347,17 +480,20 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
         return;
       }
 
-      navigation.navigate("PaymentScreen" as never, {
-        orderId,
-        tableName,
-        tableId,
-        totalAmount: calculateOrderTotal(),
-        paidAmount: calculatePaidAmount(),
-        remainingAmount: remainingAmount,
-        currency: order?.currency.code || "EUR",
-        paymentMode: "amount",
-        customAmount: customAmountValue,
-      } as never);
+      navigation.navigate(
+        "PaymentScreen" as never,
+        {
+          orderId,
+          tableName,
+          tableId,
+          totalAmount: calculateOrderTotal(),
+          paidAmount: calculatePaidAmount(),
+          remainingAmount: remainingAmount,
+          currency: order?.currency.code || "EUR",
+          paymentMode: "amount",
+          customAmount: customAmountValue,
+        } as never
+      );
     }
   };
 
@@ -548,10 +684,19 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
 
                   <View style={styles.orderInfoRow}>
                     <Text style={styles.orderInfoLabel}>
-                      Commande #{order?.id}
+                      Commande #{order?.orderNumber}
                     </Text>
                     <Text style={styles.orderInfoValue}>
                       {new Date(order?.orderDate || "").toLocaleDateString()}
+                    </Text>
+                  </View>
+
+                  <View style={styles.orderInfoRow}>
+                    <Text style={styles.orderInfoLabel}>
+                      Serveur:
+                    </Text>
+                    <Text style={styles.orderInfoValue}>
+                      {getWaiterDisplayName(order?.waiterName)}
                     </Text>
                   </View>
 
@@ -699,7 +844,7 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                   </TouchableRipple>
 
                   <View style={styles.orderInfo}>
-                    <Text style={styles.orderIdText}>#{order?.id}</Text>
+                    <Text style={styles.orderIdText}>#{order?.orderNumber}</Text>
                     <Text style={styles.orderDateText}>
                       {new Date(order?.orderDate || "").toLocaleTimeString()}
                     </Text>
@@ -775,17 +920,13 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                 mode="contained"
                 onPress={proceedToPayment}
                 style={styles.continueButton}
-                icon="cash-register"
-                disabled={
-                  (paymentMode === "items" && calculateSelectedTotal() <= 0) ||
-                  (paymentMode === "amount" && calculateCustomAmount() <= 0) ||
-                  calculateRemainingAmount() <= 0
-                }
+                disabled={isButtonDisabled()}
+                icon={getButtonIcon()}
               >
-                Procéder au paiement
+                {getButtonText()}
               </Button>
             </View>
-            
+
             {/* Bouton pour clôturer avec impayé */}
             {calculateRemainingAmount() > 0 && (
               <>
@@ -793,13 +934,16 @@ export const PrepareBillScreen: React.FC<PrepareBillScreenProps> = ({
                 <Button
                   mode="text"
                   onPress={() => {
-                    navigation.navigate("CloseWithDebt" as never, {
-                      orderId,
-                      tableName: tableName || "",
-                      tableId: tableId || 0,
-                      remainingAmount: calculateRemainingAmount(),
-                      currency: order?.currency.code || "EUR",
-                    } as never);
+                    navigation.navigate(
+                      "CloseWithDebt" as never,
+                      {
+                        orderId,
+                        tableName: tableName || "",
+                        tableId: tableId || 0,
+                        remainingAmount: calculateRemainingAmount(),
+                        currency: order?.currency.code || "EUR",
+                      } as never
+                    );
                   }}
                   style={styles.debtButton}
                   textColor={theme.colors.error}

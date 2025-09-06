@@ -5,7 +5,11 @@ import { Dialog, Portal, Text, Button, Divider, Chip, useTheme, List } from 'rea
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { TableWithStatus } from './TableGrid';
 import { DomainOrder, DomainOrderItem } from '../../api/orderService';
+import orderService from '../../api/orderService';
 import { useCart, CartMode } from '../../contexts/CartContext';
+import { formatWaitersDisplay, getWaiterDisplayName, hasMultipleWaiters, getUniqueWaiters } from '../../utils/waiterHelpers';
+import { useAuth } from '../../contexts/AuthContext';
+import { NavigationHelper } from '../../utils/navigationHelper';
 
 interface TableDetailDialogProps {
   visible: boolean;
@@ -16,7 +20,8 @@ interface TableDetailDialogProps {
   onAddToOrder: (order: DomainOrder) => void;
   onRequestBill: (order: DomainOrder) => void;
   onPrintTicket: (order: DomainOrder) => void;
-  onServeReadyDishes: (order: DomainOrder) => void; // Nouvelle prop
+  onServeReadyDishes: (order: DomainOrder) => void;
+  onRefreshOrders?: () => void; // Nouvelle prop pour rafraîchir les commandes
 }
 
 export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
@@ -29,9 +34,14 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
   onRequestBill,
   onPrintTicket,
   onServeReadyDishes,
+  onRefreshOrders,
 }) => {
   const theme = useTheme();
   const { setEditMode } = useCart();
+  const { user } = useAuth();
+
+  // Vérifier si l'utilisateur est un manager
+  const isManager = NavigationHelper.isManager(user?.roles);
 
   if (!table) return null;
 
@@ -87,6 +97,8 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
         return 'Servi';
       case 'REJECTED':
         return 'Rejeté';
+      case 'RETURNED':
+        return 'Retourné';
       case 'PAID':
         return 'Payé';
       default:
@@ -105,6 +117,8 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
         return { color: theme.colors.warning || '#FF9800', fontWeight: 'bold' as const };
       case 'REJECTED':
         return { color: theme.colors.error, fontWeight: 'bold' as const };
+      case 'RETURNED':
+        return { color: theme.colors.disabled, fontWeight: 'bold' as const };
       default:
         return {};
     }
@@ -122,6 +136,25 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
     return order.items.filter(item => 
       item.state === 'READY' || item.state === 'COOKED'
     ).length;
+  };
+
+  // Vérifier si un plat peut être retourné
+  const canReturnDish = (item: DomainOrderItem): boolean => {
+    return item.state === 'PENDING' || item.state === 'IN_PREPARATION';
+  };
+
+  // Fonction pour retourner un plat
+  const handleReturnDish = async (item: DomainOrderItem) => {
+    try {
+      await orderService.returnDish(item.id);
+      // Rafraîchir les commandes si la fonction est fournie
+      if (onRefreshOrders) {
+        onRefreshOrders();
+      }
+    } catch (error) {
+      console.error('Erreur lors du retour du plat:', error);
+      // Ici on pourrait ajouter une notification d'erreur
+    }
   };
 
   // Fonction pour gérer l'ajout d'articles à une commande existante
@@ -163,6 +196,35 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                   <Text style={styles.infoValue}>{formatOccupationTime(table.occupationTime)}</Text>
                 </View>
                 
+                {/* Nouvelle section : Informations des serveurs */}
+                {orders.length > 0 && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>
+                      {hasMultipleWaiters(orders) ? 'Serveurs:' : 'Serveur:'}
+                    </Text>
+                    <View style={styles.waitersContainer}>
+                      <Text style={styles.infoValue}>
+                        {formatWaitersDisplay(orders)}
+                      </Text>
+                      {hasMultipleWaiters(orders) && (
+                        <View style={styles.waiterChips}>
+                          {getUniqueWaiters(orders).map((waiter, index) => (
+                            <Chip
+                              key={waiter.identifier}
+                              mode="outlined"
+                              compact
+                              style={styles.waiterChip}
+                              textStyle={styles.waiterChipText}
+                            >
+                              {waiter.name}
+                            </Chip>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+                
                 <Divider style={styles.divider} />
                 
                 {orders.length > 0 ? (
@@ -173,8 +235,8 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                       {orders.map((order) => (
                         <View key={order.id} style={styles.accordionWrapper}>
                           <List.Accordion
-                            title={`Commande #${order.id}`}
-                            description={`${order.items.length} articles - ${order.totalPrice.toFixed(2)} ${order.currency.code}`}
+                            title={`Commande #${order.orderNumber}`}
+                            description={`${order.items.length} articles - ${order.totalPrice.toFixed(2)} ${order.currency.code} • ${getWaiterDisplayName(order.waiterName)}`}
                             left={props => <List.Icon {...props} icon="receipt" />}
                             style={styles.orderAccordion}
                           >
@@ -184,19 +246,34 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                               nestedScrollEnabled={true}
                             >
                               {order.items.map((item) => (
-                                <List.Item
-                                  key={item.id}
-                                  title={`${item.count}x ${item.dishName}`}
-                                  description={getOrderItemStatusText(item.state)}
-                                  descriptionStyle={getStatusTextStyle(item.state)}
-                                  left={props => <List.Icon {...props} icon="food" />}
-                                  right={props => (
-                                    <Text {...props} style={styles.priceText}>
-                                      {(item.unitPrice * item.count).toFixed(2)} {order.currency.code}
-                                    </Text>
+                                <View key={item.id} style={styles.dishItemContainer}>
+                                  <List.Item
+                                    title={`${item.count}x ${item.dishName}`}
+                                    description={getOrderItemStatusText(item.state)}
+                                    descriptionStyle={getStatusTextStyle(item.state)}
+                                    left={props => <List.Icon {...props} icon="food" />}
+                                    right={props => (
+                                      <Text {...props} style={styles.priceText}>
+                                        {(item.unitPrice * item.count).toFixed(2)} {order.currency.code}
+                                      </Text>
+                                    )}
+                                    style={styles.orderItem}
+                                  />
+                                  {canReturnDish(item) && isManager && (
+                                    <View style={styles.dishActions}>
+                                      <Button
+                                        mode="text"
+                                        icon="undo-variant"
+                                        onPress={() => handleReturnDish(item)}
+                                        style={styles.returnButton}
+                                        labelStyle={styles.returnButtonLabel}
+                                        compact
+                                      >
+                                        Retourner
+                                      </Button>
+                                    </View>
                                   )}
-                                  style={styles.orderItem}
-                                />
+                                </View>
                               ))}
                             </ScrollView>
                             
@@ -238,14 +315,16 @@ export const TableDetailDialog: React.FC<TableDetailDialogProps> = ({
                                 >
                                   Imprimer
                                 </Button>
-                                <Button 
-                                  mode="outlined" 
-                                  icon="cash-register" 
-                                  onPress={() => onRequestBill(order)}
-                                  style={styles.actionButton}
-                                >
-                                  Addition
-                                </Button>
+                                {isManager && (
+                                  <Button 
+                                    mode="outlined" 
+                                    icon="cash-register" 
+                                    onPress={() => onRequestBill(order)}
+                                    style={styles.actionButton}
+                                  >
+                                    Addition
+                                  </Button>
+                                )}
                               </ScrollView>
                             </View>
                           </List.Accordion>
@@ -329,6 +408,23 @@ const styles = StyleSheet.create({
   infoValue: {
     fontWeight: '500',
   },
+  waitersContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  waiterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  waiterChip: {
+    marginLeft: 4,
+    marginBottom: 2,
+  },
+  waiterChipText: {
+    fontSize: 12,
+  },
   divider: {
     marginVertical: 12,
   },
@@ -353,6 +449,27 @@ const styles = StyleSheet.create({
   },
   orderItem: {
     paddingLeft: 16,
+  },
+  dishItemContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  dishActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  returnButton: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  returnButtonLabel: {
+    color: '#d32f2f',
+    fontSize: 12,
   },
   orderActions: {
     paddingVertical: 8,

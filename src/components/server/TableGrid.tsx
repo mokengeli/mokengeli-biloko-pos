@@ -3,13 +3,13 @@ import React from "react";
 import {
   View,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Dimensions,
   RefreshControl,
   Text,
 } from "react-native";
-import { Surface, useTheme } from "react-native-paper";
+import { Surface, useTheme, ActivityIndicator } from "react-native-paper";
 import { DomainRefTable } from "../../api/tableService";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
@@ -32,6 +32,9 @@ interface TableGridProps {
   refreshing?: boolean;
   onRefresh?: () => void;
   recentlyChangedTables?: number[]; // Pour les tables récemment modifiées
+  onLoadMore?: () => void; // Fonction pour charger plus de données
+  hasMoreData?: boolean; // Indique s'il y a plus de données à charger
+  loadingMore?: boolean; // Indique si le chargement de nouvelles données est en cours
 }
 
 export const TableGrid: React.FC<TableGridProps> = ({
@@ -41,6 +44,9 @@ export const TableGrid: React.FC<TableGridProps> = ({
   refreshing = false,
   onRefresh,
   recentlyChangedTables = [], // Valeur par défaut: tableau vide
+  onLoadMore,
+  hasMoreData = false,
+  loadingMore = false,
 }) => {
   const theme = useTheme();
   const windowWidth = Dimensions.get("window").width;
@@ -89,9 +95,99 @@ export const TableGrid: React.FC<TableGridProps> = ({
     }
   };
 
+  // Fonction pour rendre un item de table
+  const renderTableItem = ({ item: table, index }: { item: TableWithStatus; index: number }) => {
+    // Déterminer la couleur de bordure en fonction du statut
+    let borderColor;
+    switch (table.status) {
+      case "free":
+        borderColor = theme.colors.primary;
+        break;
+      case "occupied":
+        borderColor = theme.colors.error;
+        break;
+      default:
+        borderColor = theme.colors.text;
+    }
+
+    // Déterminer les styles dynamiques
+    const tableWidth =
+      numColumns === 4 ? { width: "23%" } : { width: "46%" };
+    const tableMargin =
+      numColumns === 4 ? { margin: "1%" } : { margin: "2%" };
+
+    // Vérifier si cette table a été récemment modifiée
+    const isRecentlyChanged = recentlyChangedTables.includes(
+      table.tableData.id
+    );
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.tableItem,
+          tableWidth,
+          tableMargin,
+          { backgroundColor: getStatusColor(table.status) },
+          { borderColor: borderColor, borderWidth: 2 },
+          // Appliquer un style spécial pour les tables récemment modifiées
+          isRecentlyChanged && styles.recentlyChangedTable,
+        ]}
+        onPress={() => onTablePress(table)}
+        disabled={isLoading}
+      >
+        <Surface style={styles.tableSurface}>
+          <Text style={styles.tableName}>{table.tableData.name}</Text>
+          <Text style={[styles.tableStatus, { color: borderColor }]}>
+            {getStatusText(table.status)}
+          </Text>
+
+          {table.occupationTime && table.status !== "free" ? (
+            <Text style={styles.occupationTime}>
+              {formatOccupationTime(table.occupationTime)}
+            </Text>
+          ) : null}
+
+          {table.orderCount && table.orderCount > 0 ? (
+            <View style={styles.alertIndicator}>
+              <Icon name="alert" size={16} color="#FFA500" />
+            </View>
+          ) : null}
+          {table.pendingValidation && (
+            <View style={styles.validationIndicator}>
+              <Icon name="clock-alert" size={16} color="#FF9800" />
+            </View>
+          )}
+        </Surface>
+      </TouchableOpacity>
+    );
+  };
+
+  // Footer pour le chargement de nouvelles données
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footer}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Chargement...</Text>
+      </View>
+    );
+  };
+
+  // Gérer l'événement onEndReached
+  const handleLoadMore = () => {
+    if (hasMoreData && !loadingMore && onLoadMore) {
+      onLoadMore();
+    }
+  };
+
   return (
-    <ScrollView
+    <FlatList
+      data={tables}
+      renderItem={renderTableItem}
+      keyExtractor={(item, index) => `table-${item.tableData.id}-${index}`}
+      numColumns={numColumns}
       contentContainerStyle={styles.container}
+      columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -101,95 +197,44 @@ export const TableGrid: React.FC<TableGridProps> = ({
           />
         ) : undefined
       }
-    >
-      <View style={styles.grid}>
-        {tables.map((table, index) => {
-          // Déterminer la couleur de bordure en fonction du statut
-          let borderColor;
-          switch (table.status) {
-            case "free":
-              borderColor = theme.colors.primary;
-              break;
-            case "occupied":
-              borderColor = theme.colors.error;
-              break;
-            default:
-              borderColor = theme.colors.text;
-          }
-
-          // Déterminer les styles dynamiques
-          const tableWidth =
-            numColumns === 4 ? { width: "23%" } : { width: "46%" };
-          const tableMargin =
-            numColumns === 4 ? { margin: "1%" } : { margin: "2%" };
-
-          // Vérifier si cette table a été récemment modifiée
-          const isRecentlyChanged = recentlyChangedTables.includes(
-            table.tableData.id
-          );
-
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.tableItem,
-                tableWidth,
-                tableMargin,
-                { backgroundColor: getStatusColor(table.status) },
-                { borderColor: borderColor, borderWidth: 2 },
-                // Appliquer un style spécial pour les tables récemment modifiées
-                isRecentlyChanged && styles.recentlyChangedTable,
-              ]}
-              onPress={() => onTablePress(table)}
-              disabled={isLoading}
-            >
-              <Surface style={styles.tableSurface}>
-                <Text style={styles.tableName}>{table.tableData.name}</Text>
-                <Text style={[styles.tableStatus, { color: borderColor }]}>
-                  {getStatusText(table.status)}
-                </Text>
-
-                {table.occupationTime && table.status !== "free" ? (
-                  <Text style={styles.occupationTime}>
-                    {formatOccupationTime(table.occupationTime)}
-                  </Text>
-                ) : null}
-
-                {table.orderCount && table.orderCount > 0 ? (
-                  <View style={styles.alertIndicator}>
-                    <Icon name="alert" size={16} color="#FFA500" />
-                  </View>
-                ) : null}
-                {table.pendingValidation && (
-                  <View style={styles.validationIndicator}>
-                    <Icon name="clock-alert" size={16} color="#FF9800" />
-                  </View>
-                )}
-              </Surface>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </ScrollView>
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={0.1}
+      ListFooterComponent={renderFooter}
+      showsVerticalScrollIndicator={true}
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={20}
+      updateCellsBatchingPeriod={50}
+      initialNumToRender={20}
+    />
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     padding: 8,
-    flexGrow: 1,
   },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
+  row: {
+    justifyContent: "space-around",
+  },
+  footer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    opacity: 0.7,
   },
   tableItem: {
     aspectRatio: 1,
     borderRadius: 8,
     overflow: "hidden",
     position: "relative",
+    flex: 1,
+    maxWidth: "48%",
+    marginHorizontal: "1%",
+    marginVertical: 4,
   },
   tableSurface: {
     flex: 1,

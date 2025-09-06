@@ -10,8 +10,10 @@ import { useCart } from '../../contexts/CartContext';
 import categoryService, { DomainCategory } from '../../api/categoryService';
 import dishService, { DomainDish } from '../../api/dishService';
 import { OrderCart } from '../../components/server/OrderCart';
+import { DishSearchBar } from '../../components/server/DishSearchBar';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { MainStackParamList } from '../../navigation/AppNavigator';
+import { NavigationHelper } from '../../utils/navigationHelper';
 
 // Types pour la navigation
 type CreateOrderScreenRouteProp = RouteProp<MainStackParamList, 'CreateOrder'>;
@@ -38,6 +40,11 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   const [isLoadingDishes, setIsLoadingDishes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  
+  // États pour la recherche
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   
   // Définir les informations de la table au démarrage
   useEffect(() => {
@@ -79,6 +86,9 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   
   // Charger les plats par catégorie
   const loadDishesByCategory = async (categoryId: number) => {
+    // Ne pas charger si on est en mode recherche
+    if (isSearchMode) return;
+    
     setIsLoadingDishes(true);
     setError(null);
     
@@ -92,6 +102,49 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
       setIsLoadingDishes(false);
     }
   };
+
+  // Fonction de recherche de plats
+  const searchDishes = useCallback(async (query: string) => {
+    if (!user?.tenantCode) return;
+    
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      // Si la recherche est vide, revenir au mode catégorie
+      setIsSearchMode(false);
+      setSearchLoading(false);
+      if (selectedCategory) {
+        // Charger directement sans passer par loadDishesByCategory pour éviter le check isSearchMode
+        setIsLoadingDishes(true);
+        setError(null);
+        
+        try {
+          const dishesData = await dishService.getDishesByCategory(selectedCategory.id);
+          setDishes(dishesData);
+        } catch (err: any) {
+          console.error(`Error loading dishes for category ${selectedCategory.id}:`, err);
+          setError(err.message || 'Erreur lors du chargement des plats');
+        } finally {
+          setIsLoadingDishes(false);
+        }
+      }
+      return;
+    }
+    
+    setSearchLoading(true);
+    setIsSearchMode(true);
+    setError(null);
+    
+    try {
+      const searchResults = await dishService.getDishesByName(user.tenantCode, query);
+      setDishes(searchResults);
+    } catch (err: any) {
+      console.error("Error searching dishes:", err);
+      setError(err.message || "Erreur lors de la recherche");
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [user?.tenantCode, selectedCategory]);
   
   // Sélectionner une catégorie
   const handleCategorySelect = (category: DomainCategory) => {
@@ -113,9 +166,9 @@ export const CreateOrderScreen: React.FC<CreateOrderScreenProps> = ({ route, nav
   
 // Finaliser la commande
   const handleFinishOrder = () => {
-    // Navigation vers l'écran d'accueil après finalisation de la commande ou ajout d'articles
+    // Navigation vers l'écran d'accueil contextuel après finalisation de la commande ou ajout d'articles
     // Cette fonction est appelée depuis le composant OrderCart après un traitement réussi
-    navigation.navigate('ServerHome');
+    NavigationHelper.navigateToContextualHome(navigation, user?.roles);
   };
   
 // Gérer l'annulation de commande
@@ -301,20 +354,29 @@ const handleCancelOrder = () => {
             <View style={styles.dishesHeader}>
               <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
                 <Icon name="silverware-variant" size={24} color={theme.colors.primary} style={{ marginRight: 8 }} />
-                {selectedCategory ? `Plats - ${selectedCategory.name}` : 'Sélectionnez une catégorie'}
+                {isSearchMode ? 
+                  `Résultats de recherche${searchQuery ? ` - "${searchQuery}"` : ''}` :
+                  selectedCategory ? `Plats - ${selectedCategory.name}` : 'Sélectionnez une catégorie'
+                }
               </Text>
-              {selectedCategory && (
+              {(selectedCategory || isSearchMode) && (
                 <Chip 
                   mode="outlined" 
                   style={{ borderColor: theme.colors.primary }}
                   textStyle={{ color: theme.colors.primary }}
                 >
-                  {dishes.length} plats
+                  {dishes.length} plat{dishes.length > 1 ? 's' : ''}
                 </Chip>
               )}
             </View>
             
-            {isLoadingDishes ? (
+            <DishSearchBar
+              onSearch={searchDishes}
+              isLoading={searchLoading}
+              placeholder="Rechercher un plat..."
+            />
+            
+            {(isLoadingDishes || searchLoading) ? (
               <View style={styles.loadingDishesContainer}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
                 <Text>Chargement des plats...</Text>

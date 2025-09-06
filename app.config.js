@@ -17,11 +17,12 @@ const getApiConfig = () => {
     process.env.API_URL || "https://api.preprod.pos.mokengeli-biloko.com";
   const environment = process.env.NODE_ENV || "production";
   const useSecure = process.env.USE_SECURE_CONNECTION === "true";
-
+  const socketioUrl = process.env.SOCKETIO_URL;
   return {
     apiUrl,
     environment,
     useSecure,
+    socketioUrl,
     domain: extractDomain(apiUrl),
   };
 };
@@ -35,11 +36,11 @@ export default {
     scheme: "mokengeli-biloko-pos",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/img/icon.png",
+    icon: "./assets/logos/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
-      image: "./assets/img/splash-icon.png",
+      image: "./assets/logos/splash-icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff",
     },
@@ -78,8 +79,16 @@ export default {
           "Cette application a besoin d'accéder au réseau local pour communiquer avec les imprimantes.",
         NSBluetoothAlwaysUsageDescription:
           "Cette application utilise le Bluetooth pour se connecter aux imprimantes.",
+        NSBluetoothPeripheralUsageDescription:
+          "Cette application nécessite l'accès Bluetooth pour imprimer sur des imprimantes thermiques.",
         NSLocationWhenInUseUsageDescription:
           "Cette application utilise votre localisation pour scanner les réseaux WiFi locaux.",
+        // Protocoles supportés pour imprimantes ESC/POS
+        UISupportedExternalAccessoryProtocols: [
+          "com.epson.escpos",
+          "jp.star-m.starpro",
+          "com.bixolon.protocol"
+        ],
       },
     },
 
@@ -88,7 +97,7 @@ export default {
     // =============================================================================
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/img/adaptive-icon.png",
+        foregroundImage: "./assets/logos/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
       package: "com.mokengelibiloko.pos",
@@ -137,6 +146,18 @@ export default {
       environment: config.environment,
       useSecureConnection: config.useSecure,
       apiDomain: config.domain,
+      // Version de l'app pour Socket.io
+      appVersion: "1.0.0",
+      socketioUrl: config.socketioUrl,
+      // Configuration pour l'impression thermique
+      thermalPrinter: {
+        defaultPort: 9100,
+        connectionTimeout: 5000,
+        printTimeout: 30000,
+        enableBluetooth: true,
+        enableNetwork: true,
+        enableUSB: true,
+      },
       eas: {
         projectId: "fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
       },
@@ -149,19 +170,35 @@ export default {
     runtimeVersion: "1.0.0",
 
     // =============================================================================
-    // PLUGINS
+    // PLUGINS - ORDRE IMPORTANT
     // =============================================================================
     plugins: [
       // OTA
       "expo-updates",
+      
+      // Dev client pour les modules natifs
+      "expo-dev-client",
 
-      // Config réseau (si tu gardes ce plugin custom)
+      // Configuration réseau (network security)
       "./plugins/withNetworkSecurity",
 
-      // Permissions d'impression (plugin custom)
-      "./plugins/withPrinterPermissions",
+      // NOUVEAU : Configuration ProGuard pour Socket.io
+      "./plugins/withProguardRules",
 
-      // Propriétés de build
+      // Permissions d'impression
+      "./plugins/withPrinterPermissions",
+      
+      // Plugin pour l'impression thermique native ESC/POS
+      [
+        "./plugins/withThermalPrinter",
+        {
+          enableBluetooth: true,
+          enableNetwork: true,
+          enableUSB: true,
+        }
+      ],
+
+      // Propriétés de build - DOIT ÊTRE EN DERNIER
       [
         "expo-build-properties",
         {
@@ -171,6 +208,10 @@ export default {
             targetSdkVersion: 35,
             minSdkVersion: 24,
             // Ne pas définir buildToolsVersion : AGP choisira 35.0.0
+
+            // IMPORTANT : S'assurer que ProGuard est activé pour les builds release
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
           },
           ios: {
             deploymentTarget: "15.1",
@@ -188,4 +229,6 @@ console.log("[App Config] Loaded configuration:", {
   useSecure: config.useSecure,
   domain: config.domain,
   cleartext: true,
+  socketioUrl: config.socketioUrl,
+  proguard: "enabled via plugin",
 });

@@ -1,4 +1,4 @@
-// src/navigation/AppNavigator.tsx
+// src/navigation/AppNavigator.tsx - VERSION MISE À JOUR
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
@@ -7,10 +7,11 @@ import { LoginScreen } from "../screens/LoginScreen";
 import { ServerHomeScreen } from "../screens/server/ServerHomeScreen";
 import { CreateOrderScreen } from "../screens/server/CreateOrderScreen";
 import { DishCustomizationScreen } from "../screens/server/DishCustomizationScreen";
+import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
 import { ReadyDishesScreen } from "../screens/server/ReadyDishesScreen";
 import { ProfilScreen } from "../screens/ProfilScreen";
-import { DishCustomizationParamList } from "../screens/server/DishCustomizationScreen";
 import { KitchenHomeScreen } from "../screens/kitchen/KitchenHomeScreen";
+import { CashierHomeScreen } from "../screens/cashier/CashierHomeScreen";
 import { RolesUtils } from "../utils/roles";
 import { PrepareBillScreen } from "../screens/server/PrepareBillScreen";
 import { PaymentScreen } from "../screens/server/PaymentScreen";
@@ -18,9 +19,13 @@ import { DomainOrderItem } from "../api/orderService";
 import { ManagerHomeScreen } from "../screens/manager/ManagerHomeScreen";
 import { CloseWithDebtScreen } from "../screens/server/CloseWithDebtScreen";
 import { PendingValidationsScreen } from "../screens/manager/PendingValidationsScreen";
+import { PrinterConfigScreen } from "../screens/settings/PrinterConfigScreen";
+import { AddEditPrinterScreen } from "../screens/settings/AddEditPrinterScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
-
+// Import conditionnel de l'écran de debug
+import { SocketIODebugScreen } from "../screens/debug/SocketIODebugScreen";
+import env from "../config/environment";
 
 // Types des paramètres pour les routes d'authentification
 export type AuthStackParamList = {
@@ -28,10 +33,10 @@ export type AuthStackParamList = {
 };
 
 // Types des paramètres pour les routes principales
-// Types des paramètres pour les routes principales
 export type MainStackParamList = {
   ServerHome: undefined;
   KitchenHome: undefined;
+  CashierHome: undefined;
   ProfilHome: undefined;
   ManagerHome: undefined;
   CreateOrder: {
@@ -68,6 +73,10 @@ export type MainStackParamList = {
     currency: string;
   };
   PendingValidations: undefined;
+  PrinterConfig: undefined;
+  AddEditPrinter: {
+    printerId?: string;
+  };
   SplitBill: {
     orderId: number;
     tableName?: string;
@@ -77,11 +86,17 @@ export type MainStackParamList = {
     numberOfPeople: number;
     currency: string;
   };
+  // Routes de debug (conditionnelles)
+  SocketIODebug?: undefined;
+  WebSocketDebug?: undefined;
 };
 
 // Créer les navigateurs
 const AuthStack = createStackNavigator<AuthStackParamList>();
 const MainStack = createStackNavigator<MainStackParamList>();
+
+// Déterminer si on est en mode développement
+const isDevelopment = env.environment === 'development' || __DEV__;
 
 // Composant pour les routes d'authentification
 const AuthNavigator = () => {
@@ -130,6 +145,7 @@ const MainNavigator: React.FC = () => {
       />
       <MainStack.Screen name="ReadyDishes" component={ReadyDishesScreen} />
       <MainStack.Screen name="KitchenHome" component={KitchenHomeScreen} />
+      <MainStack.Screen name="CashierHome" component={CashierHomeScreen} />
       <MainStack.Screen name="ProfilHome" component={ProfilScreen} />
       <MainStack.Screen name="ManagerHome" component={ManagerHomeScreen} />
 
@@ -137,7 +153,34 @@ const MainNavigator: React.FC = () => {
       <MainStack.Screen name="PrepareBill" component={PrepareBillScreen} />
       <MainStack.Screen name="PaymentScreen" component={PaymentScreen} />
       <MainStack.Screen name="CloseWithDebt" component={CloseWithDebtScreen} />
-      <MainStack.Screen name="PendingValidations" component={PendingValidationsScreen} />
+      <MainStack.Screen
+        name="PendingValidations"
+        component={PendingValidationsScreen}
+      />
+      <MainStack.Screen
+        name="PrinterConfig"
+        component={PrinterConfigScreen}
+      />
+      <MainStack.Screen
+        name="AddEditPrinter"
+        component={AddEditPrinterScreen}
+      />
+      
+      {/* ÉCRAN DE DEBUG - UNIQUEMENT EN DÉVELOPPEMENT */}
+      {isDevelopment && (
+        <>
+          <MainStack.Screen
+            name="SocketIODebug"
+            component={SocketIODebugScreen}
+            options={{
+              headerShown: false,
+              title: "Debug Socket.io",
+            }}
+          />
+          
+          
+        </>
+      )}
     </MainStack.Navigator>
   );
 };
@@ -145,6 +188,11 @@ const MainNavigator: React.FC = () => {
 // Composant de navigation principale
 export const AppNavigator: React.FC = () => {
   const { user, isLoading } = useAuth();
+
+  // Log pour debug (seulement en dev)
+  if (isDevelopment) {
+    console.log('[AppNavigator] Debug mode enabled - Debug screens available');
+  }
 
   // Afficher un indicateur de chargement pendant la vérification de l'authentification
   if (isLoading) {

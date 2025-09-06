@@ -12,6 +12,7 @@ export interface DomainOrderItem {
     | "READY"
     | "IN_PREPARATION"
     | "REJECTED"
+    | "RETURNED"
     | "COOKED"
     | "SERVED"
     | "PAID";
@@ -39,10 +40,13 @@ export interface DomainPaymentTransaction {
 
 export interface DomainOrder {
   id: number;
+  orderNumber: string;
   tenantCode: string;
   tableName: string;     
   tableId: number;      
-  employeeNumber: string;
+  employeeNumber: string; // Correspond à waiterIdentifier du nouveau contrat
+  waiterIdentifier?: string; // Nouveau champ (redondant avec employeeNumber)
+  waiterName?: string; // Nouveau champ principal pour affichage
   items: DomainOrderItem[];
   totalPrice: number;
   currency: DomainCurrency;
@@ -216,6 +220,34 @@ const orderService = {
     } catch (error) {
       console.error("Error rejecting dish:", error);
       throw error; // Laisser l'erreur se propager pour être traitée par le composant
+    }
+  },
+
+  // Méthode pour retourner un plat
+  async returnDish(itemId: number): Promise<void> {
+    try {
+      await api.put(`/api/order/dish/return`, null, {
+        params: {
+          id: itemId,
+        },
+      });
+    } catch (error) {
+      console.error("Error returning dish:", error);
+      throw error;
+    }
+  },
+
+  // Méthode pour forcer la fermeture d'une commande
+  async forceCloseOrder(orderId: number): Promise<void> {
+    try {
+      await api.put('/api/order/force-close', null, {
+        params: {
+          id: orderId,
+        },
+      });
+    } catch (error) {
+      console.error('Error force closing order:', error);
+      throw error;
     }
   },
   // Méthode pour récupérer une commande par son ID

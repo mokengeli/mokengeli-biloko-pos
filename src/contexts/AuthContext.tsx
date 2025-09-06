@@ -1,7 +1,8 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import authService, { User, LoginCredentials } from '../api/authService';
-import { webSocketService } from '../services/WebSocketService';
+// CHANGEMENT: Migration vers Socket.io
+import { socketIOService } from '../services/SocketIOService';
 import { EventRegister } from 'react-native-event-listeners';
 import { FORCE_LOGOUT_EVENT } from '../api/apiConfig';
 
@@ -74,8 +75,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const handleForceLogout = async () => {
     setIsLoading(true);
     try {
-      // Fermer la connexion WebSocket
-      webSocketService.disconnect();
+      // CHANGEMENT: Fermer la connexion Socket.io
+      await socketIOService.disconnect();
       
       // Utiliser la méthode spéciale de déconnexion forcée
       await authService.forceLogout();
@@ -101,6 +102,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (isAuth) {
           const userData = await authService.getCurrentUser();
           setUser(userData);
+          
+          // CHANGEMENT: Si l'utilisateur est authentifié et a un tenant, connecter Socket.io
+          if (userData?.tenantCode) {
+            console.log('[AuthContext] User authenticated, connecting Socket.io...');
+            socketIOService.connect(userData.tenantCode).catch(err => {
+              console.error('[AuthContext] Failed to connect Socket.io:', err);
+              // Ne pas bloquer l'authentification si Socket.io échoue
+            });
+          }
         }
       } catch (err) {
         console.error('Auth check error:', err);
@@ -136,6 +146,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await authService.login(credentials);
       setUser(userData);
+      
+      // CHANGEMENT: Connexion automatique à Socket.io après login réussi
+      if (userData?.tenantCode) {
+        console.log('[AuthContext] Login successful, connecting Socket.io...');
+        // Connexion asynchrone sans bloquer le processus de login
+        socketIOService.connect(userData.tenantCode).catch(err => {
+          console.error('[AuthContext] Failed to connect Socket.io after login:', err);
+          // Ne pas propager l'erreur Socket.io, l'utilisateur est déjà connecté
+        });
+      }
     } catch (err: any) {
       console.error('Login error in context:', err);
       
@@ -153,8 +173,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
-      // Fermer la connexion WebSocket
-      webSocketService.disconnect();
+      // CHANGEMENT: Fermer la connexion Socket.io
+      console.log('[AuthContext] Logging out, disconnecting Socket.io...');
+      await socketIOService.disconnect();
       
       // Appeler le service d'authentification pour se déconnecter côté serveur
       await authService.logout();
@@ -165,10 +186,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Logout error:', err);
       // Continuer le processus de déconnexion même en cas d'erreur
       setUser(null);
+      
+      // S'assurer que Socket.io est bien déconnecté même en cas d'erreur
+      try {
+        await socketIOService.disconnect();
+      } catch (socketError) {
+        console.error('Error disconnecting Socket.io during logout:', socketError);
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  // AMÉLIORATION: Gérer la reconnexion Socket.io si le tenant change
+  useEffect(() => {
+    if (user?.tenantCode) {
+      const currentTenant = socketIOService.getTenantCode();
+      
+      // Si le tenant a changé ou si non connecté, reconnecter
+      if (currentTenant !== user.tenantCode || !socketIOService.isConnected()) {
+        console.log('[AuthContext] Tenant changed or not connected, reconnecting Socket.io...');
+        socketIOService.connect(user.tenantCode).catch(err => {
+          console.error('[AuthContext] Failed to reconnect Socket.io:', err);
+        });
+      }
+    }
+  }, [user?.tenantCode]);
 
   // Valeur du contexte
   const value = {
