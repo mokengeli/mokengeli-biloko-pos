@@ -1,6 +1,6 @@
 // src/screens/cashier/CashierHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Alert } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Alert, Image } from "react-native";
 import {
   Appbar,
   Text,
@@ -359,10 +359,17 @@ export const CashierHomeScreen: React.FC<CashierHomeScreenProps> = ({
             onPress={() => navigation.navigate("ManagerHome" as never)}
           />
         )}
+        
+        {/* Logo */}
+        <Image 
+          source={require('../../../assets/logos/icon.png')}
+          style={styles.logo}
+        />
+        
         <Appbar.Content
           title="Mokengeli Biloko POS"
-          subtitle={`Caisse: ${user?.firstName || ""} ${user?.lastName || ""}`}
         />
+        
         <HeaderMenu additionalItems={cashierMenuItems} />
       </Appbar.Header>
 
@@ -512,6 +519,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+  },
+  logo: {
+    width: 28,
+    height: 28,
+    marginLeft: 12,
+    marginRight: 10,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   searchContainer: {
     padding: 16,

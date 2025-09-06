@@ -1,6 +1,6 @@
 // src/screens/server/ServerHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Animated } from "react-native";
+import { View, StyleSheet, Animated, Image } from "react-native";
 import {
   Appbar,
   Text,
@@ -897,31 +897,29 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
             onPress={() => navigation.navigate("ManagerHome" as never)}
           />
         )}
-        <Appbar.Content
-          title="Mokengeli Biloko POS"
-          subtitle={`Service: ${user?.firstName || ""} ${user?.lastName || ""}`}
+        
+        {/* Logo */}
+        <Image 
+          source={require('../../../assets/logos/icon.png')}
+          style={styles.logo}
         />
         
-        {/* Indicateur de connexion Socket.io */}
-        <View style={styles.connectionBadge}>
-          <Chip 
-            compact
-            mode="flat"
-            style={{ 
-              backgroundColor: getConnectionColor(),
-              paddingHorizontal: 8,
-              height: 24
-            }}
-            textStyle={{ color: 'white', fontSize: 10 }}
-          >
-            <Icon 
-              name={getConnectionIcon()} 
-              size={14} 
-              color="white" 
-            />
-            {connectionStats?.latency > 0 && ` ${connectionStats.latency}ms`}
-          </Chip>
-        </View>
+        <Appbar.Content
+          title="Mokengeli Biloko POS"
+        />
+        
+        {/* Badge de connexion compact */}
+        <Chip 
+          compact
+          mode="flat"
+          style={[styles.connectionChip, { backgroundColor: getConnectionColor() }]}
+        >
+          <Icon 
+            name={getConnectionIcon()} 
+            size={12} 
+            color="white" 
+          />
+        </Chip>
         
         <HeaderMenu additionalItems={serverMenuItems} />
       </Appbar.Header>
@@ -1100,8 +1098,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  connectionBadge: {
+  logo: {
+    width: 28,
+    height: 28,
+    marginLeft: 12,
+    marginRight: 10,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  connectionChip: {
     marginRight: 8,
+    height: 24,
+    paddingHorizontal: 0,
   },
   snackbar: {
     bottom: 0,

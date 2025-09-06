@@ -1,6 +1,6 @@
 // src/screens/kitchen/KitchenHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, SectionList } from "react-native";
+import { View, StyleSheet, SectionList, Image } from "react-native";
 import {
   Appbar,
   Text,
@@ -626,21 +626,22 @@ export const KitchenHomeScreen = () => {
             onPress={() => navigation.navigate("ManagerHome" as never)}
           />
         )}
-        <Appbar.Content
-          title="Mokengeli Biloko POS"
-          subtitle={`Cuisine: ${user?.firstName || ""} ${user?.lastName || ""}`}
+        
+        {/* Logo */}
+        <Image 
+          source={require('../../../assets/logos/icon.png')}
+          style={styles.logo}
         />
         
-        {/* AMÉLIORATION: Indicateur de connexion Socket.io */}
+        <Appbar.Content
+          title="Mokengeli Biloko POS"
+        />
+        
+        {/* Badge de connexion compact */}
         <Chip
           compact
           mode="flat"
-          style={{ 
-            backgroundColor: getConnectionColor(),
-            marginRight: 8,
-            height: 24
-          }}
-          textStyle={{ color: 'white', fontSize: 10 }}
+          style={[styles.connectionChip, { backgroundColor: getConnectionColor() }]}
         >
           <Icon
             name={isConnected ? "wifi" : "wifi-off"} 
@@ -769,6 +770,25 @@ const styles = StyleSheet.create({
   appbar: {
     height: 56,
     paddingTop: 0,
+  },
+  logo: {
+    width: 28,
+    height: 28,
+    marginLeft: 12,
+    marginRight: 10,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  connectionChip: {
+    marginRight: 8,
+    height: 24,
+    paddingHorizontal: 0,
   },
   loadingContainer: {
     flex: 1,
