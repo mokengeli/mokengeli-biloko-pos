@@ -1,6 +1,6 @@
 // src/screens/manager/ManagerHomeScreen.tsx - VERSION CORRIGÉE
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Alert, Image } from "react-native";
 import {
   Appbar,
   SegmentedButtons,
@@ -173,36 +173,46 @@ export const ManagerHomeScreen: React.FC = () => {
     }
   }, [connectionStatus, connectionStats]);
 
+  // Menu items pour HeaderMenu
+  const managerMenuItems = [
+    {
+      title: "Configuration imprimantes",
+      icon: "printer-settings",
+      onPress: () => navigation.navigate("PrinterConfig" as never),
+      dividerAfter: true,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
       <Appbar.Header>
-        <Appbar.Content
-          title="Mokengeli Biloko POS - Manager"
-          subtitle={`${user?.firstName || ""} ${user?.lastName || ""}`}
+        {/* Logo */}
+        <Image 
+          source={require('../../../assets/logos/icon.png')}
+          style={styles.logo}
         />
-        {/* Indicateur de connexion Socket.io */}
-        <View style={styles.connectionIndicator}>
-          <Chip 
-            compact
-            mode="flat"
-            style={{ 
-              backgroundColor: getConnectionColor(),
-              marginRight: 8
-            }}
-            textStyle={{ color: 'white', fontSize: 10 }}
-          >
-            <Icon 
-              name={isConnected ? "wifi" : "wifi-off"} 
-              size={12} 
-              color="white" 
-            />{" "}
-            {getConnectionLabel()}
-          </Chip>
-        </View>
+        
+        <Appbar.Content
+          title="Mokengeli Biloko POS"
+        />
+        
+        {/* Badge de connexion compact */}
+        <Chip 
+          compact
+          mode="flat"
+          style={[styles.connectionChip, { backgroundColor: getConnectionColor() }]}
+        >
+          <Icon 
+            name={isConnected ? "wifi" : "wifi-off"} 
+            size={12} 
+            color="white" 
+          />
+        </Chip>
+        
         {notificationCount > 0 && (
           <Badge style={styles.notificationBadge}>{notificationCount}</Badge>
         )}
-        <HeaderMenu />
+        <HeaderMenu additionalItems={managerMenuItems} />
       </Appbar.Header>
 
       <Surface style={styles.content}>
@@ -449,8 +459,24 @@ const styles = StyleSheet.create({
   modalDivider: {
     marginBottom: 8,
   },
-  connectionIndicator: {
+  logo: {
+    width: 28,
+    height: 28,
+    marginLeft: 12,
+    marginRight: 10,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  connectionChip: {
     marginRight: 8,
+    height: 24,
+    paddingHorizontal: 0,
   },
   notificationBadge: {
     position: 'absolute',

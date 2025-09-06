@@ -79,8 +79,16 @@ export default {
           "Cette application a besoin d'accéder au réseau local pour communiquer avec les imprimantes.",
         NSBluetoothAlwaysUsageDescription:
           "Cette application utilise le Bluetooth pour se connecter aux imprimantes.",
+        NSBluetoothPeripheralUsageDescription:
+          "Cette application nécessite l'accès Bluetooth pour imprimer sur des imprimantes thermiques.",
         NSLocationWhenInUseUsageDescription:
           "Cette application utilise votre localisation pour scanner les réseaux WiFi locaux.",
+        // Protocoles supportés pour imprimantes ESC/POS
+        UISupportedExternalAccessoryProtocols: [
+          "com.epson.escpos",
+          "jp.star-m.starpro",
+          "com.bixolon.protocol"
+        ],
       },
     },
 
@@ -141,6 +149,15 @@ export default {
       // Version de l'app pour Socket.io
       appVersion: "1.0.0",
       socketioUrl: config.socketioUrl,
+      // Configuration pour l'impression thermique
+      thermalPrinter: {
+        defaultPort: 9100,
+        connectionTimeout: 5000,
+        printTimeout: 30000,
+        enableBluetooth: true,
+        enableNetwork: true,
+        enableUSB: true,
+      },
       eas: {
         projectId: "fcbb5cd1-b336-4cc9-a89b-4e5135ae678d",
       },
@@ -158,6 +175,9 @@ export default {
     plugins: [
       // OTA
       "expo-updates",
+      
+      // Dev client pour les modules natifs
+      "expo-dev-client",
 
       // Configuration réseau (network security)
       "./plugins/withNetworkSecurity",
@@ -167,6 +187,16 @@ export default {
 
       // Permissions d'impression
       "./plugins/withPrinterPermissions",
+      
+      // Plugin pour l'impression thermique native ESC/POS
+      [
+        "./plugins/withThermalPrinter",
+        {
+          enableBluetooth: true,
+          enableNetwork: true,
+          enableUSB: true,
+        }
+      ],
 
       // Propriétés de build - DOIT ÊTRE EN DERNIER
       [

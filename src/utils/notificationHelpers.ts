@@ -83,21 +83,24 @@ const formatPaymentNotification = (
   notification: OrderNotification, 
   timeAgo: string
 ): string => {
+  // Message générique pour éviter la confusion
+  // Ne pas indiquer "entièrement payée" car cela peut être trompeur
   switch (notification.newState) {
     case 'FULLY_PAID':
-      return `Commande #${notification.orderId} entièrement payée ${timeAgo}`;
+      return `Paiement reçu - Commande #${notification.orderId} soldée ${timeAgo}`;
       
     case 'PARTIALLY_PAID':
-      return `Paiement partiel reçu pour la commande #${notification.orderId} ${timeAgo}`;
+      return `Paiement reçu - Commande #${notification.orderId} ${timeAgo}`;
       
     case 'PAID_WITH_DISCOUNT':
-      return `Paiement avec remise pour la commande #${notification.orderId} ${timeAgo}`;
+      return `Paiement avec remise appliqué - Commande #${notification.orderId} ${timeAgo}`;
       
     case 'UNPAID':
       return `La commande #${notification.orderId} est marquée comme non payée ${timeAgo}`;
       
     default:
-      return `Statut de paiement mis à jour: ${notification.newState.toLowerCase().replace('_', ' ')} ${timeAgo}`;
+      // Message générique neutre
+      return `Statut de paiement mis à jour pour la commande #${notification.orderId} ${timeAgo}`;
   }
 };
 

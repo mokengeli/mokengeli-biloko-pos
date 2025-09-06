@@ -1,6 +1,6 @@
 // src/screens/server/ServerHomeScreen.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Animated } from "react-native";
+import { View, StyleSheet, Animated, Image } from "react-native";
 import {
   Appbar,
   Text,
@@ -27,6 +27,7 @@ import { TableDetailDialog } from "../../components/server/TableDetailDialog";
 import { TableSearchBar } from "../../components/server/TableSearchBar";
 import { NotAvailableDialog } from "../../components/common/NotAvailableDialog";
 import { usePrinter } from "../../hooks/usePrinter";
+import printerService from "../../services/PrinterService";
 import tableService from "../../api/tableService";
 import orderService, { DomainOrder } from "../../api/orderService";
 // CHANGEMENT: Import Socket.io au lieu de WebSocketService
@@ -775,7 +776,39 @@ export const ServerHomeScreen: React.FC<ServerHomeScreenProps> = ({
 
   const handlePrintTicket = useCallback(async (order: DomainOrder) => {
     setTableDialogVisible(false);
-    const ticketContent = `
+    
+    try {
+      // Essayer d'abord l'impression thermique
+      await printerService.printTicket(order, undefined, user?.tenantName);
+      showNotification(`✅ Ticket #${order.orderNumber} imprimé avec succès`, "success");
+    } catch (thermalError) {
+      console.error("Échec impression thermique:", thermalError);
+      
+      // Analyser le type d'erreur pour un message approprié
+      const errorMessage = thermalError instanceof Error ? thermalError.message : 'Erreur inconnue';
+      
+      if (errorMessage.includes('Aucune imprimante configurée')) {
+        showNotification("❌ Aucune imprimante configurée. Allez dans Configuration → Imprimantes", "error");
+        return;
+      } else if (errorMessage.includes('désactivée')) {
+        showNotification("⚠️ L'imprimante est désactivée. Veuillez l'activer dans les paramètres", "warning");
+        return;
+      } else if (errorMessage.includes('Module natif non disponible')) {
+        showNotification("ℹ️ Module d'impression non disponible en mode développement", "info");
+        // En dev, essayer le fallback système
+      } else if (errorMessage.includes('Connexion échouée')) {
+        showNotification("❌ Impossible de se connecter à l'imprimante. Vérifiez qu'elle est allumée", "error");
+        return;
+      } else {
+        // Erreur générique
+        showNotification(`❌ Erreur d'impression: ${errorMessage}`, "error");
+      }
+      
+      // Tentative de fallback vers l'impression système seulement en dev
+      if (__DEV__) {
+        console.log("Tentative fallback impression système...");
+        try {
+          const ticketContent = `
 COMMANDE #${order.orderNumber}
 Table: ${order.tableName}
 Date: ${new Date(order.orderDate).toLocaleString()}
@@ -787,13 +820,14 @@ ${order.items.map(item =>
 
 TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
 `;
-
-    try {
-      await printDocument(ticketContent);
-      showNotification("Ticket imprimé avec succès", "success");
-    } catch (error) {
-      console.error("Erreur d'impression:", error);
-      showNotification("Erreur lors de l'impression", "error");
+          
+          await printDocument(ticketContent);
+          showNotification("📄 Ticket imprimé (mode simulation)", "info");
+        } catch (systemError) {
+          console.error("Erreur impression système:", systemError);
+          showNotification("❌ Impossible d'imprimer le ticket", "error");
+        }
+      }
     }
   }, [printDocument]);
 
@@ -803,12 +837,9 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
 
   const serverMenuItems = [
     {
-      title: "Configuration d'impression",
-      icon: "printer",
-      onPress: () => setNotAvailableDialog({
-        visible: true,
-        featureName: "Configuration d'impression",
-      }),
+      title: "Configuration imprimantes",
+      icon: "printer-settings",
+      onPress: () => navigation.navigate("PrinterConfig" as never),
       dividerAfter: true,
     },
   ];
@@ -823,6 +854,22 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
       loadData();
     }, [loadData])
   );
+
+  // Charger les imprimantes configurées au démarrage
+  useEffect(() => {
+    const loadPrinters = async () => {
+      if (user?.tenantCode) {
+        try {
+          await printerService.loadPrinters(user.tenantCode);
+          console.log('Imprimantes chargées pour le tenant:', user.tenantCode);
+        } catch (error) {
+          console.error('Erreur lors du chargement des imprimantes:', error);
+        }
+      }
+    };
+
+    loadPrinters();
+  }, [user?.tenantCode]);
 
   // Gérer les états de connexion
   useEffect(() => {
@@ -850,33 +897,29 @@ TOTAL: ${order.totalPrice.toFixed(2)}${order.currency.code}
             onPress={() => navigation.navigate("ManagerHome" as never)}
           />
         )}
-        <Appbar.Content
-          title="Mokengeli Biloko POS"
-          subtitle={`${RolesUtils.getRoleDescription(Role.SERVER)}: ${
-            user?.firstName || ""
-          } ${user?.lastName || ""}`}
+        
+        {/* Logo */}
+        <Image 
+          source={require('../../../assets/logos/icon.png')}
+          style={styles.logo}
         />
         
-        {/* Indicateur de connexion Socket.io */}
-        <View style={styles.connectionBadge}>
-          <Chip 
-            compact
-            mode="flat"
-            style={{ 
-              backgroundColor: getConnectionColor(),
-              paddingHorizontal: 8,
-              height: 24
-            }}
-            textStyle={{ color: 'white', fontSize: 10 }}
-          >
-            <Icon 
-              name={getConnectionIcon()} 
-              size={14} 
-              color="white" 
-            />
-            {connectionStats?.latency > 0 && ` ${connectionStats.latency}ms`}
-          </Chip>
-        </View>
+        <Appbar.Content
+          title="Mokengeli Biloko POS"
+        />
+        
+        {/* Badge de connexion compact */}
+        <Chip 
+          compact
+          mode="flat"
+          style={[styles.connectionChip, { backgroundColor: getConnectionColor() }]}
+        >
+          <Icon 
+            name={getConnectionIcon()} 
+            size={12} 
+            color="white" 
+          />
+        </Chip>
         
         <HeaderMenu additionalItems={serverMenuItems} />
       </Appbar.Header>
@@ -1055,8 +1098,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  connectionBadge: {
+  logo: {
+    width: 28,
+    height: 28,
+    marginLeft: 12,
+    marginRight: 10,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  connectionChip: {
     marginRight: 8,
+    height: 24,
+    paddingHorizontal: 0,
   },
   snackbar: {
     bottom: 0,

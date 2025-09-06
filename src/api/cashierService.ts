@@ -10,11 +10,14 @@ export interface DomainDishesStatus {
 
 export interface DomainCashierOrder {
   orderId: number;
+  orderNumber: string;
   tableId: number;
   tableName: string;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
+  currencyCode: string;
+  currencyLabel: string;
   status: string;
   createdAt: string;
   dishesStatus: DomainDishesStatus;
@@ -26,6 +29,8 @@ export interface DomainCashierOrderSummary {
   totalOrders: number;
   totalRevenue: number;
   orders: DomainCashierOrder[];
+  currencyCode: string;
+  currencyLabel: string;
 }
 
 export interface CashierOrderParams {
